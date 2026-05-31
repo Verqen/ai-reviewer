@@ -9,7 +9,7 @@ import { ReviewConfigLoader } from "./review-config.loader";
 function makeCodeHost(
   options: {
     reviewMd?: string | null;
-  } = {}
+  } = {},
 ): ICodeHost {
   return {
     approveMergeRequest: () => Promise.resolve(),
@@ -20,7 +20,7 @@ function makeCodeHost(
     getFileContent: (
       _projectId: number,
       _ref: string,
-      path: string
+      path: string,
     ): Promise<string> => {
       if (path === "REVIEW.md") {
         if (options.reviewMd === null) {

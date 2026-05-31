@@ -69,7 +69,7 @@ interface PassModelUsageEntry {
 function resolvePassTokenUsageByModel(
   result: PassResult,
   passName: string,
-  models: { review: string; triage: string }
+  models: { review: string; triage: string },
 ): Record<string, { completionTokens: number; promptTokens: number }> {
   if (result.tokenUsageByModel) {
     return result.tokenUsageByModel;
@@ -87,7 +87,7 @@ function resolvePassTokenUsageByModel(
 function buildPassModelBreakdown(
   result: PassResult,
   passName: string,
-  models: { review: string; triage: string }
+  models: { review: string; triage: string },
 ): PassModelUsageEntry[] {
   const breakdown = resolvePassTokenUsageByModel(result, passName, models);
   return Object.entries(breakdown).map(([model, usage]) => ({
@@ -119,7 +119,7 @@ export class PipelineOrchestrator {
     private readonly reviewRunCompletionService: ReviewRunCompletionService,
     private readonly passes: IReviewPass[],
     private readonly metrics: PipelineMetrics,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async run(input: PipelineInput): Promise<void> {
@@ -159,7 +159,7 @@ export class PipelineOrchestrator {
           skippedByReason,
           skippedCount,
         },
-        "Skip-filter applied"
+        "Skip-filter applied",
       );
     }
 
@@ -206,7 +206,7 @@ export class PipelineOrchestrator {
                 [...passResults.entries()].map(([name, pr]) => [
                   name,
                   pr.findings.length,
-                ])
+                ]),
               )
             : undefined;
         this.logger.info(
@@ -218,7 +218,7 @@ export class PipelineOrchestrator {
             projectId,
             reviewRunId: reviewRun.id,
           },
-          "Pipeline pass starting"
+          "Pipeline pass starting",
         );
         const passStartedAt = Date.now();
         const result = await pass.execute(activeContext, passResults);
@@ -226,11 +226,11 @@ export class PipelineOrchestrator {
         const passModelBreakdown = buildPassModelBreakdown(
           result,
           pass.name,
-          activeContext.reviewConfig.models
+          activeContext.reviewConfig.models,
         );
         const passCostUsd = passModelBreakdown.reduce(
           (sum, entry) => sum + entry.costUsd,
-          0
+          0,
         );
         this.logger.info(
           {
@@ -246,7 +246,7 @@ export class PipelineOrchestrator {
             tokensByModel: passModelBreakdown,
             triggerType,
           },
-          "Pipeline pass completed"
+          "Pipeline pass completed",
         );
         passResults.set(pass.name, result);
         totalPromptTokens += result.tokenUsage.promptTokens;
@@ -254,7 +254,7 @@ export class PipelineOrchestrator {
         const passUsageByModel = resolvePassTokenUsageByModel(
           result,
           pass.name,
-          activeContext.reviewConfig.models
+          activeContext.reviewConfig.models,
         );
         for (const [modelName, usage] of Object.entries(passUsageByModel)) {
           const existing = tokensByModel.get(modelName) ?? {
@@ -357,7 +357,7 @@ export class PipelineOrchestrator {
   private observePassMetrics(
     passName: string,
     result: PassResult,
-    context: ReviewContext
+    context: ReviewContext,
   ): void {
     const phase = PASS_NAME_TO_PHASE[passName];
     if (!phase) {
@@ -381,8 +381,10 @@ export class PipelineOrchestrator {
 
   private applyTriageToContext(
     context: ReviewContext,
-    result: PassResult
+    result: PassResult,
   ): ReviewContext {
+    // WHY: the triage pass writes TriagePassMetadata into the untyped PassResult.metadata
+    // bag; reading it back as a Partial of that shape is structurally safe.
     const metadata = result.metadata as unknown as Partial<TriagePassMetadata>;
     const triageSkipRate = metadata.triageSkipRate ?? 0;
     const trivialHunkCount = metadata.trivialHunkCount ?? 0;
@@ -403,7 +405,7 @@ export class PipelineOrchestrator {
         triageSkipRate,
         trivialHunks: trivialKeys.size,
       },
-      "Triage filter applied"
+      "Triage filter applied",
     );
     return { ...context, diffs: filteredDiffs };
   }

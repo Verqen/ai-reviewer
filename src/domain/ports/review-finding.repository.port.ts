@@ -14,20 +14,20 @@ interface IReviewFindingRepository {
   createMany(findings: CreateReviewFindingInput[]): Promise<ReviewFinding[]>;
   findByProjectAndMr(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<ReviewFinding[]>;
   findByRunId(reviewRunId: string): Promise<ReviewFinding[]>;
   updateResolution(
     id: string,
     resolution: CommentResolution,
     resolvedBy?: string,
-    dismissReason?: string
+    dismissReason?: string,
   ): Promise<void>;
   updateResolutionMany(
     ids: readonly string[],
     resolution: CommentResolution,
     resolvedBy?: string,
-    dismissReason?: string
+    dismissReason?: string,
   ): Promise<void>;
 }
 

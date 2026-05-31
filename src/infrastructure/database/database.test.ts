@@ -92,7 +92,7 @@ describe("review_run CRUD", () => {
     await db.insertInto("review_run").values(values).execute();
 
     await expect(
-      db.insertInto("review_run").values(values).execute()
+      db.insertInto("review_run").values(values).execute(),
     ).rejects.toThrow();
   });
 });

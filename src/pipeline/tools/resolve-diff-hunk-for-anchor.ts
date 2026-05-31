@@ -67,7 +67,7 @@ function clampContextLines(raw: unknown): number {
 function resolveDiffLinesSideRange(
   hunkLines: readonly DiffLine[],
   side: "new" | "old",
-  fallback: { header: string }
+  fallback: { header: string },
 ): { max: number; min: number } | undefined {
   let minFound = Infinity;
   let maxFound = -Infinity;
@@ -105,7 +105,7 @@ function resolveDiffLinesSideRange(
 
 function extendRangeWithContext(
   range: { max: number; min: number } | undefined,
-  contextLines: number
+  contextLines: number,
 ): { endInclusive: number; startInclusive: number } | undefined {
   if (range === undefined) {
     return undefined;
@@ -120,7 +120,7 @@ function resolveDiffHunkForAnchor(
   parsed: ParsedFileDiff,
   anchorLineNumber: number,
   anchorLineType: LineType,
-  options?: ResolveDiffHunkForAnchorOptions
+  options?: ResolveDiffHunkForAnchorOptions,
 ): ResolveDiffHunkForAnchorResult {
   const contextLines = clampContextLines(options?.contextLines);
   let anchorIndex = -1;
@@ -146,7 +146,7 @@ function resolveDiffHunkForAnchor(
       ? anchorLine.hunkHeader
       : "(missing hunk header)";
   const hunkLines = parsed.lines.filter(
-    (l) => l.hunkHeader === anchorLine.hunkHeader
+    (l) => l.hunkHeader === anchorLine.hunkHeader,
   );
   const oldExtent = resolveDiffLinesSideRange(hunkLines, "old", {
     header: anchorLine.hunkHeader,
@@ -191,4 +191,3 @@ export type {
   ResolveDiffHunkForAnchorResult,
 };
 export { resolveDiffHunkForAnchor };
-

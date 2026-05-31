@@ -17,7 +17,7 @@ describe("deriveWorkspaceFilterFromYamlDocument", () => {
     const parseMarkedFailureTracked = { value: false };
     const actualGlobFilterApplied = deriveWorkspaceFilterFromYamlDocument(
       FIXTURE_WORKSPACE_YAML,
-      parseMarkedFailureTracked
+      parseMarkedFailureTracked,
     );
     expect(parseMarkedFailureTracked.value).toBe(false);
     expect(actualGlobFilterApplied.filterActiveForPackageRoots).toBe(true);
@@ -27,7 +27,7 @@ describe("deriveWorkspaceFilterFromYamlDocument", () => {
       "services/*",
     ]);
     expect(actualGlobFilterApplied.packageRootPathGlobs).not.toContain(
-      "catalog:"
+      "catalog:",
     );
   });
 
@@ -38,7 +38,7 @@ describe("deriveWorkspaceFilterFromYamlDocument", () => {
 packages:
   - ""
 `,
-      parseMarkedFailureTracked
+      parseMarkedFailureTracked,
     );
     expect(parseMarkedFailureTracked.value).toBe(false);
     expect(actualOutcome.filterActiveForPackageRoots).toBe(false);
@@ -49,7 +49,7 @@ packages:
     const parseMarkedFailureTracked = { value: false };
     const actualOutcomeBadSyntax = deriveWorkspaceFilterFromYamlDocument(
       `: [ broken`,
-      parseMarkedFailureTracked
+      parseMarkedFailureTracked,
     );
     expect(parseMarkedFailureTracked.value).toBe(true);
     expect(actualOutcomeBadSyntax.filterActiveForPackageRoots).toBe(false);

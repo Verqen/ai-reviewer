@@ -29,7 +29,7 @@ function areRangesOverlapping(left?: LineRange, right?: LineRange): boolean {
 
 function parseRangeFromHeader(
   header: string,
-  side: "new" | "old"
+  side: "new" | "old",
 ): LineRange | undefined {
   const match = HUNK_HEADER_REGEX.exec(header);
   if (!match) {
@@ -109,7 +109,7 @@ function renderHunks(hunks: readonly HunkShape[]): string {
 
 function scopeDeltaDiffsToMrHunks(
   deltaDiffs: readonly DiffFile[],
-  mrDiffs: readonly DiffFile[]
+  mrDiffs: readonly DiffFile[],
 ): DiffFile[] {
   const parsedMrByIndex = mrDiffs.map((diff) => ({
     diff,
@@ -118,7 +118,7 @@ function scopeDeltaDiffsToMrHunks(
   const scoped: DiffFile[] = [];
   for (const deltaDiff of deltaDiffs) {
     const relatedMr = parsedMrByIndex.filter((entry) =>
-      areDiffFilesRelated(deltaDiff, entry.diff)
+      areDiffFilesRelated(deltaDiff, entry.diff),
     );
     if (relatedMr.length === 0) {
       continue;
@@ -126,7 +126,7 @@ function scopeDeltaDiffsToMrHunks(
     const deltaHunks = groupHunks(parseDiff(deltaDiff));
     const relatedMrHunks = relatedMr.flatMap((entry) => entry.hunks);
     const overlappingDeltaHunks = deltaHunks.filter((deltaHunk) =>
-      relatedMrHunks.some((mrHunk) => hasHunkOverlap(deltaHunk, mrHunk))
+      relatedMrHunks.some((mrHunk) => hasHunkOverlap(deltaHunk, mrHunk)),
     );
     if (overlappingDeltaHunks.length === 0) {
       continue;

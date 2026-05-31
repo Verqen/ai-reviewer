@@ -48,7 +48,7 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
   const llmConfig = bootstrapInjector.resolve(InjectionTokens.LlmConfig);
   const gitlabConfig = bootstrapInjector.resolve(InjectionTokens.GitLabConfig);
   const openrouterConfig = bootstrapInjector.resolve(
-    InjectionTokens.OpenRouterConfig
+    InjectionTokens.OpenRouterConfig,
   );
 
   const db: Kysely<Database> = createDatabase(dbConfig.envs.DATABASE_URL);
@@ -91,13 +91,13 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
 
   const reviewInjector = infraInjector.provideClass(
     InjectionTokens.ReviewModule,
-    ReviewModule
+    ReviewModule,
   );
   const reviewModule = reviewInjector.resolve(InjectionTokens.ReviewModule);
   const respondToComment = (
     projectId: number,
     mrIid: number,
-    context: CommentContext
+    context: CommentContext,
   ): Promise<void> =>
     reviewModule.reviewService.respondToComment(projectId, mrIid, context);
   const appInjector = reviewInjector

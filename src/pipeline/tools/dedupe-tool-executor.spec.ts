@@ -15,7 +15,7 @@ function buildReadFileCall(path: string): ToolCall {
 describe("createDedupeToolExecutor", () => {
   it("calls delegate only once for repeated read_file arguments", async () => {
     const delegate = vi.fn(
-      (_call: ToolCall): Promise<string> => Promise.resolve("file-content")
+      (_call: ToolCall): Promise<string> => Promise.resolve("file-content"),
     );
     const executeToolCall = createDedupeToolExecutor(delegate, new Map());
     const toolCall = buildReadFileCall("src/service.ts");
@@ -31,7 +31,7 @@ describe("createDedupeToolExecutor", () => {
       (_call: ToolCall): Promise<string> =>
         new Promise((resolve: (value: string) => void) => {
           setTimeout(() => resolve("shared-content"), 5);
-        })
+        }),
     );
     const executeToolCall = createDedupeToolExecutor(delegate, new Map());
     const toolCall = buildReadFileCall("src/shared.ts");

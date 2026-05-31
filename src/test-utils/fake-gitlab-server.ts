@@ -93,7 +93,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
       `${prefix}/projects/:projectId/merge_requests/:mrIid`,
       (_req, reply) => {
         return reply.send(getMrPayload());
-      }
+      },
     );
 
     app.get(
@@ -101,7 +101,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
       (_req, reply) => {
         const diffs = loadFixture<unknown[]>("mr-diff");
         return reply.send({ changes: diffs });
-      }
+      },
     );
 
     app.get(
@@ -109,7 +109,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
       (_req, reply) => {
         const versions = loadFixture<unknown[]>("mr-versions");
         return reply.send(versions);
-      }
+      },
     );
 
     app.get(
@@ -124,14 +124,14 @@ function createFakeGitLabServer(): FakeGitLabServer {
             },
           ],
         });
-      }
+      },
     );
 
     app.get(
       `${prefix}/projects/:projectId/repository/branches/:branch`,
       (_req, reply) => {
         return reply.send({ commit: { id: "abc123def456" } });
-      }
+      },
     );
 
     app.get(`${prefix}/projects/:projectId/repository/tree`, (_req, reply) => {
@@ -143,14 +143,14 @@ function createFakeGitLabServer(): FakeGitLabServer {
       `${prefix}/projects/:projectId/repository/files/:filePath/raw`,
       (_req, reply) => {
         return reply.status(404).send({ message: "404 File Not Found" });
-      }
+      },
     );
 
     app.get(
       `${prefix}/projects/:projectId/repository/compare`,
       (_req, reply) => {
         return reply.send({ diffs: [] });
-      }
+      },
     );
 
     app.get(`${prefix}/projects/:projectId/merge_requests`, (_req, reply) => {
@@ -177,7 +177,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
           id: `disc-${postedComments.length}`,
           notes: [{ id: `note-${postedComments.length}` }],
         });
-      }
+      },
     );
 
     app.post(
@@ -193,7 +193,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
         });
 
         return reply.status(201).send({ id: `note-${postedNotes.length}` });
-      }
+      },
     );
 
     app.post(
@@ -216,7 +216,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
         return reply
           .status(201)
           .send({ id: `note-reply-${postedReplies.length}` });
-      }
+      },
     );
 
     app.put(
@@ -235,7 +235,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
         });
 
         return reply.send({ id: params.discussionId, resolved: true });
-      }
+      },
     );
 
     app.post(
@@ -249,7 +249,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
         approvalActions.push({ action: "approve", mrIid, projectId });
 
         return reply.status(201).send({ approved: true });
-      }
+      },
     );
 
     app.post(
@@ -263,7 +263,7 @@ function createFakeGitLabServer(): FakeGitLabServer {
         approvalActions.push({ action: "unapprove", mrIid, projectId });
 
         return reply.status(201).send({ approved: false });
-      }
+      },
     );
   };
 

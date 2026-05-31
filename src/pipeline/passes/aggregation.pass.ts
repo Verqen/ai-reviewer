@@ -40,7 +40,7 @@ function normalizeCategory(value: string): string {
 function isFindingDuplicate(
   left: Finding | ReviewFinding,
   right: Finding | ReviewFinding,
-  tolerance: number
+  tolerance: number,
 ): boolean {
   if (left.filePath !== right.filePath) {
     return false;
@@ -73,7 +73,7 @@ function dedup(findings: Finding[]): Finding[] {
     const existingOnLine = [...seen.values()].find(
       (existing) =>
         `${existing.filePath}:${existing.lineNumber}:${existing.lineType}` ===
-        lineKey
+        lineKey,
     );
 
     if (existingOnLine) {
@@ -94,7 +94,7 @@ function dedup(findings: Finding[]): Finding[] {
 
 function matchesDismissedPattern(
   finding: Finding,
-  pattern: DismissedPattern
+  pattern: DismissedPattern,
 ): boolean {
   if (finding.category !== pattern.category) {
     return false;
@@ -138,12 +138,12 @@ class AggregationPass implements IReviewPass {
   constructor(
     private readonly dismissedPatternRepo: IDismissedPatternRepository,
     private readonly logger: FastifyBaseLogger,
-    private readonly lineShiftDedupTolerance: number
+    private readonly lineShiftDedupTolerance: number,
   ) {}
 
   async execute(
     context: ReviewContext,
-    priorResults: Map<string, PassResult>
+    priorResults: Map<string, PassResult>,
   ): Promise<PassResult> {
     const {
       forcePushCorrelation,
@@ -163,7 +163,7 @@ class AggregationPass implements IReviewPass {
         projectId: context.projectId,
         reviewRunId: context.reviewRunId,
       },
-      "Aggregation pass starting"
+      "Aggregation pass starting",
     );
 
     const combined = dedup([...fileReviewFindings, ...crossFileFindings]);
@@ -185,7 +185,7 @@ class AggregationPass implements IReviewPass {
       const isDismissed = dismissedPatterns.some(
         (p) =>
           p.occurrenceCount >= occurrenceThreshold &&
-          matchesDismissedPattern(finding, p)
+          matchesDismissedPattern(finding, p),
       );
 
       if (isDismissed) {
@@ -216,14 +216,14 @@ class AggregationPass implements IReviewPass {
       const priorPending = priorFindingsByFile?.pending.get(f.filePath) ?? [];
       if (
         priorPending.some((existing) =>
-          isFindingDuplicate(existing, f, lineShiftTolerance)
+          isFindingDuplicate(existing, f, lineShiftTolerance),
         )
       ) {
         return false;
       }
       const reposted = repostedByFile.get(f.filePath) ?? [];
       return !reposted.some((existing) =>
-        isFindingDuplicate(existing, f, lineShiftTolerance)
+        isFindingDuplicate(existing, f, lineShiftTolerance),
       );
     });
 
@@ -245,7 +245,7 @@ class AggregationPass implements IReviewPass {
         severityThreshold: threshold,
         suppressedCount,
       },
-      "Aggregation completed"
+      "Aggregation completed",
     );
 
     const aggregationResult: AggregationResult = {
@@ -257,6 +257,8 @@ class AggregationPass implements IReviewPass {
 
     return {
       findings: sortedPostable,
+      // WHY: AggregationResult has no index signature, so it is not directly assignable
+      // to the untyped PassResult.metadata bag; the widening is structurally safe.
       metadata: aggregationResult as unknown as Record<string, unknown>,
       tokenUsage: { completionTokens: 0, promptTokens: 0 },
     };

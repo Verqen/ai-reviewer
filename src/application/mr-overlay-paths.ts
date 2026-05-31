@@ -1,7 +1,7 @@
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 
 function buildOverlayPathListsFromParsedDiffs(
-  parsedDiffs: readonly ParsedFileDiff[]
+  parsedDiffs: readonly ParsedFileDiff[],
 ): { changedPaths: string[]; deletedPaths: string[] } {
   const deletedPaths = parsedDiffs
     .filter((d) => d.newPath === "/dev/null" || d.lines.length === 0)

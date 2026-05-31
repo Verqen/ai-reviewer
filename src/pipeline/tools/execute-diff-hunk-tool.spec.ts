@@ -9,7 +9,7 @@ import { executeDiffHunkTool } from "./execute-diff-hunk-tool";
 function makeDiffFile(
   diffBody: string,
   newPath = "src/foo.ts",
-  oldPath = "src/foo.ts"
+  oldPath = "src/foo.ts",
 ): DiffFile {
   return { diff: diffBody, newPath, oldPath };
 }

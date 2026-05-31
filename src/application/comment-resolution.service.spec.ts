@@ -27,7 +27,7 @@ function makeFinding(overrides: Partial<ReviewFinding> = {}): ReviewFinding {
 }
 
 function makeParsedDiff(
-  overrides: Partial<ParsedFileDiff> = {}
+  overrides: Partial<ParsedFileDiff> = {},
 ): ParsedFileDiff {
   return {
     lines: [
@@ -98,7 +98,7 @@ function makeMockCodeHost(): ICodeHost & {
       (_projectId: number, _mrIid: number, discussionId: string) => {
         resolveDiscussionCalls.push(discussionId);
         return Promise.resolve();
-      }
+      },
     ),
     resolveDiscussionCalls,
     unapprove: () => Promise.resolve(),
@@ -106,7 +106,7 @@ function makeMockCodeHost(): ICodeHost & {
       (_projectId: number, _mrIid: number, discussionId: string) => {
         unresolveDiscussionCalls.push(discussionId);
         return Promise.resolve();
-      }
+      },
     ),
     unresolveDiscussionCalls,
   } as unknown as ICodeHost & {
@@ -129,14 +129,14 @@ describe("CommentResolutionService", () => {
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.resolveStaleFindings(
         [finding],
         [diff],
         1,
-        42
+        42,
       );
 
       expect(result.pending).toContain("finding-1");
@@ -162,14 +162,14 @@ describe("CommentResolutionService", () => {
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.resolveStaleFindings(
         [finding],
         [diff],
         1,
-        42
+        42,
       );
 
       expect(result.addressed).toContain("finding-1");
@@ -195,14 +195,14 @@ describe("CommentResolutionService", () => {
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.resolveStaleFindings(
         [finding],
         [diff],
         1,
-        42
+        42,
       );
 
       expect(result.addressed).toContain("finding-1");
@@ -231,7 +231,7 @@ describe("CommentResolutionService", () => {
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.resolveStaleFindings([finding], [diff], 1, 42);
@@ -258,18 +258,18 @@ describe("CommentResolutionService", () => {
       const repo = makeMockRepo();
       const codeHost = makeMockCodeHost();
       vi.spyOn(codeHost, "resolveDiscussion").mockRejectedValue(
-        new Error("resolve failed")
+        new Error("resolve failed"),
       );
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
       const result = await service.resolveStaleFindings(
         [finding],
         [diff],
         1,
-        42
+        42,
       );
       expect(result.addressed).toHaveLength(0);
       expect(result.pending).toContain("finding-1");
@@ -298,7 +298,7 @@ describe("CommentResolutionService", () => {
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.resolveStaleFindings([finding], [diff], 1, 42);
@@ -324,19 +324,19 @@ describe("CommentResolutionService", () => {
       });
       const repo = makeMockRepo();
       vi.spyOn(repo, "updateResolution").mockRejectedValue(
-        new Error("db failed")
+        new Error("db failed"),
       );
       const codeHost = makeMockCodeHost();
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
       const result = await service.resolveStaleFindings(
         [finding],
         [diff],
         1,
-        42
+        42,
       );
       expect(codeHost.resolveDiscussionCalls).toContain("disc-db-failed");
       expect(codeHost.unresolveDiscussionCalls).toContain("disc-db-failed");
@@ -362,19 +362,19 @@ describe("CommentResolutionService", () => {
       });
       const repo = makeMockRepo();
       vi.spyOn(repo, "updateResolution").mockRejectedValue(
-        new Error("db failed")
+        new Error("db failed"),
       );
       const codeHost = makeMockCodeHost();
       vi.spyOn(codeHost, "unresolveDiscussion").mockRejectedValue(
-        new Error("rollback failed")
+        new Error("rollback failed"),
       );
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
       await expect(
-        service.resolveStaleFindings([finding], [diff], 1, 42)
+        service.resolveStaleFindings([finding], [diff], 1, 42),
       ).resolves.toEqual({
         addressed: [],
         pending: ["finding-1"],
@@ -400,14 +400,14 @@ describe("CommentResolutionService", () => {
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.resolveStaleFindings(
         [finding],
         [diff],
         1,
-        42
+        42,
       );
 
       expect(result.pending).toContain("finding-1");
@@ -464,7 +464,7 @@ describe("CommentResolutionService", () => {
       const service = new CommentResolutionService(
         repo,
         codeHost,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.resolveStaleFindings(findings, diffs, 1, 42);

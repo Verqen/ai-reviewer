@@ -8,7 +8,7 @@ type ParsedWorkspaceYamlFilterOutcome = Readonly<{
 }>;
 
 function normalizeNonBlankTrimmedYamlOrUndefined(
-  rawYaml: string | null | undefined
+  rawYaml: string | null | undefined,
 ): string | undefined {
   if (typeof rawYaml !== "string") {
     return undefined;
@@ -35,13 +35,13 @@ function collectNonEmptyTrimmedGlobEntries(candidate: unknown): string[] {
 }
 
 function mapWorkspaceYamlObjectToDeclaredFilter(
-  doc: PnpmWorkspaceYamlDoc
+  doc: PnpmWorkspaceYamlDoc,
 ): ParsedWorkspaceYamlFilterOutcome {
   if (!Object.hasOwn(doc, "packages")) {
     return { filterActiveForPackageRoots: false, packageRootPathGlobs: [] };
   }
   const packageRootPathGlobs = collectNonEmptyTrimmedGlobEntries(
-    doc["packages"]
+    doc["packages"],
   );
   if (packageRootPathGlobs.length === 0) {
     return { filterActiveForPackageRoots: false, packageRootPathGlobs: [] };
@@ -54,7 +54,7 @@ function mapWorkspaceYamlObjectToDeclaredFilter(
 
 function deriveWorkspaceFilterFromYamlDocument(
   rawYaml: string | null | undefined,
-  workspaceYamlParseFailed: { value: boolean }
+  workspaceYamlParseFailed: { value: boolean },
 ): ParsedWorkspaceYamlFilterOutcome {
   const trimmed = normalizeNonBlankTrimmedYamlOrUndefined(rawYaml);
   if (trimmed === undefined) {

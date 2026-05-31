@@ -33,7 +33,7 @@ describe("buildCommentSystemPrompt", () => {
   it("injects project rules when projectRules is set", () => {
     const prompt = buildCommentSystemPrompt(
       "Prefer pure domain services",
-      null
+      null,
     );
     expect(prompt).toContain("<project_rules>");
     expect(prompt).toContain("Prefer pure domain services");
@@ -54,7 +54,7 @@ describe("buildCommentSystemPrompt", () => {
     expect(prompt).toContain("Do not loop on tools");
     expect(prompt).toContain("no tool calls");
     expect(prompt).toContain(
-      "Stop calling tools as soon as the diff and tool outputs are enough to answer"
+      "Stop calling tools as soon as the diff and tool outputs are enough to answer",
     );
   });
 });

@@ -24,7 +24,7 @@ function line(
   hunkHeader: string,
   content: string,
   type: DiffLine["type"] = "added",
-  newLine = 1
+  newLine = 1,
 ): DiffLine {
   return { content, hunkHeader, newLine, type };
 }
@@ -32,14 +32,14 @@ function line(
 function makeDiff(
   newPath: string,
   lines: DiffLine[],
-  oldPath = newPath
+  oldPath = newPath,
 ): ParsedFileDiff {
   return { lines, newPath, oldPath };
 }
 
 function buildContext(
   diffs: ParsedFileDiff[],
-  overrides: Partial<ReviewContext> = {}
+  overrides: Partial<ReviewContext> = {},
 ): ReviewContext {
   return {
     diffs,
@@ -149,7 +149,7 @@ describe("applyTriageFilter", () => {
 
 describe("TriagePass", () => {
   function verdictsResponse(
-    verdicts: { hunk_id: number; verdict: "needs-review" | "trivial" }[]
+    verdicts: { hunk_id: number; verdict: "needs-review" | "trivial" }[],
   ): string {
     return JSON.stringify({ results: verdicts });
   }
@@ -174,7 +174,7 @@ describe("TriagePass", () => {
     const pass = new TriagePass(llm, createMockLogger());
     await pass.execute(
       buildContext([makeDiff("src/a.ts", [line(HEADER_A, "x")])]),
-      new Map()
+      new Map(),
     );
 
     expect(llm.calls.chatCompletion).toHaveLength(1);
@@ -235,7 +235,7 @@ describe("TriagePass", () => {
     const result = await pass.execute(buildContext(diffs), new Map());
     const meta = result.metadata as unknown as TriagePassMetadata;
     const decisionByHeader = new Map(
-      meta.decisions.map((decision) => [decision.hunkHeader, decision.verdict])
+      meta.decisions.map((decision) => [decision.hunkHeader, decision.verdict]),
     );
 
     expect(meta.trivialKeys.size).toBe(2);
@@ -269,7 +269,7 @@ describe("TriagePass", () => {
     const result = await pass.execute(buildContext(diffs), new Map());
     const meta = result.metadata as unknown as TriagePassMetadata;
     const decisionByHeader = new Map(
-      meta.decisions.map((decision) => [decision.hunkHeader, decision.verdict])
+      meta.decisions.map((decision) => [decision.hunkHeader, decision.verdict]),
     );
 
     expect(meta.trivialKeys.size).toBe(2);
@@ -307,7 +307,7 @@ describe("TriagePass", () => {
     expect(firstMeta.trivialKeys.has(hunkKey("src/a.ts", HEADER_A))).toBe(true);
     expect(firstMeta.trivialKeys.has(hunkKey("src/a.ts", HEADER_B))).toBe(true);
     expect(firstMeta.trivialKeys.has(hunkKey("src/a.ts", HEADER_C))).toBe(
-      false
+      false,
     );
     expect(firstMeta.triageSkipRate).toBeCloseTo(2 / 5);
   });
@@ -389,7 +389,7 @@ describe("TriagePass", () => {
     const HEADER_TEMPLATE = (i: number): string => `@@ -${i},1 +${i},1 @@`;
     // Each hunk body ~200 chars; 200 hunks = 40_000 chars ≈ 10_000 tokens, well above TRIAGE_BATCH_PROMPT_TOKEN_BUDGET=6000
     const manyLines = Array.from({ length: 200 }, (_, i) =>
-      line(HEADER_TEMPLATE(i), `const x${i} = ${"a".repeat(200)};`)
+      line(HEADER_TEMPLATE(i), `const x${i} = ${"a".repeat(200)};`),
     );
     const diffs = [makeDiff("src/big.ts", manyLines)];
 
@@ -445,7 +445,7 @@ describe("TriagePass", () => {
 
     expect(callCount).toBeGreaterThan(1);
     const decisionMap = new Map(
-      meta.decisions.map((d) => [d.hunkHeader, d.verdict])
+      meta.decisions.map((d) => [d.hunkHeader, d.verdict]),
     );
     expect(decisionMap.get(HEADER_1)).toBe("needs-review");
     expect(decisionMap.get(HEADER_2)).toBe("needs-review");
@@ -479,7 +479,7 @@ describe("TriagePass", () => {
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(
       buildContext([makeDiff("src/a.ts", [line(HEADER_A, "x")])]),
-      new Map()
+      new Map(),
     );
     const meta = result.metadata as unknown as TriagePassMetadata;
     expect(meta.totalEstimatedPromptTokens).toBeGreaterThan(0);

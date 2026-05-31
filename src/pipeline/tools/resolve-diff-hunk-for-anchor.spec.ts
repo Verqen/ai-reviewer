@@ -8,7 +8,7 @@ import { resolveDiffHunkForAnchor } from "./resolve-diff-hunk-for-anchor";
 function makeDiffFile(
   diffBody: string,
   newPath = "src/foo.ts",
-  oldPath = "src/foo.ts"
+  oldPath = "src/foo.ts",
 ): DiffFile {
   return { diff: diffBody, newPath, oldPath };
 }

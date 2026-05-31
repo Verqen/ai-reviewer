@@ -19,14 +19,14 @@ interface JobHandlerOptions {
 function createJobHandler(
   reviewService: IReviewService,
   logger: FastifyBaseLogger,
-  options: JobHandlerOptions
+  options: JobHandlerOptions,
 ): (job: ReviewJob) => Promise<void> {
   const executeWaitForMrReviewBaseline = async (
-    projectId: number
+    projectId: number,
   ): Promise<void> => {
     if (!options.baselineService) return;
     await options.baselineService.executeWaitUntilBaselineReadyForReview(
-      projectId
+      projectId,
     );
   };
   const handler = async (job: ReviewJob): Promise<void> => {
@@ -38,14 +38,14 @@ function createJobHandler(
           job.mrIid,
 
           job.triggerType,
-          job.previousRunId
+          job.previousRunId,
         );
 
       case "comment_response":
         return reviewService.respondToComment(
           job.projectId,
           job.mrIid,
-          job.context
+          job.context,
         );
 
       case "incremental_review":
@@ -67,7 +67,7 @@ function createJobHandler(
         if (!options.incrementalReviewService) {
           logger.warn(
             { job },
-            "main_push_scoped_review handler not configured"
+            "main_push_scoped_review handler not configured",
           );
           return;
         }
@@ -97,7 +97,7 @@ function createJobHandler(
         await options.baselineService.update(
           job.projectId,
           job.commitSha,
-          job.changedFiles
+          job.changedFiles,
         );
 
         if (!options.mainPushReviewService) {
@@ -114,7 +114,7 @@ function createJobHandler(
               projectId: job.projectId,
               type: "main_push_re_review",
             },
-            handler
+            handler,
           );
         }
 
@@ -133,7 +133,7 @@ function createJobHandler(
             defaultBranch: job.defaultBranch,
             projectId: job.projectId,
           },
-          handler
+          handler,
         );
 
       case "thread_response":

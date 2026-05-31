@@ -23,7 +23,7 @@ class BaselineService {
     private readonly snapshotRepo: ISnapshotRepository,
     private readonly codeHost: ICodeHost,
     private readonly logger: FastifyBaseLogger,
-    baselineReviewWaitLimits?: BaselineReviewWaitLimits
+    baselineReviewWaitLimits?: BaselineReviewWaitLimits,
   ) {
     this.baselineReviewPollMs = baselineReviewWaitLimits?.pollMs ?? 400;
     this.baselineReviewReadyTimeoutMs =
@@ -42,19 +42,19 @@ class BaselineService {
 
     const commitSha = await this.codeHost.getBranchHeadSha(
       projectId,
-      defaultBranch
+      defaultBranch,
     );
 
     await this.snapshotRepo.setBaselineState(
       projectId,
       commitSha,
-      "bootstrapping"
+      "bootstrapping",
     );
 
     try {
       const archiveEntries = await this.codeHost.getRepositoryArchive(
         projectId,
-        defaultBranch
+        defaultBranch,
       );
 
       const blobs: Array<{ hash: string; content: Buffer }> = [];
@@ -83,7 +83,7 @@ class BaselineService {
 
       this.logger.info(
         { blobCount: blobs.length, fileCount: entries.length, projectId },
-        "Baseline bootstrap complete"
+        "Baseline bootstrap complete",
       );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -92,7 +92,7 @@ class BaselineService {
         projectId,
         commitSha,
         "failed",
-        errorMessage
+        errorMessage,
       );
 
       throw err;
@@ -102,11 +102,11 @@ class BaselineService {
   async update(
     projectId: number,
     commitSha: string,
-    changedFiles: string[]
+    changedFiles: string[],
   ): Promise<void> {
     this.logger.info(
       { changedCount: changedFiles.length, commitSha, projectId },
-      "Updating baseline"
+      "Updating baseline",
     );
 
     const baseline = await this.snapshotRepo.getBaselineState(projectId);
@@ -114,7 +114,7 @@ class BaselineService {
     if (!baseline || baseline.status !== "ready") {
       this.logger.warn(
         { projectId, status: baseline?.status },
-        "No ready baseline; triggering bootstrap instead"
+        "No ready baseline; triggering bootstrap instead",
       );
       return this.bootstrap(projectId);
     }
@@ -137,7 +137,7 @@ class BaselineService {
         const content = await this.codeHost.getFileContent(
           projectId,
           commitSha,
-          filePath
+          filePath,
         );
         const contentBuffer = Buffer.from(content, "utf-8");
         const hash = hashContent(contentBuffer);
@@ -165,7 +165,7 @@ class BaselineService {
       projectId,
       oldCommitSha,
       commitSha,
-      excludePaths
+      excludePaths,
     );
 
     if (blobs.length > 0) {
@@ -190,12 +190,12 @@ class BaselineService {
         newBlobCount: blobs.length,
         projectId,
       },
-      "Baseline update complete"
+      "Baseline update complete",
     );
   }
 
   async executeWaitUntilBaselineReadyForReview(
-    projectId: number
+    projectId: number,
   ): Promise<void> {
     const deadline = Date.now() + this.baselineReviewReadyTimeoutMs;
     while (Date.now() < deadline) {
@@ -215,7 +215,7 @@ class BaselineService {
         projectId,
         timeoutMs: this.baselineReviewReadyTimeoutMs,
       },
-      "Baseline not ready before review wait deadline; proceeding without codebase exploration"
+      "Baseline not ready before review wait deadline; proceeding without codebase exploration",
     );
   }
 }

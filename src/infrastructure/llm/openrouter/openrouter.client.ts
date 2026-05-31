@@ -50,7 +50,7 @@ interface OpenRouterResponse {
 }
 
 function mapToOpenRouterMessages(
-  messages: ChatMessage[]
+  messages: ChatMessage[],
 ): Array<Record<string, unknown>> {
   return messages.map((msg) => {
     if (msg.role === "tool") {
@@ -92,7 +92,7 @@ function mapToOpenRouterMessages(
 }
 
 function mapToolDefinitions(
-  tools: ToolDefinition[]
+  tools: ToolDefinition[],
 ): Array<Record<string, unknown>> {
   return tools.map((t) => ({
     function: {
@@ -134,7 +134,7 @@ class OpenRouterClient implements ILlmClient {
 
   constructor(
     config: IConfig<OpenRouterConfigSchema>,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {
     this.apiKey = config.envs.OPENROUTER_API_KEY;
     this.defaultModel = config.envs.OPENROUTER_MODEL;
@@ -142,13 +142,13 @@ class OpenRouterClient implements ILlmClient {
 
   async chatCompletion(
     messages: ChatMessage[],
-    options?: LlmOptions
+    options?: LlmOptions,
   ): Promise<LlmResponse> {
     const model = options?.model ?? this.defaultModel;
     assertPromptTokenBudget(
       messages,
       options?.tools,
-      options?.maxPromptTokensHard
+      options?.maxPromptTokensHard,
     );
     const body: Record<string, unknown> = {
       messages: mapToOpenRouterMessages(messages),
@@ -191,7 +191,7 @@ class OpenRouterClient implements ILlmClient {
     if (!choice) {
       this.logger.warn(
         { rawData: JSON.stringify(data).slice(0, 300) },
-        "OpenRouter returned response with no choices"
+        "OpenRouter returned response with no choices",
       );
     }
     const toolCalls = choice?.message.tool_calls
@@ -211,7 +211,7 @@ class OpenRouterClient implements ILlmClient {
     ) {
       this.logger.debug(
         { hasReasoning: true },
-        "OpenRouter response had null content; falling back to reasoning channel"
+        "OpenRouter response had null content; falling back to reasoning channel",
       );
     }
 
@@ -231,7 +231,7 @@ class OpenRouterClient implements ILlmClient {
     messages: ChatMessage[],
     tools: ToolDefinition[],
     toolExecutor: (call: ToolCall) => Promise<string>,
-    options?: LlmOptions
+    options?: LlmOptions,
   ): Promise<LlmResponse> {
     const maxRounds = options?.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
     const conversation: ChatMessage[] = [...messages];
@@ -286,7 +286,7 @@ class OpenRouterClient implements ILlmClient {
           round,
           toolNames: roundToolNames,
         },
-        "OpenRouter tool loop round"
+        "OpenRouter tool loop round",
       );
 
       if (totalPromptTokens >= MAX_CUMULATIVE_PROMPT_TOKENS) {
@@ -298,7 +298,7 @@ class OpenRouterClient implements ILlmClient {
             toolRounds,
             totalPromptTokens,
           },
-          "OpenRouter tool-loop cumulative token budget exceeded, early exit"
+          "OpenRouter tool-loop cumulative token budget exceeded, early exit",
         );
         return {
           content: response.content,
@@ -329,7 +329,7 @@ class OpenRouterClient implements ILlmClient {
         } else {
           this.logger.debug(
             { name: call.name },
-            "OpenRouter tool-call dedup hit"
+            "OpenRouter tool-call dedup hit",
           );
         }
         conversation.push({
@@ -342,7 +342,7 @@ class OpenRouterClient implements ILlmClient {
 
     this.logger.warn(
       { maxRounds, model: options?.model, toolRounds },
-      "Tool loop exhausted before final assistant response"
+      "Tool loop exhausted before final assistant response",
     );
     return {
       content: null,
@@ -359,7 +359,7 @@ class OpenRouterClient implements ILlmClient {
   }
 
   private async fetchWithRetry(
-    body: Record<string, unknown>
+    body: Record<string, unknown>,
   ): Promise<OpenRouterResponse> {
     let lastError: Error | null = null;
     const payloadSize = JSON.stringify(body).length;
@@ -374,7 +374,7 @@ class OpenRouterClient implements ILlmClient {
           requestBody = this.buildRetryBody(requestBody);
         }
         this.logger.debug(
-          `OpenRouter retry attempt ${attempt} after ${delay}ms`
+          `OpenRouter retry attempt ${attempt} after ${delay}ms`,
         );
         await new Promise<void>((resolve) => setTimeout(resolve, delay));
       }
@@ -396,7 +396,7 @@ class OpenRouterClient implements ILlmClient {
         if (!response.ok) {
           const errorText = await response.text();
           this.logger.error(
-            `OpenRouter API error: ${response.status} ${errorText}`
+            `OpenRouter API error: ${response.status} ${errorText}`,
           );
           lastError = new Error(`OpenRouter API error: ${response.status}`);
 
@@ -433,7 +433,7 @@ class OpenRouterClient implements ILlmClient {
   }
 
   private buildRetryBody(
-    body: Record<string, unknown>
+    body: Record<string, unknown>,
   ): Record<string, unknown> {
     const maxTokens =
       typeof body["max_tokens"] === "number"

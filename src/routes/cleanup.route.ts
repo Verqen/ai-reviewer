@@ -15,7 +15,7 @@ interface CleanupRouteOptions {
 
 function cleanupRoute(
   app: FastifyInstance,
-  { appConfig, reviewRunRepo, snapshotRepo }: CleanupRouteOptions
+  { appConfig, reviewRunRepo, snapshotRepo }: CleanupRouteOptions,
 ): void {
   app.post("/cleanup", async (_req, reply) => {
     const nowMs = Date.now();

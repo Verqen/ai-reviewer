@@ -55,7 +55,7 @@ describe("BaselineService.executeWaitUntilBaselineReadyForReview", () => {
       snapshotRepo as unknown as ISnapshotRepository,
       {} as never,
       logger as unknown as FastifyBaseLogger,
-      { pollMs: 50, timeoutMs: 500 }
+      { pollMs: 50, timeoutMs: 500 },
     );
     await service.executeWaitUntilBaselineReadyForReview(3);
     expect(snapshotRepo.getBaselineState).toHaveBeenCalledTimes(1);
@@ -70,7 +70,7 @@ describe("BaselineService.executeWaitUntilBaselineReadyForReview", () => {
       snapshotRepo as unknown as ISnapshotRepository,
       {} as never,
       logger as unknown as FastifyBaseLogger,
-      { pollMs: 50, timeoutMs: 500 }
+      { pollMs: 50, timeoutMs: 500 },
     );
     await service.executeWaitUntilBaselineReadyForReview(3);
     expect(snapshotRepo.getBaselineState).toHaveBeenCalledTimes(1);
@@ -89,7 +89,7 @@ describe("BaselineService.executeWaitUntilBaselineReadyForReview", () => {
       snapshotRepo as unknown as ISnapshotRepository,
       {} as never,
       logger as unknown as FastifyBaseLogger,
-      { pollMs: 100, timeoutMs: 5000 }
+      { pollMs: 100, timeoutMs: 5000 },
     );
     const promise = service.executeWaitUntilBaselineReadyForReview(2);
     await vi.advanceTimersByTimeAsync(250);
@@ -106,14 +106,14 @@ describe("BaselineService.executeWaitUntilBaselineReadyForReview", () => {
       snapshotRepo as unknown as ISnapshotRepository,
       {} as never,
       logger as unknown as FastifyBaseLogger,
-      { pollMs: 100, timeoutMs: 250 }
+      { pollMs: 100, timeoutMs: 250 },
     );
     const promise = service.executeWaitUntilBaselineReadyForReview(9);
     await vi.advanceTimersByTimeAsync(400);
     await promise;
     expect(logger.warn).toHaveBeenCalledWith(
       { projectId: 9, timeoutMs: 250 },
-      "Baseline not ready before review wait deadline; proceeding without codebase exploration"
+      "Baseline not ready before review wait deadline; proceeding without codebase exploration",
     );
   });
 });

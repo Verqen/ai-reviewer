@@ -17,7 +17,6 @@ function normalizeCommentForSummaryLine(comment: string): string {
   return comment.replace(/\r?\n/g, " ").trim();
 }
 
-
 const SEVERITY_LABEL: Record<Severity, string> = {
   attention: "Attention",
   critical: "Critical",
@@ -67,7 +66,7 @@ function buildSummaryNote(params: SummaryParams): string {
 
   if (suppressedCount > 0) {
     parts.push(
-      `*${suppressedCount} finding(s) suppressed by dismissed patterns.*`
+      `*${suppressedCount} finding(s) suppressed by dismissed patterns.*`,
     );
   }
 
@@ -81,20 +80,20 @@ function buildSummaryNote(params: SummaryParams): string {
   };
 
   const fileFindings = allFindings.filter(
-    (f) => isVisible(f) && f.passName === "file-review"
+    (f) => isVisible(f) && f.passName === "file-review",
   );
   if (fileFindings.length > 0) {
     parts.push(
-      `### File Findings\n\n${fileFindings.map(formatItem).join("\n")}`
+      `### File Findings\n\n${fileFindings.map(formatItem).join("\n")}`,
     );
   }
 
   const archFindings = allFindings.filter(
-    (f) => isVisible(f) && f.passName === "cross-file"
+    (f) => isVisible(f) && f.passName === "cross-file",
   );
   if (archFindings.length > 0) {
     parts.push(
-      `### Architecture Findings\n\n${archFindings.map(formatItem).join("\n")}`
+      `### Architecture Findings\n\n${archFindings.map(formatItem).join("\n")}`,
     );
   }
 
@@ -102,11 +101,11 @@ function buildSummaryNote(params: SummaryParams): string {
     (f) =>
       isVisible(f) &&
       f.passName !== "file-review" &&
-      f.passName !== "cross-file"
+      f.passName !== "cross-file",
   );
   if (otherFindings.length > 0) {
     parts.push(
-      `### Other Findings\n\n${otherFindings.map(formatItem).join("\n")}`
+      `### Other Findings\n\n${otherFindings.map(formatItem).join("\n")}`,
     );
   }
 
@@ -114,7 +113,7 @@ function buildSummaryNote(params: SummaryParams): string {
     .filter(([, usage]) => usage.promptTokens > 0 || usage.completionTokens > 0)
     .map(
       ([modelName, usage]) =>
-        `- \`${modelName}\`: ${usage.promptTokens.toLocaleString("en-US")} in / ${usage.completionTokens.toLocaleString("en-US")} out`
+        `- \`${modelName}\`: ${usage.promptTokens.toLocaleString("en-US")} in / ${usage.completionTokens.toLocaleString("en-US")} out`,
     );
   const tokensSection =
     modelLines.length > 0
@@ -125,7 +124,6 @@ function buildSummaryNote(params: SummaryParams): string {
 
   return parts.join("\n\n");
 }
-
 
 export { buildSummaryNote };
 export type { ModelTokenUsage, SummaryParams };

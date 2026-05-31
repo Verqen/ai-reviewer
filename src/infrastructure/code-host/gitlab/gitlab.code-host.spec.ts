@@ -45,10 +45,10 @@ describe("GitLabCodeHost.getMergeRequestDiff", () => {
 
     app.get(
       "/projects/:projectId/merge_requests/:mrIid/changes",
-      (_req, reply) => reply.send(responses.changes)
+      (_req, reply) => reply.send(responses.changes),
     );
     app.get("/projects/:projectId/repository/compare", (_req, reply) =>
-      reply.send(responses.compare)
+      reply.send(responses.compare),
     );
 
     const address = await app.listen({ host: "127.0.0.1", port: 0 });
@@ -73,7 +73,7 @@ describe("GitLabCodeHost.getMergeRequestDiff", () => {
 
     const codeHost = new GitLabCodeHost(
       buildConfig(baseUrl),
-      createMockLogger()
+      createMockLogger(),
     );
 
     const diffs = await codeHost.getMergeRequestDiff(42, 7);
@@ -105,7 +105,7 @@ describe("GitLabCodeHost.getMergeRequestDiff", () => {
 
     const codeHost = new GitLabCodeHost(
       buildConfig(baseUrl),
-      createMockLogger()
+      createMockLogger(),
     );
 
     const diffs = await codeHost.getMergeRequestDiff(42, 7);
@@ -140,7 +140,7 @@ describe("GitLabCodeHost.getMergeRequestDiff", () => {
 
     const codeHost = new GitLabCodeHost(
       buildConfig(baseUrl),
-      createMockLogger()
+      createMockLogger(),
     );
 
     const diffs = await codeHost.getMergeRequestDiff(42, 7);
@@ -157,7 +157,7 @@ describe("GitLabCodeHost.getMergeRequestDiff", () => {
 
     const codeHost = new GitLabCodeHost(
       buildConfig(baseUrl),
-      createMockLogger()
+      createMockLogger(),
     );
 
     const diffs = await codeHost.getMergeRequestDiff(42, 7);

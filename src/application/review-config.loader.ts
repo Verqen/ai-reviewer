@@ -18,7 +18,7 @@ function resolveRulesFallbackPath(): string {
 }
 
 function loadLocalFallback(
-  logger: FastifyBaseLogger
+  logger: FastifyBaseLogger,
 ): LoadedReviewPipelineConfig {
   const rulesFallbackPath = resolveRulesFallbackPath();
   try {
@@ -32,7 +32,7 @@ function loadLocalFallback(
   } catch {
     logger.warn(
       { path: rulesFallbackPath },
-      "Local REVIEW.md not found; using defaults"
+      "Local REVIEW.md not found; using defaults",
     );
     return {
       ...ReviewPipelineConfigSchema.parse({}),
@@ -44,17 +44,17 @@ function loadLocalFallback(
 class ReviewConfigLoader {
   constructor(
     private readonly codeHost: ICodeHost,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async load(
     projectId: number,
-    headSha: string
+    headSha: string,
   ): Promise<LoadedReviewPipelineConfig> {
     const reviewMdContent = await this.tryFetchFile(
       projectId,
       headSha,
-      "REVIEW.md"
+      "REVIEW.md",
     );
 
     if (reviewMdContent !== null) {
@@ -72,7 +72,7 @@ class ReviewConfigLoader {
   private async tryFetchFile(
     projectId: number,
     ref: string,
-    path: string
+    path: string,
   ): Promise<string | null> {
     try {
       return await this.codeHost.getFileContent(projectId, ref, path);
@@ -82,7 +82,7 @@ class ReviewConfigLoader {
       }
       this.logger.warn(
         { err, path, projectId, ref },
-        "Failed to fetch file from repo"
+        "Failed to fetch file from repo",
       );
       return null;
     }

@@ -39,7 +39,7 @@ interface IReviewRunRepository {
       baseCommitSha: string;
       stats: UpdateReviewRunStatsInput;
       timestamp: Date;
-    }
+    },
   ): Promise<void>;
   create(input: CreateReviewRunInput): Promise<ReviewRun>;
   deleteCompletedOrFailedBefore(now: Date): Promise<number>;
@@ -49,7 +49,7 @@ interface IReviewRunRepository {
     mrIid: number,
     headCommitSha: string,
     baseCommitSha: string,
-    triggerType: TriggerType
+    triggerType: TriggerType,
   ): Promise<ReviewRun | undefined>;
   findByProjectAndMr(projectId: number, mrIid: number): Promise<ReviewRun[]>;
   /**
@@ -60,13 +60,13 @@ interface IReviewRunRepository {
     projectId: number,
     mrIid: number,
     triggerType?: TriggerType,
-    options?: FindLatestReviewRunOptions
+    options?: FindLatestReviewRunOptions,
   ): Promise<ReviewRun | undefined>;
   updateStats(id: string, stats: UpdateReviewRunStatsInput): Promise<void>;
   updateStatus(
     id: string,
     status: ReviewStatus,
-    timestamp?: Date
+    timestamp?: Date,
   ): Promise<void>;
 }
 

@@ -89,7 +89,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
       findSimilar(
         _projectId: number,
         _category: FindingCategory,
-        _comment: string
+        _comment: string,
       ): Promise<DismissedPattern | undefined> {
         return Promise.resolve(undefined);
       },
@@ -101,7 +101,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
 
     reviewFindingRepo: {
       createMany(
-        findings: CreateReviewFindingInput[]
+        findings: CreateReviewFindingInput[],
       ): Promise<ReviewFinding[]> {
         calls.createFinding.push(findings);
         return Promise.resolve([]);
@@ -109,7 +109,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
 
       findByProjectAndMr(
         _projectId: number,
-        _mrIid: number
+        _mrIid: number,
       ): Promise<ReviewFinding[]> {
         return Promise.resolve([]);
       },
@@ -122,7 +122,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         _id: string,
         _resolution: CommentResolution,
         _resolvedBy?: string,
-        _dismissReason?: string
+        _dismissReason?: string,
       ): Promise<void> {
         return Promise.resolve();
       },
@@ -130,7 +130,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         _ids: readonly string[],
         _resolution: CommentResolution,
         _resolvedBy?: string,
-        _dismissReason?: string
+        _dismissReason?: string,
       ): Promise<void> {
         return Promise.resolve();
       },
@@ -143,7 +143,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
           baseCommitSha: string;
           stats: UpdateReviewRunStatsInput;
           timestamp: Date;
-        }
+        },
       ): Promise<void> {
         calls.completeRun.push([id, params]);
         return Promise.resolve();
@@ -168,7 +168,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         mrIid: number,
         headCommitSha: string,
         baseCommitSha: string,
-        triggerType: TriggerType
+        triggerType: TriggerType,
       ): Promise<ReviewRun | undefined> {
         calls.findByIdentity.push([
           projectId,
@@ -182,7 +182,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
 
       findByProjectAndMr(
         _projectId: number,
-        _mrIid: number
+        _mrIid: number,
       ): Promise<ReviewRun[]> {
         return Promise.resolve([]);
       },
@@ -191,7 +191,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         _projectId: number,
         _mrIid: number,
         _triggerType?: TriggerType,
-        _options?: FindLatestReviewRunOptions
+        _options?: FindLatestReviewRunOptions,
       ): Promise<ReviewRun | undefined> {
         return Promise.resolve(undefined);
       },
@@ -204,7 +204,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
       updateStatus(
         id: string,
         status: ReviewStatus,
-        timestamp?: Date
+        timestamp?: Date,
       ): Promise<void> {
         calls.updateStatus.push([id, status, timestamp]);
         return Promise.resolve();
@@ -224,7 +224,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         _projectId: number,
         _fromSha: string,
         _toSha: string,
-        _excludePaths?: Set<string>
+        _excludePaths?: Set<string>,
       ): Promise<number> {
         return Promise.resolve(0);
       },
@@ -244,7 +244,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
       getFileContent(
         _projectId: number,
         _commitSha: string,
-        _filePath: string
+        _filePath: string,
       ): Promise<string | null> {
         return Promise.resolve(null);
       },
@@ -252,7 +252,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
       listFiles(
         _projectId: number,
         _commitSha: string,
-        _pattern?: string
+        _pattern?: string,
       ): Promise<string[]> {
         return Promise.resolve([]);
       },
@@ -273,7 +273,7 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         _projectId: number,
         _commitSha: string,
         _pattern: string,
-        _glob?: string
+        _glob?: string,
       ): Promise<ContentMatch[]> {
         return Promise.resolve([]);
       },
@@ -282,13 +282,13 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         _projectId: number,
         _commitSha: string,
         _status: BaselineState["status"],
-        _errorMessage?: string
+        _errorMessage?: string,
       ): Promise<void> {
         return Promise.resolve();
       },
 
       storeBlobs(
-        _blobs: Array<{ content: Buffer; hash: string }>
+        _blobs: Array<{ content: Buffer; hash: string }>,
       ): Promise<void> {
         return Promise.resolve();
       },

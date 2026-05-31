@@ -87,11 +87,11 @@ class ReviewRunCompletionService {
     private readonly infraRepoPorts: ReviewInfraRepoPorts,
     private readonly codeHost: ICodeHost,
     private readonly cache: ICache<boolean>,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async completeSuccessfulRun(
-    params: CompleteSuccessfulRunParams
+    params: CompleteSuccessfulRunParams,
   ): Promise<void> {
     const {
       allFindings,
@@ -161,12 +161,12 @@ class ReviewRunCompletionService {
       projectId,
       mrIid,
       allFindings,
-      reviewConfig.blockMergeOn
+      reviewConfig.blockMergeOn,
     );
     this.cache.set(
       `review:${projectId}:${mrIid}:${headSha}`,
       true,
-      SEVEN_DAYS_MS
+      SEVEN_DAYS_MS,
     );
     this.logger.info(
       {
@@ -176,7 +176,7 @@ class ReviewRunCompletionService {
         projectId,
         suppressedCount,
       },
-      "MR review completed"
+      "MR review completed",
     );
   }
 
@@ -184,16 +184,16 @@ class ReviewRunCompletionService {
     projectId: number,
     mrIid: number,
     findings: Finding[],
-    blockMergeOn: "critical" | "warning" | "none"
+    blockMergeOn: "critical" | "warning" | "none",
   ): Promise<void> {
     if (blockMergeOn === "none") {
       return;
     }
     const criticalCount = findings.filter(
-      (f) => f.severity === "critical"
+      (f) => f.severity === "critical",
     ).length;
     const warningCount = findings.filter(
-      (f) => f.severity === "warning"
+      (f) => f.severity === "warning",
     ).length;
     const shouldBlock =
       blockMergeOn === "critical"
@@ -204,7 +204,7 @@ class ReviewRunCompletionService {
         await this.codeHost.unapprove(projectId, mrIid);
         this.logger.info(
           { blockMergeOn, criticalCount, mrIid, projectId, warningCount },
-          "Unapproved MR due to findings exceeding threshold"
+          "Unapproved MR due to findings exceeding threshold",
         );
       } catch (err) {
         this.logger.warn({ err, mrIid, projectId }, "Failed to unapprove MR");
@@ -214,12 +214,12 @@ class ReviewRunCompletionService {
         await this.codeHost.approveMergeRequest(projectId, mrIid);
         this.logger.info(
           { blockMergeOn, mrIid, projectId },
-          "Auto-approved MR: no blocking findings"
+          "Auto-approved MR: no blocking findings",
         );
       } catch (err) {
         this.logger.warn(
           { err, mrIid, projectId },
-          "Failed to auto-approve MR"
+          "Failed to auto-approve MR",
         );
       }
     }

@@ -52,7 +52,7 @@ async function resolveLibrariesFromDiffs(
   diffs: ParsedFileDiff[],
   docProvider: IDocProvider,
   logger: FastifyBaseLogger,
-  maxLibraries = MAX_LIBRARIES_PER_REVIEW
+  maxLibraries = MAX_LIBRARIES_PER_REVIEW,
 ): Promise<ResolvedLibraries> {
   const allContent = diffs
     .map((d) => d.lines.map((l) => l.content).join("\n"))
@@ -73,7 +73,7 @@ async function resolveLibrariesFromDiffs(
       } catch (err) {
         logger.warn({ err, pkg }, "Failed to resolve library, skipping");
       }
-    })
+    }),
   );
 
   await Promise.all(tasks);
@@ -86,11 +86,11 @@ async function fetchDocContextForFile(
   resolvedLibraries: ResolvedLibraries,
   docProvider: IDocProvider,
   logger: FastifyBaseLogger,
-  maxTokensPerQuery: number
+  maxTokensPerQuery: number,
 ): Promise<string> {
   const packages = extractExternalPackages(diffContent).slice(
     0,
-    MAX_LIBRARIES_PER_FILE
+    MAX_LIBRARIES_PER_FILE,
   );
   const sections: string[] = [];
 

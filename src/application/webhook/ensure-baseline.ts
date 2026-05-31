@@ -6,7 +6,7 @@ async function ensureBaseline(
   projectId: number,
   snapshotRepo: ISnapshotRepository,
   queue: IJobQueue<ReviewJob>,
-  jobHandler: (job: ReviewJob) => Promise<void>
+  jobHandler: (job: ReviewJob) => Promise<void>,
 ): Promise<void> {
   const baseline = await snapshotRepo.getBaselineState(projectId);
   if (baseline?.status === "ready") {
@@ -17,7 +17,7 @@ async function ensureBaseline(
     queue.enqueue(
       bootstrapKey,
       { projectId, type: "bootstrap_baseline" },
-      jobHandler
+      jobHandler,
     );
   }
 }

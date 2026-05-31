@@ -84,7 +84,7 @@ describe("createWebhookOrchestrator", () => {
         triggerType: "mr_open",
         type: "full_review",
       }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
@@ -98,7 +98,7 @@ describe("createWebhookOrchestrator", () => {
         triggerType: "mr_open",
         type: "full_review",
       },
-      () => new Promise<void>(() => {})
+      () => new Promise<void>(() => {}),
     );
     const orchestrator = createWebhookOrchestrator(deps);
     const event: WebhookEvent = {
@@ -132,7 +132,7 @@ describe("createWebhookOrchestrator", () => {
         triggerType: "push",
         type: "full_review",
       }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
@@ -163,7 +163,7 @@ describe("createWebhookOrchestrator", () => {
         triggerType: "push",
         type: "incremental_review",
       }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
@@ -195,7 +195,7 @@ describe("createWebhookOrchestrator", () => {
         triggerType: "push",
         type: "incremental_review",
       }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
@@ -228,14 +228,14 @@ describe("createWebhookOrchestrator", () => {
         triggerType: "force_push",
         type: "incremental_review",
       }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
   it("uses force_push trigger when commit range diff fails with not found", async () => {
     const codeHost = createMockCodeHost();
     vi.spyOn(codeHost, "getCommitRangeDiff").mockRejectedValue(
-      new GitLabNotFoundError("missing")
+      new GitLabNotFoundError("missing"),
     );
     const reviewRunRepo = {
       findLatestByProjectAndMr: vi.fn().mockResolvedValue({
@@ -260,7 +260,7 @@ describe("createWebhookOrchestrator", () => {
         triggerType: "force_push",
         type: "incremental_review",
       }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
@@ -296,7 +296,7 @@ describe("createWebhookOrchestrator", () => {
         previousSha: "prev-sha",
         type: "incremental_review",
       }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
@@ -334,7 +334,7 @@ describe("createWebhookOrchestrator", () => {
         triggerType: "mention",
         type: "full_review",
       }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
@@ -356,7 +356,7 @@ describe("createWebhookOrchestrator", () => {
     expect(enqueueSpy).toHaveBeenCalledWith(
       "comment_response:42:7:disc-abc",
       expect.objectContaining({ type: "comment_response" }),
-      deps.jobHandler
+      deps.jobHandler,
     );
   });
 
@@ -419,7 +419,7 @@ describe("createWebhookOrchestrator", () => {
         type: "mr_open",
       });
       const receivedCall = info.mock.calls.find(
-        (call) => call[1] === "Webhook event received"
+        (call) => call[1] === "Webhook event received",
       );
       expect(receivedCall).toBeDefined();
       expect(receivedCall?.[0]).toMatchObject({
@@ -441,7 +441,7 @@ describe("createWebhookOrchestrator", () => {
         type: "mr_open",
       });
       const processedCall = info.mock.calls.find(
-        (call) => call[1] === "Webhook event processed"
+        (call) => call[1] === "Webhook event processed",
       );
       expect(processedCall).toBeDefined();
       expect(processedCall?.[0]).toMatchObject({
@@ -464,7 +464,7 @@ describe("createWebhookOrchestrator", () => {
           triggerType: "mr_open",
           type: "full_review",
         },
-        () => new Promise<void>(() => {})
+        () => new Promise<void>(() => {}),
       );
       const orchestrator = createWebhookOrchestrator(deps);
       await orchestrator.handleEvent({
@@ -474,7 +474,7 @@ describe("createWebhookOrchestrator", () => {
         type: "mr_open",
       });
       const processedCall = info.mock.calls.find(
-        (call) => call[1] === "Webhook event processed"
+        (call) => call[1] === "Webhook event processed",
       );
       expect(processedCall?.[0]).toMatchObject({
         outcome: "conflict",

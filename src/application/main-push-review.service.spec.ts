@@ -32,7 +32,7 @@ function makeMr(iid: number): MergeRequestInfo {
 function makeReviewRun(
   completedAt?: Date,
   triggerType: TriggerType = "mr_open",
-  status: ReviewRun["status"] = "completed"
+  status: ReviewRun["status"] = "completed",
 ): ReviewRun {
   return {
     baseCommitSha: "base",
@@ -152,7 +152,7 @@ describe("MainPushReviewService", () => {
       infraRepoPorts,
       codeHost,
       queue,
-      logger
+      logger,
     );
     jobHandler.mockClear();
   });
@@ -170,14 +170,14 @@ describe("MainPushReviewService", () => {
         defaultBranch: "main",
         projectId: 1,
       },
-      jobHandler
+      jobHandler,
     );
 
     expect(reviewRunRepo.findLatestByProjectAndMrFn).toHaveBeenCalledWith(
       1,
       7,
       undefined,
-      { includeFailedForBaseline: true }
+      { includeFailedForBaseline: true },
     );
     expect(queue.enqueueFn).toHaveBeenCalledWith(
       "full_review:1:7",
@@ -186,7 +186,7 @@ describe("MainPushReviewService", () => {
         triggerType: "main_push",
         type: "full_review",
       }),
-      jobHandler
+      jobHandler,
     );
   });
 
@@ -196,8 +196,8 @@ describe("MainPushReviewService", () => {
         Promise.resolve(
           triggerType === "main_push"
             ? undefined
-            : makeReviewRun(new Date(Date.now() - 600_000), "mr_open")
-        )
+            : makeReviewRun(new Date(Date.now() - 600_000), "mr_open"),
+        ),
     );
     codeHost.listOpenMergeRequestsFn.mockResolvedValue([makeMr(7)]);
     codeHost.getMergeRequestDiffFn.mockResolvedValue([
@@ -212,7 +212,7 @@ describe("MainPushReviewService", () => {
         defaultBranch: "main",
         projectId: 1,
       },
-      jobHandler
+      jobHandler,
     );
 
     expect(queue.enqueueFn).toHaveBeenCalledWith(
@@ -224,7 +224,7 @@ describe("MainPushReviewService", () => {
         projectId: 1,
         type: "main_push_scoped_review",
       },
-      jobHandler
+      jobHandler,
     );
   });
 
@@ -234,8 +234,8 @@ describe("MainPushReviewService", () => {
         Promise.resolve(
           triggerType === "main_push"
             ? undefined
-            : makeReviewRun(undefined, "push", "failed")
-        )
+            : makeReviewRun(undefined, "push", "failed"),
+        ),
     );
     codeHost.listOpenMergeRequestsFn.mockResolvedValue([makeMr(7)]);
     codeHost.getMergeRequestDiffFn.mockResolvedValue([
@@ -250,7 +250,7 @@ describe("MainPushReviewService", () => {
         defaultBranch: "main",
         projectId: 1,
       },
-      jobHandler
+      jobHandler,
     );
 
     expect(queue.enqueueFn).toHaveBeenCalledWith(
@@ -259,7 +259,7 @@ describe("MainPushReviewService", () => {
         previousRunId: "run-1",
         type: "main_push_scoped_review",
       }),
-      jobHandler
+      jobHandler,
     );
   });
 
@@ -276,7 +276,7 @@ describe("MainPushReviewService", () => {
         defaultBranch: "main",
         projectId: 1,
       },
-      jobHandler
+      jobHandler,
     );
 
     expect(queue.enqueueFn).not.toHaveBeenCalled();
@@ -288,8 +288,8 @@ describe("MainPushReviewService", () => {
         Promise.resolve(
           triggerType === "main_push"
             ? makeReviewRun(new Date(Date.now() - 60_000), "main_push")
-            : undefined
-        )
+            : undefined,
+        ),
     );
     codeHost.listOpenMergeRequestsFn.mockResolvedValue([makeMr(7)]);
     codeHost.getMergeRequestDiffFn.mockResolvedValue([
@@ -303,7 +303,7 @@ describe("MainPushReviewService", () => {
         defaultBranch: "main",
         projectId: 1,
       },
-      jobHandler
+      jobHandler,
     );
 
     expect(queue.enqueueFn).not.toHaveBeenCalled();
@@ -315,8 +315,8 @@ describe("MainPushReviewService", () => {
         Promise.resolve(
           triggerType === "main_push"
             ? makeReviewRun(new Date(Date.now() - 600_000), "main_push")
-            : makeReviewRun(new Date(Date.now() - 60_000), "mr_open")
-        )
+            : makeReviewRun(new Date(Date.now() - 60_000), "mr_open"),
+        ),
     );
     codeHost.listOpenMergeRequestsFn.mockResolvedValue([makeMr(7)]);
     codeHost.getMergeRequestDiffFn.mockResolvedValue([
@@ -330,7 +330,7 @@ describe("MainPushReviewService", () => {
         defaultBranch: "main",
         projectId: 1,
       },
-      jobHandler
+      jobHandler,
     );
 
     expect(queue.enqueueFn).toHaveBeenCalledWith(
@@ -339,7 +339,7 @@ describe("MainPushReviewService", () => {
         mrIid: 7,
         type: "main_push_scoped_review",
       }),
-      jobHandler
+      jobHandler,
     );
   });
 
@@ -357,7 +357,7 @@ describe("MainPushReviewService", () => {
         defaultBranch: "main",
         projectId: 1,
       },
-      jobHandler
+      jobHandler,
     );
 
     expect(queue.enqueueFn).not.toHaveBeenCalled();

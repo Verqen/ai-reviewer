@@ -16,7 +16,7 @@ interface OllamaRequestBody {
 }
 
 function createMockConfig(
-  overrides: Partial<LlmConfigSchema> = {}
+  overrides: Partial<LlmConfigSchema> = {},
 ): IConfig<LlmConfigSchema> {
   return {
     envs: {
@@ -74,7 +74,7 @@ describe("OllamaClient", () => {
       expect.objectContaining({
         headers: { "Content-Type": "application/json" },
         method: "POST",
-      })
+      }),
     );
 
     const callArgs = fetchMock.mock.calls[0] as [string, { body: string }];
@@ -185,7 +185,7 @@ describe("OllamaClient", () => {
     const client = new OllamaClient(createMockConfig(), mockLogger);
 
     await expect(
-      client.chatCompletion([{ content: "test", role: "user" }])
+      client.chatCompletion([{ content: "test", role: "user" }]),
     ).rejects.toThrow("Ollama API error: 400");
   });
 
@@ -255,7 +255,7 @@ describe("OllamaClient", () => {
         },
       ],
       () => Promise.resolve("tool result"),
-      { maxToolRounds: 3 }
+      { maxToolRounds: 3 },
     );
     expect(actualResult.content).toBeNull();
     expect(actualResult.toolCalls).toEqual([]);
@@ -271,7 +271,7 @@ describe("OllamaClient", () => {
         maxRounds: 3,
         toolRounds: [["read_file"], ["read_file"], ["read_file"]],
       }),
-      "Tool loop exhausted before final assistant response"
+      "Tool loop exhausted before final assistant response",
     );
   });
 });

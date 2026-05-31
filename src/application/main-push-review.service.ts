@@ -20,23 +20,23 @@ class MainPushReviewService {
     private readonly infraRepoPorts: ReviewInfraRepoPorts,
     private readonly codeHost: ICodeHost,
     private readonly queue: IJobQueue<ReviewJob>,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async run(
     job: MainPushReviewJob,
-    jobHandler: (job: ReviewJob) => Promise<void>
+    jobHandler: (job: ReviewJob) => Promise<void>,
   ): Promise<void> {
     const { changedFiles, commitSha, defaultBranch, projectId } = job;
 
     this.logger.info(
       { commitSha, defaultBranch, projectId },
-      "Running main push re-review discovery"
+      "Running main push re-review discovery",
     );
 
     const openMrs = await this.codeHost.listOpenMergeRequests(
       projectId,
-      defaultBranch
+      defaultBranch,
     );
 
     if (openMrs.length === 0) {
@@ -53,7 +53,7 @@ class MainPushReviewService {
     projectId: number,
     mrIid: number,
     changedFiles: string[],
-    jobHandler: (job: ReviewJob) => Promise<void>
+    jobHandler: (job: ReviewJob) => Promise<void>,
   ): Promise<void> {
     try {
       const mrDiffs = await this.codeHost.getMergeRequestDiff(projectId, mrIid);
@@ -61,13 +61,13 @@ class MainPushReviewService {
       const hasOverlap = mrDiffs.some(
         (d) =>
           changedSet.has(d.newPath) ||
-          (d.oldPath.length > 0 && changedSet.has(d.oldPath))
+          (d.oldPath.length > 0 && changedSet.has(d.oldPath)),
       );
 
       if (!hasOverlap) {
         this.logger.debug(
           { mrIid, projectId },
-          "No file overlap; skipping main-push re-review"
+          "No file overlap; skipping main-push re-review",
         );
         return;
       }
@@ -77,7 +77,7 @@ class MainPushReviewService {
       if (withinCooldown) {
         this.logger.info(
           { mrIid, projectId },
-          "Within cooldown period; skipping main-push re-review"
+          "Within cooldown period; skipping main-push re-review",
         );
         return;
       }
@@ -87,7 +87,7 @@ class MainPushReviewService {
       if (this.queue.isPending(reviewKey)) {
         this.logger.debug(
           { mrIid, projectId },
-          "Review already in progress; skipping main-push re-review"
+          "Review already in progress; skipping main-push re-review",
         );
         return;
       }
@@ -97,7 +97,7 @@ class MainPushReviewService {
           projectId,
           mrIid,
           undefined,
-          { includeFailedForBaseline: true }
+          { includeFailedForBaseline: true },
         );
 
       const reviewJob: ReviewJob = priorRun
@@ -123,20 +123,20 @@ class MainPushReviewService {
     } catch (err) {
       this.logger.warn(
         { err, mrIid, projectId },
-        "Failed to process MR for main-push re-review"
+        "Failed to process MR for main-push re-review",
       );
     }
   }
 
   private async isWithinCooldown(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<boolean> {
     const latestRun =
       await this.infraRepoPorts.reviewRunRepo.findLatestByProjectAndMr(
         projectId,
         mrIid,
-        "main_push"
+        "main_push",
       );
 
     if (!latestRun?.completedAt) {

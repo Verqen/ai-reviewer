@@ -24,7 +24,7 @@ function expandTabStopsToSpaces(content: string, tabWidth: number): string {
 
 function normalizeLineContent(
   content: string,
-  lineMatchTabWidth: number
+  lineMatchTabWidth: number,
 ): string {
   const expanded = expandTabStopsToSpaces(content, lineMatchTabWidth);
   const leadingMatch = /^(\s*)/.exec(expanded);
@@ -40,7 +40,7 @@ interface DiffLineIndex {
 
 function buildDiffLineIndex(
   diff: ParsedFileDiff,
-  lineMatchTabWidth: number
+  lineMatchTabWidth: number,
 ): DiffLineIndex {
   const byContent = new Map<string, DiffLine[]>();
   for (const line of diff.lines) {
@@ -58,7 +58,7 @@ function buildDiffLineIndex(
 function isLineInWindow(
   line: DiffLine,
   windowMin: number,
-  windowMax: number
+  windowMax: number,
 ): boolean {
   if (
     line.newLine !== undefined &&
@@ -84,7 +84,7 @@ function findCorrelatedLine(
   hunkHeader: string | undefined,
   index: DiffLineIndex,
   lineWindow: number,
-  lineMatchTabWidth: number
+  lineMatchTabWidth: number,
 ): number | null {
   const normalized = normalizeLineContent(lineExcerpt, lineMatchTabWidth);
   const candidates = index.byContent.get(normalized);
@@ -112,7 +112,7 @@ function findCorrelatedLine(
 function planForcePushLineCorrelation(
   previousFindings: ReviewFinding[],
   newDiffs: ParsedFileDiff[],
-  options: ForcePushLineMatchOptions
+  options: ForcePushLineMatchOptions,
 ): ForcePushLineCorrelationPlan {
   const { lineMatchTabWidth, lineWindow } = options;
   const diffsByPath = new Map(newDiffs.map((d) => [d.newPath, d]));
@@ -145,7 +145,7 @@ function planForcePushLineCorrelation(
       finding.hunkHeader,
       index,
       lineWindow,
-      lineMatchTabWidth
+      lineMatchTabWidth,
     );
     if (newLineNumber !== null) {
       correlated.push({ finding, newLineNumber });

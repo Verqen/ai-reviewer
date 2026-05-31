@@ -28,8 +28,8 @@ class InfraRepoPorts {
       .provideClass(InfraPortsTokens.SnapshotRepo, SnapshotRepository)
       .provideClass(
         InfraPortsTokens.DismissedPatternRepo,
-        DismissedPatternRepository
-      )
+        DismissedPatternRepository,
+      ),
   ) {}
 
   get reviewRunRepo(): IReviewRunRepository {

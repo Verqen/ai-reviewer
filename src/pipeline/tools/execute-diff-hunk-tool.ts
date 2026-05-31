@@ -52,7 +52,7 @@ async function executeDiffHunkTool(params: {
   const expectedComparable = normalizeComparableRepoPath(params.parsed.newPath);
   if (pathComparable !== expectedComparable) {
     return buildInvalidPayload(
-      `path must equal the MR newPath (${params.parsed.newPath}).`
+      `path must equal the MR newPath (${params.parsed.newPath}).`,
     );
   }
   const lineNumberRaw = record["line_number"];
@@ -62,13 +62,13 @@ async function executeDiffHunkTool(params: {
     lineNumberRaw <= 0
   ) {
     return buildInvalidPayload(
-      'Field "line_number" must be a positive integer.'
+      'Field "line_number" must be a positive integer.',
     );
   }
   const lineTypeRaw = record["line_type"];
   if (!isAnchorLineType(lineTypeRaw)) {
     return buildInvalidPayload(
-      'Field "line_type" must be one of: added, removed, context.'
+      'Field "line_type" must be one of: added, removed, context.',
     );
   }
   let contextLines: number | undefined;
@@ -80,7 +80,7 @@ async function executeDiffHunkTool(params: {
       contextRaw < 0
     ) {
       return buildInvalidPayload(
-        'Field "context_lines" must be a non-negative integer when provided.'
+        'Field "context_lines" must be a non-negative integer when provided.',
       );
     }
     contextLines = contextRaw;
@@ -89,7 +89,7 @@ async function executeDiffHunkTool(params: {
     params.parsed,
     lineNumberRaw,
     lineTypeRaw,
-    contextLines !== undefined ? { contextLines } : undefined
+    contextLines !== undefined ? { contextLines } : undefined,
   );
   if (anchorResolution.kind === "error") {
     return anchorResolution.error;
@@ -109,14 +109,14 @@ async function executeDiffHunkTool(params: {
     ? params.overlay.readFileAtBaseline(
         params.parsed.oldPath,
         lineRanges.oldStartInclusive,
-        lineRanges.oldEndInclusive
+        lineRanges.oldEndInclusive,
       )
     : Promise.resolve("(file did not exist at baseline — new file in MR.)");
   const afterSlicePromise: Promise<string> = hasNewHeadFile
     ? params.overlay.readFile(
         params.parsed.newPath,
         lineRanges.headNewStartInclusive,
-        lineRanges.headNewEndInclusive
+        lineRanges.headNewEndInclusive,
       )
     : Promise.resolve("(file removed in MR — no corresponding head blob.)");
   const [beforeBody, afterBody] = await Promise.all([

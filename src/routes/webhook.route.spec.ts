@@ -81,7 +81,7 @@ function buildMockReviewService(): IReviewService & {
       (projectId: number, mrIid: number, context: unknown) => {
         respondCalls.push([projectId, mrIid, context]);
         return Promise.resolve();
-      }
+      },
     ),
     respondToFindingThreadClarification: vi.fn().mockResolvedValue(""),
     reviewCalls,
@@ -89,7 +89,7 @@ function buildMockReviewService(): IReviewService & {
       (projectId: number, mrIid: number, triggerType: string) => {
         reviewCalls.push([projectId, mrIid, triggerType]);
         return Promise.resolve();
-      }
+      },
     ),
   };
 }
@@ -305,7 +305,7 @@ describe("webhookRoute", () => {
           triggerType: "mr_open",
           type: "full_review",
         },
-        () => new Promise<void>((resolve) => setTimeout(resolve, 10_000))
+        () => new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
       );
 
       const { app } = buildApp({ queue });
@@ -463,7 +463,7 @@ describe("webhookRoute", () => {
           triggerType: "mr_open",
           type: "full_review",
         },
-        () => new Promise<void>((resolve) => setTimeout(resolve, 10_000))
+        () => new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
       );
 
       const { app } = buildApp({ queue });
@@ -512,7 +512,7 @@ describe("webhookRoute", () => {
           projectId: 42,
           type: "comment_response",
         },
-        () => new Promise<void>((resolve) => setTimeout(resolve, 10_000))
+        () => new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
       );
 
       const { app } = buildApp({ queue });

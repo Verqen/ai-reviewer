@@ -51,14 +51,14 @@ function isPositionIncludedInDiffs(
     oldLine?: number | undefined;
     oldPath: string;
   },
-  diffs: ParsedFileDiff[]
+  diffs: ParsedFileDiff[],
 ): boolean {
   const fileDiff = diffs.find(
     (diff) =>
       diff.newPath === position.newPath ||
       diff.newPath === position.oldPath ||
       diff.oldPath === position.newPath ||
-      diff.oldPath === position.oldPath
+      diff.oldPath === position.oldPath,
   );
   if (!fileDiff) {
     return false;
@@ -66,7 +66,7 @@ function isPositionIncludedInDiffs(
   return fileDiff.lines.some(
     (line) =>
       (position.newLine !== undefined && line.newLine === position.newLine) ||
-      (position.oldLine !== undefined && line.oldLine === position.oldLine)
+      (position.oldLine !== undefined && line.oldLine === position.oldLine),
   );
 }
 
@@ -85,11 +85,11 @@ class ReviewFindingPublisherService {
     private readonly infraRepoPorts: ReviewInfraRepoPorts,
     private readonly codeHost: ICodeHost,
     private readonly commentResolutionService: CommentResolutionService,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async publishInlineFindingsAndStore(
-    params: PublishInlineParams
+    params: PublishInlineParams,
   ): Promise<void> {
     const {
       allFindings,
@@ -122,7 +122,7 @@ class ReviewFindingPublisherService {
             reason: missingImportValidation.reason,
             resolvedPath: missingImportValidation.resolvedPath,
           },
-          "Dropping missing-file finding after deterministic validation"
+          "Dropping missing-file finding after deterministic validation",
         );
         continue;
       }
@@ -130,7 +130,7 @@ class ReviewFindingPublisherService {
       if (!positionResult) {
         this.logger.warn(
           { file: finding.filePath, line: finding.lineNumber },
-          "Skipping comment with invalid position"
+          "Skipping comment with invalid position",
         );
         findingsToPersist.push({ ...finding, reviewRunId });
         continue;
@@ -144,7 +144,7 @@ class ReviewFindingPublisherService {
             positionNewLine: position.newLine,
             positionOldLine: position.oldLine,
           },
-          "Skipping comment with out-of-scope position"
+          "Skipping comment with out-of-scope position",
         );
         findingsToPersist.push({ ...finding, reviewRunId });
         continue;
@@ -159,7 +159,7 @@ class ReviewFindingPublisherService {
             ? originalSnippetMatchesDiff(
                 finding.originalSnippet,
                 finding,
-                diffs
+                diffs,
               )
             : false;
         const commentBody = formatCommentWithSuggestion(
@@ -169,13 +169,13 @@ class ReviewFindingPublisherService {
           snippetMatchesDiff ? finding.originalSnippet : undefined,
           finding.lineType,
           position.newLine ?? finding.lineNumber,
-          finding.endLineNumber
+          finding.endLineNumber,
         );
         const { discussionId, noteId } = await this.codeHost.postInlineComment(
           projectId,
           mrIid,
           commentBody,
-          position
+          position,
         );
         findingsToPersist.push({
           ...finding,
@@ -186,7 +186,7 @@ class ReviewFindingPublisherService {
       } catch (err) {
         this.logger.error(
           { err, file: finding.filePath, line: finding.lineNumber },
-          "Failed to post inline comment"
+          "Failed to post inline comment",
         );
         findingsToPersist.push({ ...finding, reviewRunId });
       }
@@ -197,13 +197,13 @@ class ReviewFindingPublisherService {
     const allFindingsToStore = [...findingsToPersist, ...unpublishedFindings];
     if (allFindingsToStore.length > 0) {
       await this.infraRepoPorts.reviewFindingRepo.createMany(
-        allFindingsToStore
+        allFindingsToStore,
       );
     }
   }
 
   async repostCorrelatedFindings(
-    params: RepostCorrelatedParams
+    params: RepostCorrelatedParams,
   ): Promise<void> {
     const { correlated, mrIid, projectId, reviewRunId, versions } = params;
     const addressedFindingIds: string[] = [];
@@ -211,7 +211,7 @@ class ReviewFindingPublisherService {
       const { finding, newLineNumber } = candidate;
       this.logger.info(
         { filePath: finding.filePath, findingId: finding.id, newLineNumber },
-        "Correlated finding after force-push; reposting at new position"
+        "Correlated finding after force-push; reposting at new position",
       );
       try {
         const sanitized = sanitizeSuggestionAndComment({
@@ -225,7 +225,7 @@ class ReviewFindingPublisherService {
           finding.originalSnippet,
           finding.lineType,
           newLineNumber,
-          finding.endLineNumber
+          finding.endLineNumber,
         );
         const { discussionId, noteId } = await this.codeHost.postInlineComment(
           projectId,
@@ -239,7 +239,7 @@ class ReviewFindingPublisherService {
             oldPath: finding.oldPath ?? finding.filePath,
             positionType: "text",
             startSha: versions.startSha,
-          }
+          },
         );
         await this.infraRepoPorts.reviewFindingRepo.createMany([
           {
@@ -254,7 +254,7 @@ class ReviewFindingPublisherService {
       } catch (err) {
         this.logger.warn(
           { err, filePath: finding.filePath, findingId: finding.id },
-          "Failed to repost finding at new position after force-push"
+          "Failed to repost finding at new position after force-push",
         );
         continue;
       }
@@ -263,30 +263,30 @@ class ReviewFindingPublisherService {
           projectId,
           mrIid,
           finding.hostDiscussionId!,
-          "Moved to new position after force-push."
+          "Moved to new position after force-push.",
         );
         await this.codeHost.resolveDiscussion(
           projectId,
           mrIid,
-          finding.hostDiscussionId!
+          finding.hostDiscussionId!,
         );
       } catch (err) {
         this.logger.warn(
           { discussionId: finding.hostDiscussionId, err },
-          "Failed to annotate old discussion after force-push correlation"
+          "Failed to annotate old discussion after force-push correlation",
         );
       }
     }
     if (addressedFindingIds.length > 0) {
       await this.infraRepoPorts.reviewFindingRepo.updateResolutionMany(
         [...new Set(addressedFindingIds)],
-        "addressed"
+        "addressed",
       );
     }
   }
 
   async resolveStaleIncrementalFindings(
-    params: ResolveIncrementalParams
+    params: ResolveIncrementalParams,
   ): Promise<void> {
     const {
       diffs,
@@ -303,13 +303,13 @@ class ReviewFindingPublisherService {
     const previousFindings =
       await this.infraRepoPorts.reviewFindingRepo.findByRunId(previousRunId);
     const pendingFindings = previousFindings.filter(
-      (f) => f.resolution === "pending"
+      (f) => f.resolution === "pending",
     );
     await this.commentResolutionService.resolveStaleFindings(
       pendingFindings,
       diffs,
       projectId,
-      mrIid
+      mrIid,
     );
   }
 }

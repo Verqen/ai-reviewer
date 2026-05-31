@@ -6,7 +6,7 @@ import { PipelineMetrics } from "./pipeline.metrics";
 async function metricValue(
   registry: Registry,
   name: string,
-  labels: Record<string, string> = {}
+  labels: Record<string, string> = {},
 ): Promise<number> {
   const metric = await registry.getSingleMetric(name)?.get();
   if (!metric) {
@@ -43,18 +43,18 @@ describe("PipelineMetrics", () => {
         await metricValue(registry, "ai_reviewer_tokens_input_total", {
           model: "anthropic/claude-sonnet-4.6",
           phase: "file-review",
-        })
+        }),
       ).toBe(1_000);
       expect(
         await metricValue(registry, "ai_reviewer_tokens_output_total", {
           model: "anthropic/claude-sonnet-4.6",
           phase: "file-review",
-        })
+        }),
       ).toBe(200);
       expect(
         await metricValue(registry, "ai_reviewer_tokens_cached_total", {
           model: "anthropic/claude-sonnet-4.6",
-        })
+        }),
       ).toBe(400);
     });
 
@@ -70,7 +70,7 @@ describe("PipelineMetrics", () => {
       expect(
         await metricValue(registry, "ai_reviewer_cache_hit_rate", {
           model: "anthropic/claude-sonnet-4.6",
-        })
+        }),
       ).toBeCloseTo(0.3);
     });
 
@@ -85,7 +85,7 @@ describe("PipelineMetrics", () => {
       expect(
         await metricValue(registry, "ai_reviewer_tokens_cached_total", {
           model: "anthropic/claude-sonnet-4.6",
-        })
+        }),
       ).toBe(0);
     });
 
@@ -100,7 +100,7 @@ describe("PipelineMetrics", () => {
       expect(
         await metricValue(registry, "ai_reviewer_cost_usd_total", {
           model: "anthropic/claude-sonnet-4.6",
-        })
+        }),
       ).toBeCloseTo(3 + 15);
     });
 
@@ -115,7 +115,7 @@ describe("PipelineMetrics", () => {
       expect(
         await metricValue(registry, "ai_reviewer_cost_usd_total", {
           model: "mystery-model",
-        })
+        }),
       ).toBe(0);
     });
 
@@ -130,12 +130,12 @@ describe("PipelineMetrics", () => {
       expect(
         await metricValue(registry, "ai_reviewer_tokens_cached_total", {
           model: "anthropic/claude-sonnet-4.6",
-        })
+        }),
       ).toBe(100);
       expect(
         await metricValue(registry, "ai_reviewer_cache_hit_rate", {
           model: "anthropic/claude-sonnet-4.6",
-        })
+        }),
       ).toBe(1);
     });
   });
@@ -148,17 +148,17 @@ describe("PipelineMetrics", () => {
       expect(
         await metricValue(registry, "ai_reviewer_files_skipped_total", {
           reason: "lock",
-        })
+        }),
       ).toBe(2);
       expect(
         await metricValue(registry, "ai_reviewer_files_skipped_total", {
           reason: "generated",
-        })
+        }),
       ).toBe(1);
       expect(
         await metricValue(registry, "ai_reviewer_files_skipped_total", {
           reason: "binary",
-        })
+        }),
       ).toBe(0);
     });
   });
@@ -168,7 +168,7 @@ describe("PipelineMetrics", () => {
       metrics.observeTriageTrivial(6);
       metrics.observeTriageTrivial(2);
       expect(
-        await metricValue(registry, "ai_reviewer_triage_trivial_total")
+        await metricValue(registry, "ai_reviewer_triage_trivial_total"),
       ).toBe(8);
     });
 
@@ -176,7 +176,7 @@ describe("PipelineMetrics", () => {
       metrics.observeTriageTrivial(0);
       metrics.observeTriageTrivial(-5);
       expect(
-        await metricValue(registry, "ai_reviewer_triage_trivial_total")
+        await metricValue(registry, "ai_reviewer_triage_trivial_total"),
       ).toBe(0);
     });
   });
@@ -185,17 +185,17 @@ describe("PipelineMetrics", () => {
     it("stores the rate as a gauge and clamps to [0, 1]", async () => {
       metrics.observeTriageSkipRate(0.42);
       expect(
-        await metricValue(registry, "ai_reviewer_triage_skip_rate")
+        await metricValue(registry, "ai_reviewer_triage_skip_rate"),
       ).toBeCloseTo(0.42);
 
       metrics.observeTriageSkipRate(1.5);
       expect(await metricValue(registry, "ai_reviewer_triage_skip_rate")).toBe(
-        1
+        1,
       );
 
       metrics.observeTriageSkipRate(-0.1);
       expect(await metricValue(registry, "ai_reviewer_triage_skip_rate")).toBe(
-        0
+        0,
       );
     });
   });
@@ -217,17 +217,17 @@ describe("PipelineMetrics", () => {
         await metricValue(registry, "ai_reviewer_runs_total", {
           status: "completed",
           trigger_type: "push",
-        })
+        }),
       ).toBe(1);
       expect(
         await metricValue(registry, "ai_reviewer_runs_total", {
           status: "failed",
           trigger_type: "force_push",
-        })
+        }),
       ).toBe(1);
 
       const duration = registry.getSingleMetric(
-        "ai_reviewer_review_duration_ms"
+        "ai_reviewer_review_duration_ms",
       );
       const snapshot = await duration?.get();
       expect(snapshot?.values.length ?? 0).toBeGreaterThan(0);

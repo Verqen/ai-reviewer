@@ -112,7 +112,7 @@ async function main(): Promise<void> {
 
   logger.info(
     { authenticated: Boolean(apiKey), baseUrl, model },
-    "Running TriagePass smoke test"
+    "Running TriagePass smoke test",
   );
 
   const started = Date.now();
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
       triageSkipRate,
       trivialHunkCount,
     },
-    "TriagePass completed"
+    "TriagePass completed",
   );
 
   const output = await registry.metrics();
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
     process.exit(0);
   } else {
     logger.warn(
-      "TriagePass returned triageSkipRate == 0. Re-run; some small local models (qwen3:8b) occasionally mis-classify trivial typos as needs-review."
+      "TriagePass returned triageSkipRate == 0. Re-run; some small local models (qwen3:8b) occasionally mis-classify trivial typos as needs-review.",
     );
     process.exit(0);
   }

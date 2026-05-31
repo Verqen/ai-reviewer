@@ -19,7 +19,7 @@ interface OverlayTrackedTestDependencies extends OverlayDependencies {
 }
 
 function createSnapshotRepo(
-  baselineFiles: string[] = ["src/base.ts"]
+  baselineFiles: string[] = ["src/base.ts"],
 ): ISnapshotRepository & {
   getFileContentMock: ReturnType<typeof vi.fn>;
   listFilesMock: ReturnType<typeof vi.fn>;
@@ -32,23 +32,23 @@ function createSnapshotRepo(
         hasTopLevelSrcTree: false,
         packageRoots: [] as readonly string[],
         packageRootsUsingSrc: [] as readonly string[],
-      })
+      }),
   );
   const listFilesMock = vi.fn(
     (
       _projectId: number,
       _commitSha: string,
-      pattern?: string
+      pattern?: string,
     ): Promise<string[]> => {
       if (pattern === undefined) {
         return Promise.resolve(baselineFiles);
       }
       return Promise.resolve(
         baselineFiles.filter((filePath: string) =>
-          matchFilePathGlobWithLiteralPrefix(filePath, pattern)
-        )
+          matchFilePathGlobWithLiteralPrefix(filePath, pattern),
+        ),
       );
-    }
+    },
   );
   return {
     copySnapshotEntries: () => Promise.resolve(0),
@@ -75,7 +75,7 @@ function createCodeHost(): ICodeHost & {
   getFileContentMock: ReturnType<typeof vi.fn>;
 } {
   const getFileContentMock = vi.fn(() =>
-    Promise.resolve("changed file content")
+    Promise.resolve("changed file content"),
   );
   return {
     approveMergeRequest: () => Promise.resolve(),
@@ -115,7 +115,7 @@ function createCodeHost(): ICodeHost & {
 }
 
 function createOverlayDependencies(
-  baselineFiles: string[] = ["src/base.ts"]
+  baselineFiles: string[] = ["src/base.ts"],
 ): OverlayTrackedTestDependencies & {
   codeHost: ICodeHost & { getFileContentMock: ReturnType<typeof vi.fn> };
   snapshotRepo: ISnapshotRepository & {
@@ -145,10 +145,10 @@ const SPEC_OVERLAY_DEFAULT_LIMITS = {
 function synthesizeOverlayResolutionPrefixesUnderUnitMock(
   fixtureBaselineTracked: readonly string[],
   changedPathsRelative: readonly string[],
-  mrDeletedRelative: readonly string[]
+  mrDeletedRelative: readonly string[],
 ): OverlayResolutionPathPrefixes {
   const hasBaselineTopLevelMarkedSrcSubtree = fixtureBaselineTracked.some(
-    (filePathCandidate) => filePathCandidate.startsWith("src/")
+    (filePathCandidate) => filePathCandidate.startsWith("src/"),
   );
   return buildOverlayPathResolutionPrefixes({
     hasTopLevelSrcTree: hasBaselineTopLevelMarkedSrcSubtree,
@@ -164,14 +164,14 @@ function createOverlayService(
   changedPathsRelative: string[] = ["src/changed.ts"],
   mrDeletedRelative: string[] = [],
   limitsForToolCap = SPEC_OVERLAY_DEFAULT_LIMITS,
-  explicitResolutionDeclared?: OverlayResolutionPathPrefixes
+  explicitResolutionDeclared?: OverlayResolutionPathPrefixes,
 ): OverlayViewService {
   const synthesizedResolutionDeclared =
     explicitResolutionDeclared ??
     synthesizeOverlayResolutionPrefixesUnderUnitMock(
       dependenciesTracked.fixtureBaselineTrackedFilePaths,
       changedPathsRelative,
-      mrDeletedRelative
+      mrDeletedRelative,
     );
   return new OverlayViewService(
     dependenciesTracked.snapshotRepo,
@@ -182,12 +182,12 @@ function createOverlayService(
     changedPathsRelative,
     mrDeletedRelative,
     synthesizedResolutionDeclared,
-    limitsForToolCap
+    limitsForToolCap,
   );
 }
 
 function createListFilesCall(
-  argumentsValue: Record<string, unknown>
+  argumentsValue: Record<string, unknown>,
 ): ToolCall {
   return {
     arguments: argumentsValue,
@@ -204,12 +204,11 @@ function createReadFileCall(argumentsValue: Record<string, unknown>): ToolCall {
   };
 }
 
-
 describe("OverlayViewService", () => {
   it("read_file returns MR head content for paths outside changed set before snapshot", async () => {
     const dependencies = createOverlayDependencies(["src/unchanged.ts"]);
     dependencies.snapshotRepo.getFileContentMock.mockResolvedValue(
-      "snapshot-body"
+      "snapshot-body",
     );
     dependencies.codeHost.getFileContentMock.mockImplementation(
       (_projectId: number, sha: string, path: string) => {
@@ -217,7 +216,7 @@ describe("OverlayViewService", () => {
           return Promise.resolve("mr-head-body");
         }
         return Promise.resolve("");
-      }
+      },
     );
     const service = createOverlayService(dependencies, ["src/changed.ts"]);
     const actual = await service.readFile("src/unchanged.ts");
@@ -237,7 +236,7 @@ describe("OverlayViewService", () => {
           return Promise.resolve("BASELINE_ONLY");
         }
         return Promise.resolve(null);
-      }
+      },
     );
     dependencies.codeHost.getFileContentMock.mockImplementation(
       (_projectId: number, sha: string, path: string) => {
@@ -245,7 +244,7 @@ describe("OverlayViewService", () => {
           return Promise.resolve("HEAD_ONLY");
         }
         return Promise.reject(new Error("unexpected baseline fetch"));
-      }
+      },
     );
     const service = createOverlayService(dependencies, ["src/changed.ts"]);
     const baselineActual = await service.readFileAtBaseline("src/changed.ts");
@@ -258,10 +257,10 @@ describe("OverlayViewService", () => {
   it("read_file falls back to snapshot when MR head request fails", async () => {
     const dependencies = createOverlayDependencies(["src/unchanged.ts"]);
     dependencies.snapshotRepo.getFileContentMock.mockResolvedValue(
-      "snapshot-fallback"
+      "snapshot-fallback",
     );
     dependencies.codeHost.getFileContentMock.mockRejectedValue(
-      new Error("404")
+      new Error("404"),
     );
     const service = createOverlayService(dependencies, ["src/changed.ts"]);
     const actual = await service.readFile("src/unchanged.ts");
@@ -280,7 +279,7 @@ describe("OverlayViewService", () => {
     expect(dependencies.snapshotRepo.listFilesMock).toHaveBeenCalledWith(
       10,
       "baseline-sha",
-      undefined
+      undefined,
     );
   });
 
@@ -290,11 +289,11 @@ describe("OverlayViewService", () => {
     const executeToolCall = service.createToolExecutor();
 
     const actualResult = await executeToolCall(
-      createListFilesCall({ pattern: 123 })
+      createListFilesCall({ pattern: 123 }),
     );
 
     expect(actualResult).toBe(
-      'Invalid arguments for list_files: Field "pattern" must be a string when provided.'
+      'Invalid arguments for list_files: Field "pattern" must be a string when provided.',
     );
   });
 
@@ -307,7 +306,7 @@ describe("OverlayViewService", () => {
     const executeToolCall = service.createToolExecutor();
 
     const actualResult = await executeToolCall(
-      createListFilesCall({ pattern: "src/" })
+      createListFilesCall({ pattern: "src/" }),
     );
 
     expect(actualResult).toContain("src/base.ts");
@@ -324,7 +323,7 @@ describe("OverlayViewService", () => {
     const executeToolCall = service.createToolExecutor();
 
     const actualResult = await executeToolCall(
-      createListFilesCall({ pattern: "src/**/*.ts" })
+      createListFilesCall({ pattern: "src/**/*.ts" }),
     );
 
     expect(actualResult).toContain("src/deep/nested/file.ts");
@@ -342,7 +341,7 @@ describe("OverlayViewService", () => {
           return Promise.resolve(multiline);
         }
         return Promise.resolve("changed file content");
-      }
+      },
     );
     const service = createOverlayService(dependencies, [], [], {
       maxListFiles: 200,
@@ -356,11 +355,11 @@ describe("OverlayViewService", () => {
     expect(actualResult).toContain("line1\nline2\nline3");
     expect(actualResult).not.toContain("line4");
     expect(actualResult).toContain(
-      "[read_file] total_file_lines=5 visible_line_range=1-3"
+      "[read_file] total_file_lines=5 visible_line_range=1-3",
     );
     expect(actualResult).not.toContain("requested_line_range");
     expect(actualResult).toContain(
-      "[truncation:read_file_lines] limit=3 lines_in_window=5 visible_line_range=1-3"
+      "[truncation:read_file_lines] limit=3 lines_in_window=5 visible_line_range=1-3",
     );
   });
 
@@ -374,7 +373,7 @@ describe("OverlayViewService", () => {
           return Promise.resolve(multiline);
         }
         return Promise.resolve("changed file content");
-      }
+      },
     );
     const service = createOverlayService(dependencies, [], [], {
       maxListFiles: 200,
@@ -389,10 +388,10 @@ describe("OverlayViewService", () => {
     expect(actualResult).toContain("requested_line_range=2-5");
     expect(actualResult).toContain("visible_line_range=2-4");
     expect(actualResult).toContain(
-      "[truncation:read_file_lines] limit=3 lines_in_window=4 visible_line_range=2-4"
+      "[truncation:read_file_lines] limit=3 lines_in_window=4 visible_line_range=2-4",
     );
     expect(actualResult).toContain(
-      "[truncation:read_file_chars] effective_limit=8 size_before_truncation=17"
+      "[truncation:read_file_chars] effective_limit=8 size_before_truncation=17",
     );
   });
 
@@ -416,7 +415,7 @@ describe("OverlayViewService", () => {
     expect(secondResult).toContain("line1\nline2");
     expect(secondResult).not.toContain("line3");
     expect(secondResult).toContain(
-      "[truncation:read_file_lines] limit=2 lines_in_window=4 visible_line_range=1-2"
+      "[truncation:read_file_lines] limit=2 lines_in_window=4 visible_line_range=1-2",
     );
     expect(codeHostGetFileContentSpy).toHaveBeenCalledTimes(1);
   });
@@ -424,7 +423,7 @@ describe("OverlayViewService", () => {
   it("reads unchanged files from MR head when available", async () => {
     const dependencies = createOverlayDependencies(["src/base.ts"]);
     dependencies.snapshotRepo.getFileContentMock.mockResolvedValue(
-      "snapshot content"
+      "snapshot content",
     );
     dependencies.codeHost.getFileContentMock.mockImplementation(
       (_projectId: number, sha: string, path: string) => {
@@ -432,7 +431,7 @@ describe("OverlayViewService", () => {
           return Promise.resolve("mr-head content");
         }
         return Promise.resolve("changed file content");
-      }
+      },
     );
     const service = createOverlayService(dependencies, ["src/changed.ts"]);
 
@@ -452,12 +451,12 @@ describe("OverlayViewService", () => {
           return Promise.resolve("ok");
         }
         return Promise.resolve("changed file content");
-      }
+      },
     );
     const service = createOverlayService(dependencies, []);
     const executeToolCall = service.createToolExecutor();
     const actualResult = await executeToolCall(
-      createReadFileCall({ path: "src/base.ts" })
+      createReadFileCall({ path: "src/base.ts" }),
     );
     expect(actualResult).toBe("ok");
   });
@@ -472,7 +471,7 @@ describe("OverlayViewService", () => {
           return Promise.resolve(longBody);
         }
         return Promise.resolve("changed file content");
-      }
+      },
     );
     const service = createOverlayService(dependencies, [], [], {
       maxListFiles: 200,
@@ -484,7 +483,7 @@ describe("OverlayViewService", () => {
     });
     const executeToolCall = service.createToolExecutor();
     const actualResult = await executeToolCall(
-      createReadFileCall({ path: "src/base.ts" })
+      createReadFileCall({ path: "src/base.ts" }),
     );
     expect(actualResult).toContain("[truncation:tool_response_chars]");
     expect(actualResult).toContain("limit=50");
@@ -508,11 +507,10 @@ describe("OverlayViewService", () => {
     expect(actualResult).not.toContain("tool_response_chars");
   });
 
-
   it("does not refetch a changed file from external code host on repeated reads", async () => {
     const changedFiles = Array.from(
       { length: 10 },
-      (_, i) => `src/changed${String(i)}.ts`
+      (_, i) => `src/changed${String(i)}.ts`,
     );
     const dependencies = createOverlayDependencies(["src/base.ts"]);
     dependencies.codeHost.getFileContentMock.mockResolvedValue("content");
@@ -526,14 +524,14 @@ describe("OverlayViewService", () => {
     await service.searchContent("content");
 
     expect(
-      dependencies.codeHost.getFileContentMock.mock.calls.length
+      dependencies.codeHost.getFileContentMock.mock.calls.length,
     ).toBeLessThanOrEqual(changedFiles.length);
   });
 
   it("reads changed file when read_file path has ./ prefix", async () => {
     const dependencies = createOverlayDependencies(["src/base.ts"]);
     dependencies.codeHost.getFileContentMock.mockResolvedValue(
-      "normalized changed content"
+      "normalized changed content",
     );
     const service = createOverlayService(dependencies, [
       "src/user/user.router.ts",
@@ -545,14 +543,14 @@ describe("OverlayViewService", () => {
     expect(dependencies.codeHost.getFileContentMock).toHaveBeenCalledWith(
       10,
       "mr-head-sha",
-      "src/user/user.router.ts"
+      "src/user/user.router.ts",
     );
   });
 
   it("resolves src fallback only when MR has src-prefixed paths", async () => {
     const dependencies = createOverlayDependencies(["src/base.ts"]);
     dependencies.codeHost.getFileContentMock.mockResolvedValue(
-      "src fallback content"
+      "src fallback content",
     );
     const service = createOverlayService(dependencies, [
       "src/user/user.router.ts",
@@ -564,7 +562,7 @@ describe("OverlayViewService", () => {
     expect(dependencies.codeHost.getFileContentMock).toHaveBeenCalledWith(
       10,
       "mr-head-sha",
-      "src/user/user.router.ts"
+      "src/user/user.router.ts",
     );
   });
 
@@ -593,7 +591,7 @@ describe("OverlayViewService", () => {
           return Promise.resolve("nested_pkg_src_body");
         }
         return Promise.resolve("");
-      }
+      },
     );
     const explicitResolutionDeclaredPrefixes: OverlayResolutionPathPrefixes = {
       prefixes: ["services/pkg"],
@@ -604,7 +602,7 @@ describe("OverlayViewService", () => {
       ["services/pkg/src/module/x.ts"],
       [],
       SPEC_OVERLAY_DEFAULT_LIMITS,
-      explicitResolutionDeclaredPrefixes
+      explicitResolutionDeclaredPrefixes,
     );
 
     const actualDeclaredRead = await service.readFile("module/x.ts");
@@ -613,14 +611,14 @@ describe("OverlayViewService", () => {
     expect(dependencies.codeHost.getFileContentMock).toHaveBeenCalledWith(
       10,
       "mr-head-sha",
-      "services/pkg/src/module/x.ts"
+      "services/pkg/src/module/x.ts",
     );
   });
 
   it("search_content keeps MR file when changed path has ./ prefix", async () => {
     const dependencies = createOverlayDependencies(["src/base.ts"]);
     dependencies.codeHost.getFileContentMock.mockResolvedValue(
-      "export const marker = 'found';"
+      "export const marker = 'found';",
     );
     const service = createOverlayService(dependencies, ["./src/changed.ts"]);
 

@@ -43,7 +43,7 @@ describe("triage prompt", () => {
 
     it("demands full coverage of every input hunk_id", () => {
       expect(buildTriageSystemPrompt()).toContain(
-        "every hunk_id from the input exactly once"
+        "every hunk_id from the input exactly once",
       );
     });
   });
@@ -86,7 +86,7 @@ describe("triage prompt", () => {
 
     it("reminds how to read each separated block", () => {
       expect(
-        buildTriageUserPrompt([makeHunk(), makeHunk({ id: 1 })])
+        buildTriageUserPrompt([makeHunk(), makeHunk({ id: 1 })]),
       ).toContain("numbered block");
     });
 

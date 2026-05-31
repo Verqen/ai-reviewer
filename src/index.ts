@@ -19,7 +19,7 @@ const fastify = Fastify({
 });
 
 const { appInjector, db, metricsRegistry, queue } = buildDiContainer(
-  fastify.log
+  fastify.log,
 );
 
 queue.onError((key, err, retriesLeft) => {
@@ -44,7 +44,7 @@ const pipelineConfig = appInjector.resolve(InjectionTokens.PipelineConfig);
 
 if (!webhookConfig.envs.WEBHOOK_SECRET) {
   fastify.log.warn(
-    "WEBHOOK_SECRET is not set, webhook endpoint is unauthenticated"
+    "WEBHOOK_SECRET is not set, webhook endpoint is unauthenticated",
   );
 }
 
@@ -67,13 +67,13 @@ const baselineService = new BaselineService(
   {
     pollMs: pipelineConfig.envs.REVIEW_BASELINE_POLL_MS,
     timeoutMs: pipelineConfig.envs.REVIEW_BASELINE_READY_TIMEOUT_MS,
-  }
+  },
 );
 const mainPushReviewService = new MainPushReviewService(
   infraRepoPorts,
   codeHost,
   queue,
-  fastify.log
+  fastify.log,
 );
 
 fastify.register(webhookRoute, {

@@ -50,7 +50,7 @@ function makeCodeHost(
     throwOnReplyToDiscussion?: Error;
     throwOnResolveDiscussion?: Error;
     throwOnUnresolveDiscussion?: Error;
-  } = {}
+  } = {},
 ): ICodeHost & {
   getCommitRangeDiffMock: ReturnType<typeof vi.fn>;
   getMergeRequestDiffMock: ReturnType<typeof vi.fn>;
@@ -75,7 +75,7 @@ function makeCodeHost(
       }
       replyToDiscussionCalls.push(discussionId);
       return Promise.resolve({ noteId: "n" });
-    }
+    },
   );
   const resolveDiscussionMock = vi.fn(
     (_pid: number, _mrIid: number, discussionId: string) => {
@@ -84,7 +84,7 @@ function makeCodeHost(
       }
       resolveDiscussionCalls.push(discussionId);
       return Promise.resolve();
-    }
+    },
   );
   const unresolveDiscussionMock = vi.fn(
     (_pid: number, _mrIid: number, discussionId: string) => {
@@ -93,7 +93,7 @@ function makeCodeHost(
       }
       unresolveDiscussionCalls.push(discussionId);
       return Promise.resolve();
-    }
+    },
   );
 
   const getCommitRangeDiffMock = vi.fn(
@@ -101,17 +101,17 @@ function makeCodeHost(
       _projectId: number,
       _from: string,
       _to: string,
-      _opts?: { straight?: boolean | undefined }
+      _opts?: { straight?: boolean | undefined },
     ) => {
       if (options.throwOnCommitRange) {
         return Promise.reject(options.throwOnCommitRange);
       }
       return Promise.resolve(options.commitRangeDiffs ?? []);
-    }
+    },
   );
 
   const getMergeRequestDiffMock = vi.fn(() =>
-    Promise.resolve(options.mrDiffs ?? options.commitRangeDiffs ?? [])
+    Promise.resolve(options.mrDiffs ?? options.commitRangeDiffs ?? []),
   );
 
   return {
@@ -135,7 +135,7 @@ function makeCodeHost(
         title: "t",
       }),
     getMergeRequestVersions: vi.fn(() =>
-      Promise.resolve({ baseSha: "base", headSha: "head", startSha: "start" })
+      Promise.resolve({ baseSha: "base", headSha: "head", startSha: "start" }),
     ),
     getRepositoryArchive: () => Promise.resolve([]),
     listOpenMergeRequests: () => Promise.resolve([]),
@@ -167,7 +167,7 @@ function makeInfraRepoPorts(
     findingsByRunId?: ReviewFinding[];
     latestRun?: { headCommitSha: string; id: string } | undefined;
     throwOnUpdateResolution?: Error;
-  } = {}
+  } = {},
 ): ReviewInfraRepoPorts & {
   updateResolutionManyCalls: string[][];
   updateResolutionManyMock: ReturnType<typeof vi.fn>;
@@ -234,8 +234,8 @@ function makeInfraRepoPorts(
                 status: "completed" as const,
                 triggerType: "mr_open" as const,
               }
-            : undefined
-        )
+            : undefined,
+        ),
       ),
       updateStats: () => Promise.resolve(),
       updateStatus: () => Promise.resolve(),
@@ -269,7 +269,7 @@ function buildIncrementalReviewService(
   codeHost: ICodeHost,
   orchestrator: PipelineOrchestrator,
   logger = createMockLogger(),
-  metrics: PipelineMetrics = createMockPipelineMetrics()
+  metrics: PipelineMetrics = createMockPipelineMetrics(),
 ): IncrementalReviewService {
   return new IncrementalReviewService(
     infraRepoPorts,
@@ -280,9 +280,9 @@ function buildIncrementalReviewService(
       infraRepoPorts,
       codeHost,
       makePipelineConfig(),
-      logger
+      logger,
     ),
-    metrics
+    metrics,
   );
 }
 
@@ -302,7 +302,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -321,7 +321,7 @@ describe("IncrementalReviewService", () => {
         1,
         "old-sha",
         "new-sha",
-        { straight: true }
+        { straight: true },
       );
     });
 
@@ -350,7 +350,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -391,7 +391,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -425,7 +425,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -462,7 +462,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -482,8 +482,8 @@ describe("IncrementalReviewService", () => {
       const scopedLines = call.diffs[0]?.lines ?? [];
       const referencedLines = scopedLines.flatMap((line) =>
         [line.newLine, line.oldLine].filter(
-          (value): value is number => value !== undefined
-        )
+          (value): value is number => value !== undefined,
+        ),
       );
       expect(referencedLines.every((line) => line >= 100)).toBe(true);
     });
@@ -496,7 +496,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -528,7 +528,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -567,7 +567,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -613,7 +613,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -648,7 +648,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -662,10 +662,10 @@ describe("IncrementalReviewService", () => {
         diffs: Array<{ newPath: string }>;
       };
       expect(call.diffs.map((d) => d.newPath).sort()).toEqual(
-        ["src/existing.ts", "src/new-file.ts"].sort()
+        ["src/existing.ts", "src/new-file.ts"].sort(),
       );
       expect((call.contextChangedPaths ?? []).sort()).toEqual(
-        ["src/existing.ts", "src/new-file.ts"].sort()
+        ["src/existing.ts", "src/new-file.ts"].sort(),
       );
     });
 
@@ -689,7 +689,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -726,7 +726,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -746,8 +746,8 @@ describe("IncrementalReviewService", () => {
       const scopedLines = call.diffs[0]?.lines ?? [];
       const referencedLines = scopedLines.flatMap((line) =>
         [line.newLine, line.oldLine].filter(
-          (value): value is number => value !== undefined
-        )
+          (value): value is number => value !== undefined,
+        ),
       );
       expect(referencedLines.every((line) => line >= 120)).toBe(true);
     });
@@ -770,7 +770,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -810,7 +810,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -854,7 +854,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -916,7 +916,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -954,7 +954,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -993,7 +993,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -1035,7 +1035,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -1081,7 +1081,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
       await service.run({
         mrIid: 42,
@@ -1124,7 +1124,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.run({
@@ -1159,7 +1159,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.runMainPushScopedReview({
@@ -1192,7 +1192,7 @@ describe("IncrementalReviewService", () => {
       const service = buildIncrementalReviewService(
         infraRepoPorts,
         codeHost,
-        orchestrator
+        orchestrator,
       );
 
       await service.runMainPushScopedReview({
@@ -1238,7 +1238,7 @@ describe("IncrementalReviewService", () => {
         codeHost,
         orchestrator,
         createMockLogger(),
-        metrics
+        metrics,
       );
 
       await service.run({
@@ -1251,10 +1251,10 @@ describe("IncrementalReviewService", () => {
 
       const output = await registry.metrics();
       expect(output).toMatch(
-        /ai_reviewer_files_skipped_total\{reason="lock"\} 1/
+        /ai_reviewer_files_skipped_total\{reason="lock"\} 1/,
       );
       expect(output).toMatch(
-        /ai_reviewer_files_skipped_total\{reason="translation"\} 1/
+        /ai_reviewer_files_skipped_total\{reason="translation"\} 1/,
       );
       const call = orchestrator.runCalls[0] as {
         diffs: { newPath: string }[];

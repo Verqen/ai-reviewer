@@ -9,14 +9,14 @@ import type {
 interface ILlmClient {
   chatCompletion(
     messages: ChatMessage[],
-    options?: LlmOptions
+    options?: LlmOptions,
   ): Promise<LlmResponse>;
 
   chatCompletionWithTools(
     messages: ChatMessage[],
     tools: ToolDefinition[],
     toolExecutor: (call: ToolCall) => Promise<string>,
-    options?: LlmOptions
+    options?: LlmOptions,
   ): Promise<LlmResponse>;
 }
 

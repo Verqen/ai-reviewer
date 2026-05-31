@@ -82,7 +82,7 @@ describe("buildFindingThreadClarificationSystemPrompt", () => {
     const prompt = buildFindingThreadClarificationSystemPrompt(
       "PROJECT_RULES_PLACEHOLDER",
       null,
-      { toolsAvailable: true }
+      { toolsAvailable: true },
     );
 
     expect(prompt).toContain("PROJECT_RULES_PLACEHOLDER");

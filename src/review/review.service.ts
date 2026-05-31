@@ -80,11 +80,11 @@ class ReviewService implements IReviewService {
     private readonly openRouterConfig: OpenRouterConfig,
     private readonly snapshotRepo: ISnapshotRepository,
     private readonly reviewHistoryService: ReviewHistoryService,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   private resolveTriageModelForReply(
-    repoConfig: Awaited<ReturnType<ReviewConfigLoader["load"]>>
+    repoConfig: Awaited<ReturnType<ReviewConfigLoader["load"]>>,
   ): string {
     if (repoConfig.modelOverrides?.triage) {
       return repoConfig.models.triage;
@@ -103,7 +103,7 @@ class ReviewService implements IReviewService {
     projectId: number,
     versions: VersionInfo,
     changedPaths: string[],
-    deletedPaths: string[]
+    deletedPaths: string[],
   ): Promise<IOverlayView | undefined> {
     const baseline = await this.snapshotRepo.getBaselineState(projectId);
     if (baseline?.status !== "ready") return undefined;
@@ -135,7 +135,7 @@ class ReviewService implements IReviewService {
         maxSearchResults: this.pipelineConfig.envs.OVERLAY_MAX_SEARCH_RESULTS,
         maxToolResponseChars:
           this.pipelineConfig.envs.OVERLAY_MAX_TOOL_RESPONSE_CHARS,
-      }
+      },
     );
     return overlay;
   }
@@ -180,14 +180,14 @@ class ReviewService implements IReviewService {
             projectId,
             versions,
             overlayChangedPaths,
-            overlayDeletedPaths ?? []
+            overlayDeletedPaths ?? [],
           ));
         const builtinDelegate = mrOverlayResolved?.createToolExecutor();
         const mrDiffByComparableNewPath = new Map<string, ParsedFileDiff>();
         for (const mrFileDiff of mrParsedDiffs) {
           mrDiffByComparableNewPath.set(
             normalizeComparableRepoPath(mrFileDiff.newPath),
-            mrFileDiff
+            mrFileDiff,
           );
         }
         const toolModels =
@@ -245,7 +245,7 @@ class ReviewService implements IReviewService {
             maxTokens,
             maxToolRounds,
             model: replyModel,
-          }
+          },
         );
         content = response.content;
       } else {
@@ -260,14 +260,14 @@ class ReviewService implements IReviewService {
               this.pipelineConfig.envs.COMMENT_RESPONSE_PROMPT_HARD_LIMIT,
             maxTokens,
             model: replyModel,
-          }
+          },
         );
         content = response.content;
       }
       if (content === null) {
         this.logger.warn(
           { mrIid, projectId, toolsAvailable },
-          "LLM returned null content for comment response; using fallback text"
+          "LLM returned null content for comment response; using fallback text",
         );
       }
       return content ?? COMMENT_RESPONSE_FALLBACK_TEXT;
@@ -280,7 +280,7 @@ class ReviewService implements IReviewService {
             mrIid,
             projectId,
           },
-          "Comment response skipped: prompt token hard limit exceeded"
+          "Comment response skipped: prompt token hard limit exceeded",
         );
         return COMMENT_RESPONSE_BUDGET_EXCEEDED_REPLY;
       }
@@ -291,7 +291,7 @@ class ReviewService implements IReviewService {
   async respondToComment(
     projectId: number,
     mrIid: number,
-    context: CommentContext
+    context: CommentContext,
   ): Promise<void> {
     this.logger.info({ mrIid, projectId }, "Responding to @ai comment");
 
@@ -303,7 +303,7 @@ class ReviewService implements IReviewService {
 
     const repoConfig = await this.reviewConfigLoader.load(
       projectId,
-      versions.headSha
+      versions.headSha,
     );
     const { pathRules: pathRulesText, projectRules: projectRulesText } =
       resolveProjectAndPathRulesText({
@@ -313,7 +313,7 @@ class ReviewService implements IReviewService {
 
     const focusedDiffs = context.newPath
       ? diffs.filter(
-          (d) => d.newPath === context.newPath || d.oldPath === context.newPath
+          (d) => d.newPath === context.newPath || d.oldPath === context.newPath,
         )
       : diffs;
     const diffsForPrompt =
@@ -322,14 +322,14 @@ class ReviewService implements IReviewService {
       diffsForPrompt,
       focusedDiffs.length === 0
         ? COMMENT_RESPONSE_FALLBACK_DIFF_CHARS
-        : undefined
+        : undefined,
     );
 
     const threadNotes = context.discussionId
       ? await this.codeHost.getDiscussionNotes(
           projectId,
           mrIid,
-          context.discussionId
+          context.discussionId,
         )
       : [];
 
@@ -378,7 +378,7 @@ class ReviewService implements IReviewService {
     const systemPrompt = buildCommentSystemPrompt(
       projectRulesText,
       pathRulesText,
-      { maxToolRounds, toolsAvailable }
+      { maxToolRounds, toolsAvailable },
     );
 
     const userPromptForModel = toolsAvailable
@@ -404,7 +404,7 @@ class ReviewService implements IReviewService {
         projectId,
         mrIid,
         context.discussionId,
-        responseText
+        responseText,
       );
     } else {
       await this.codeHost.postNote(projectId, mrIid, responseText);
@@ -417,11 +417,11 @@ class ReviewService implements IReviewService {
     projectId: number,
     mrIid: number,
     finding: ReviewFinding,
-    developerNote: string
+    developerNote: string,
   ): Promise<string> {
     this.logger.info(
       { findingId: finding.id, mrIid, projectId },
-      "Finding thread clarification: loading MR context"
+      "Finding thread clarification: loading MR context",
     );
 
     const baselineState = await this.snapshotRepo.getBaselineState(projectId);
@@ -429,7 +429,7 @@ class ReviewService implements IReviewService {
     if (baselineState?.status !== "ready") {
       this.logger.info(
         { mrIid, projectId },
-        FINDING_THREAD_CLARIFICATION_BASELINE_UNAVAILABLE_LOG
+        FINDING_THREAD_CLARIFICATION_BASELINE_UNAVAILABLE_LOG,
       );
       return runNarrowFindingClarification(this.llm, finding, developerNote);
     }
@@ -442,7 +442,7 @@ class ReviewService implements IReviewService {
 
     const repoConfig = await this.reviewConfigLoader.load(
       projectId,
-      versions.headSha
+      versions.headSha,
     );
 
     const { pathRules: pathRulesText, projectRules: projectRulesText } =
@@ -455,12 +455,12 @@ class ReviewService implements IReviewService {
     const overlayPathLists = buildOverlayPathListsFromParsedDiffs(parsedDiffs);
     const priorFindings = await this.reviewHistoryService.loadPriorFindings(
       projectId,
-      mrIid
+      mrIid,
     );
     const priorFindingsSummary = buildThreadPriorFindingsSummary(
       priorFindings,
       finding.id,
-      this.pipelineConfig.envs.THREAD_PRIOR_FINDINGS_MAX_CHARS
+      this.pipelineConfig.envs.THREAD_PRIOR_FINDINGS_MAX_CHARS,
     );
     let architectureSnapshot: string | undefined;
     if (this.pipelineConfig.envs.ARCHITECTURE_SNAPSHOT_ENABLED) {
@@ -487,7 +487,7 @@ class ReviewService implements IReviewService {
         ? await this.codeHost.getDiscussionNotes(
             projectId,
             mrIid,
-            discussionForThread
+            discussionForThread,
           )
         : [];
 
@@ -502,13 +502,13 @@ class ReviewService implements IReviewService {
       projectId,
       versions,
       overlayPathLists.changedPaths,
-      overlayPathLists.deletedPaths
+      overlayPathLists.deletedPaths,
     );
 
     if (!overlayViewPreset) {
       this.logger.info(
         { mrIid, projectId },
-        FINDING_THREAD_CLARIFICATION_BASELINE_UNAVAILABLE_LOG
+        FINDING_THREAD_CLARIFICATION_BASELINE_UNAVAILABLE_LOG,
       );
       return runNarrowFindingClarification(this.llm, finding, developerNote);
     }
@@ -529,7 +529,7 @@ class ReviewService implements IReviewService {
     const systemPrompt = buildFindingThreadClarificationSystemPrompt(
       projectRulesText,
       pathRulesText,
-      { maxToolRounds, toolsAvailable: toolsAvailableInPrompt }
+      { maxToolRounds, toolsAvailable: toolsAvailableInPrompt },
     );
 
     return this.composeAssistantCommentReply({
@@ -550,12 +550,11 @@ class ReviewService implements IReviewService {
     });
   }
 
-
   async reviewMergeRequest(
     projectId: number,
     mrIid: number,
     triggerType: TriggerType,
-    previousRunId?: string
+    previousRunId?: string,
   ): Promise<void> {
     this.logger.info({ mrIid, projectId, triggerType }, "Starting MR review");
 
@@ -587,7 +586,7 @@ class ReviewService implements IReviewService {
 
   private prepareDiffs(
     diffs: DiffFile[],
-    charCap?: number
+    charCap?: number,
   ): {
     diffText: string;
     parsedDiffs: ParsedFileDiff[];

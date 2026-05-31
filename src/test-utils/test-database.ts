@@ -15,7 +15,7 @@ interface TestDatabase {
 
 async function createTestDatabase(): Promise<TestDatabase> {
   const container: StartedTestContainer = await new GenericContainer(
-    "postgres:17-alpine"
+    "postgres:17-alpine",
   )
     .withEnvironment({
       POSTGRES_DB: "test_ai_reviewer",
@@ -24,7 +24,7 @@ async function createTestDatabase(): Promise<TestDatabase> {
     })
     .withExposedPorts(5432)
     .withWaitStrategy(
-      Wait.forLogMessage("database system is ready to accept connections", 2)
+      Wait.forLogMessage("database system is ready to accept connections", 2),
     )
     .start();
   const host = container.getHost();

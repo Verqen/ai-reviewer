@@ -4,7 +4,7 @@ type ToolExecutor = (call: ToolCall) => Promise<string>;
 
 function createDedupeToolExecutor(
   delegate: ToolExecutor,
-  cache: Map<string, Promise<string>>
+  cache: Map<string, Promise<string>>,
 ): ToolExecutor {
   return async function executeWithDedupe(call: ToolCall): Promise<string> {
     const key = buildToolCallCacheKey(call);
@@ -31,11 +31,11 @@ function toStableJson(value: unknown): string {
   }
   if (isObjectRecord(value)) {
     const sortedEntries = Object.entries(value).sort(([left], [right]) =>
-      left.localeCompare(right)
+      left.localeCompare(right),
     );
     const serializedEntries = sortedEntries.map(
       ([key, entryValue]: [string, unknown]) =>
-        `${JSON.stringify(key)}:${toStableJson(entryValue)}`
+        `${JSON.stringify(key)}:${toStableJson(entryValue)}`,
     );
     return `{${serializedEntries.join(",")}}`;
   }

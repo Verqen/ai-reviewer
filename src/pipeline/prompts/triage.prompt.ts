@@ -27,7 +27,7 @@ const TRIAGE_SYSTEM_PROMPT = [
 function buildTriageUserPrompt(hunks: readonly TriageHunkInput[]): string {
   const sections = hunks.map((hunk) => {
     return [`Hunk ${hunk.id}: ${hunk.filePath}`, hunk.header, hunk.body].join(
-      "\n"
+      "\n",
     );
   });
 

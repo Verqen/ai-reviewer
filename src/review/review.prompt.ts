@@ -9,7 +9,7 @@ const DEFAULT_COMMENT_PROMPT_TOOL_ROUNDS = 2;
 function buildBaseCommentSystemPrompt(
   toolsAvailable: boolean,
   maxToolRounds: number,
-  language: string
+  language: string,
 ): string {
   const toolsBlock = toolsAvailable
     ? [
@@ -43,7 +43,7 @@ function buildCommentSystemPrompt(
   } = {
     maxToolRounds: DEFAULT_COMMENT_PROMPT_TOOL_ROUNDS,
     toolsAvailable: false,
-  }
+  },
 ): string {
   const maxToolRounds =
     options.maxToolRounds ?? DEFAULT_COMMENT_PROMPT_TOOL_ROUNDS;
@@ -51,7 +51,7 @@ function buildCommentSystemPrompt(
   let prompt: string = buildBaseCommentSystemPrompt(
     options.toolsAvailable,
     maxToolRounds,
-    language
+    language,
   );
   if (projectRules) {
     prompt = injectProjectRules(prompt, projectRules);

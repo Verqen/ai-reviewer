@@ -14,11 +14,11 @@ function extractMessageText(msg: ChatMessage): string {
 
 function estimatePromptTokens(
   messages: ChatMessage[],
-  tools?: ToolDefinition[]
+  tools?: ToolDefinition[],
 ): number {
   const messageChars = messages.reduce(
     (acc, msg) => acc + extractMessageText(msg).length,
-    0
+    0,
   );
   const toolChars =
     tools && tools.length > 0 ? JSON.stringify(tools).length : 0;
@@ -28,10 +28,10 @@ function estimatePromptTokens(
 class PromptTokenBudgetExceededError extends Error {
   constructor(
     public readonly estimatedTokens: number,
-    public readonly hardLimit: number
+    public readonly hardLimit: number,
   ) {
     super(
-      `Estimated prompt tokens ${estimatedTokens} exceed hard limit ${hardLimit}`
+      `Estimated prompt tokens ${estimatedTokens} exceed hard limit ${hardLimit}`,
     );
     this.name = "PromptTokenBudgetExceededError";
   }
@@ -40,7 +40,7 @@ class PromptTokenBudgetExceededError extends Error {
 function assertPromptTokenBudget(
   messages: ChatMessage[],
   tools: ToolDefinition[] | undefined,
-  hardLimit: number | undefined
+  hardLimit: number | undefined,
 ): void {
   if (hardLimit === undefined) return;
   const estimated = estimatePromptTokens(messages, tools);

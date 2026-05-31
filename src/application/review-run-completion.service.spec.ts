@@ -17,7 +17,7 @@ describe("buildOverviewText", () => {
     });
 
     expect(text).toBe(
-      "⚠ AI review degraded: triage parser failed on 1/1 batches (model=minimax/m2.7); file-review found no issues. See logs reviewRunId=run-abc."
+      "⚠ AI review degraded: triage parser failed on 1/1 batches (model=minimax/m2.7); file-review found no issues. See logs reviewRunId=run-abc.",
     );
   });
 
@@ -35,7 +35,7 @@ describe("buildOverviewText", () => {
     });
 
     expect(text).toBe(
-      "⚠ AI review degraded: triage parser failed on 1/1 batches (model=minimax/m2.7). 3 finding(s), 2 posted inline. See logs reviewRunId=run-abc."
+      "⚠ AI review degraded: triage parser failed on 1/1 batches (model=minimax/m2.7). 3 finding(s), 2 posted inline. See logs reviewRunId=run-abc.",
     );
   });
 
@@ -53,7 +53,7 @@ describe("buildOverviewText", () => {
     });
 
     expect(text).toBe(
-      "⚠ AI review degraded: triage parser failed on 1/1 batches (model=minimax/m2.7). 3 finding(s), 2 posted inline, 1 repositioned after force-push. See logs reviewRunId=run-abc."
+      "⚠ AI review degraded: triage parser failed on 1/1 batches (model=minimax/m2.7). 3 finding(s), 2 posted inline, 1 repositioned after force-push. See logs reviewRunId=run-abc.",
     );
   });
 
@@ -119,7 +119,7 @@ describe("buildOverviewText", () => {
     });
 
     expect(text).toBe(
-      "AI review complete: 5 finding(s), 4 posted inline, 2 repositioned after force-push."
+      "AI review complete: 5 finding(s), 4 posted inline, 2 repositioned after force-push.",
     );
   });
 

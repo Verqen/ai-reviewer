@@ -115,7 +115,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const service = new ReviewRunLifecycleService(
       ports,
       createMockLogger(),
-      pipelineConfig
+      pipelineConfig,
     );
 
     const result = await service.startRun(makeStartParams());
@@ -131,7 +131,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const service = new ReviewRunLifecycleService(
       ports,
       createMockLogger(),
-      pipelineConfig
+      pipelineConfig,
     );
 
     const result = await service.startRun(makeStartParams());
@@ -153,7 +153,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const service = new ReviewRunLifecycleService(
       ports,
       createMockLogger(),
-      pipelineConfig
+      pipelineConfig,
     );
 
     const result = await service.startRun(makeStartParams());
@@ -181,7 +181,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const service = new ReviewRunLifecycleService(
       ports,
       createMockLogger(),
-      pipelineConfig
+      pipelineConfig,
     );
 
     const result = await service.startRun(makeStartParams());
@@ -207,7 +207,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const service = new ReviewRunLifecycleService(
       ports,
       createMockLogger(),
-      pipelineConfig
+      pipelineConfig,
     );
 
     const result = await service.startRun(makeStartParams());
@@ -223,7 +223,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const service = new ReviewRunLifecycleService(
       ports,
       createMockLogger(),
-      pipelineConfig
+      pipelineConfig,
     );
 
     const result = await service.startRun(makeStartParams("mention"));
@@ -242,7 +242,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const service = new ReviewRunLifecycleService(
       ports,
       createMockLogger(),
-      pipelineConfig
+      pipelineConfig,
     );
 
     const result = await service.startRun(makeStartParams());

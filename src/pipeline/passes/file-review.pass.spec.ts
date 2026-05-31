@@ -61,7 +61,7 @@ function buildContext(overrides: Partial<ReviewContext> = {}): ReviewContext {
 function buildFileReviewResponse(
   count = 1,
   severity = "warning",
-  filePath = "src/utils.ts"
+  filePath = "src/utils.ts",
 ): string {
   const findings = Array.from({ length: count }, (_, i) => ({
     category: "bug",
@@ -81,7 +81,7 @@ const DEFAULT_PHASE_A_ANALYSIS = "## Analysis\nRisk on L1 (added).";
 
 function createTwoPhaseMockLlm(
   phaseBContent: string,
-  phaseAAnalysis = DEFAULT_PHASE_A_ANALYSIS
+  phaseAAnalysis = DEFAULT_PHASE_A_ANALYSIS,
 ): ReturnType<typeof createMockLlmClient> {
   return createMockLlmClient({
     responses: [
@@ -129,14 +129,16 @@ describe("FileReviewPass", () => {
               "Either remove the injector creation or export the service from the module",
           },
         ],
-      })
+      }),
     );
     const pass = new FileReviewPass(llm, createMockLogger());
     const result = await pass.execute(buildContext(), new Map());
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.suggestion).toBeUndefined();
     expect(result.findings[0]?.comment).toContain("Original comment");
-    expect(result.findings[0]?.comment).toContain("Either remove the injector creation");
+    expect(result.findings[0]?.comment).toContain(
+      "Either remove the injector creation",
+    );
   });
 
   it("keeps empty-string suggestion for deletion-only apply block", async () => {
@@ -155,7 +157,7 @@ describe("FileReviewPass", () => {
             suggestion: "   ",
           },
         ],
-      })
+      }),
     );
     const pass = new FileReviewPass(llm, createMockLogger());
     const result = await pass.execute(buildContext(), new Map());
@@ -237,7 +239,7 @@ describe("FileReviewPass", () => {
     const successResponse = buildFileReviewResponse(
       1,
       "warning",
-      "src/file2.ts"
+      "src/file2.ts",
     );
     const llm = createMockLlmClient();
     llm.chatCompletionWithTools = () => {
@@ -299,15 +301,15 @@ describe("FileReviewPass", () => {
           severityThreshold: "info",
         }),
       }),
-      new Map()
+      new Map(),
     );
 
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const systemMessage = firstCall?.[0]?.find(
-      (message) => message.role === "system"
+      (message) => message.role === "system",
     );
     const userMessage = firstCall?.[0]?.find(
-      (message) => message.role === "user"
+      (message) => message.role === "user",
     );
     const systemText = Array.isArray(systemMessage?.content)
       ? systemMessage.content.map((b) => b.text).join("\n")
@@ -320,7 +322,7 @@ describe("FileReviewPass", () => {
     expect(userMessage?.content).toContain("Path rules:");
     expect(userMessage?.content).not.toContain("Allowable anchors");
     const extractionUser = llm.calls.chatCompletion[0]?.[0]?.find(
-      (message) => message.role === "user"
+      (message) => message.role === "user",
     );
     expect(extractionUser?.content).toContain("Allowable anchors");
   });
@@ -339,12 +341,12 @@ describe("FileReviewPass", () => {
           severityThreshold: "info",
         }),
       }),
-      new Map()
+      new Map(),
     );
     expect(result.findings).toHaveLength(1);
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const systemMessage = firstCall?.[0]?.find(
-      (message) => message.role === "system"
+      (message) => message.role === "system",
     );
     const blocks = systemMessage?.content as Array<{
       cacheControl?: { ttl: string; type: string };
@@ -433,11 +435,11 @@ describe("FileReviewPass", () => {
           severityThreshold: "info",
         }),
       }),
-      new Map()
+      new Map(),
     );
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const systemMessage = firstCall?.[0]?.find(
-      (message) => message.role === "system"
+      (message) => message.role === "system",
     );
     expect(Array.isArray(systemMessage?.content)).toBe(true);
     const blocks = systemMessage?.content as Array<{
@@ -472,12 +474,12 @@ describe("FileReviewPass", () => {
           },
         ],
       }),
-      new Map()
+      new Map(),
     );
 
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const systemMessage = firstCall?.[0]?.find(
-      (message) => message.role === "system"
+      (message) => message.role === "system",
     );
     const systemText = Array.isArray(systemMessage?.content)
       ? systemMessage.content.map((b) => b.text).join("\n")
@@ -517,9 +519,9 @@ describe("FileReviewPass", () => {
     const llm = createTwoPhaseMockLlm(offDiffResponse);
     const warnCalls: unknown[][] = [];
     const logger = createMockLogger();
-    logger.warn = ((...args: unknown[]): void => {
+    logger.warn = (...args: unknown[]): void => {
       warnCalls.push(args);
-    });
+    };
     const pass = new FileReviewPass(llm, logger);
     const result = await pass.execute(buildContext(), new Map());
 
@@ -529,7 +531,7 @@ describe("FileReviewPass", () => {
       warnCalls.some((args) => {
         const meta = args[0] as { off_diff_path?: string } | undefined;
         return meta?.off_diff_path === "apps/example-app/foo.ts";
-      })
+      }),
     ).toBe(true);
   });
   it("keeps finding when LLM returns oldPath for renamed file diff", async () => {
@@ -548,7 +550,7 @@ describe("FileReviewPass", () => {
             suggestion: null,
           },
         ],
-      })
+      }),
     );
     const pass = new FileReviewPass(llm, createMockLogger());
     const result = await pass.execute(
@@ -568,7 +570,7 @@ describe("FileReviewPass", () => {
           },
         ],
       }),
-      new Map()
+      new Map(),
     );
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.filePath).toBe("src/old-name.ts");
@@ -601,13 +603,13 @@ describe("FileReviewPass", () => {
             suggestion: null,
           },
         ],
-      })
+      }),
     );
     const warnCalls: unknown[][] = [];
     const logger = createMockLogger();
-    logger.warn = ((...args: unknown[]): void => {
+    logger.warn = (...args: unknown[]): void => {
       warnCalls.push(args);
-    });
+    };
     const pass = new FileReviewPass(llm, logger);
     const result = await pass.execute(buildContext(), new Map());
     expect(result.findings).toHaveLength(1);
@@ -616,7 +618,7 @@ describe("FileReviewPass", () => {
       warnCalls.some((args) => {
         const meta = args[0] as { reason?: string } | undefined;
         return meta?.reason === "line_number_not_in_hunk";
-      })
+      }),
     ).toBe(true);
   });
 
@@ -636,7 +638,7 @@ describe("FileReviewPass", () => {
             suggestion: null,
           },
         ],
-      })
+      }),
     );
     const pass = new FileReviewPass(llm, createMockLogger());
     const result = await pass.execute(buildContext(), new Map());
@@ -659,7 +661,7 @@ describe("FileReviewPass", () => {
             suggestion: null,
           },
         ],
-      })
+      }),
     );
     const pass = new FileReviewPass(llm, createMockLogger());
     const result = await pass.execute(
@@ -685,7 +687,7 @@ describe("FileReviewPass", () => {
           },
         ],
       }),
-      new Map()
+      new Map(),
     );
     expect(result.findings).toHaveLength(0);
   });
@@ -706,7 +708,7 @@ describe("FileReviewPass", () => {
             suggestion: null,
           },
         ],
-      })
+      }),
     );
     const pass = new FileReviewPass(llm, createMockLogger());
     const result = await pass.execute(buildContext(), new Map());
@@ -729,7 +731,7 @@ describe("FileReviewPass", () => {
             suggestion: null,
           },
         ],
-      })
+      }),
     );
     const pass = new FileReviewPass(llm, createMockLogger());
     const result = await pass.execute(buildContext(), new Map());
@@ -767,12 +769,12 @@ describe("FileReviewPass", () => {
           },
         ],
       }),
-      new Map()
+      new Map(),
     );
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const tools = firstCall?.[1]?.map((tool) => tool.name) ?? [];
     const userMessage = firstCall?.[0]?.find(
-      (message) => message.role === "user"
+      (message) => message.role === "user",
     );
     expect(tools).toContain("query_library_docs");
     expect(userMessage?.content).not.toContain("--- Library Documentation ---");
@@ -803,7 +805,7 @@ describe("FileReviewPass", () => {
       type: "added" as const,
     }));
     const llm = createTwoPhaseMockLlm(
-      buildFileReviewResponse(1, "warning", "src/huge-react.ts")
+      buildFileReviewResponse(1, "warning", "src/huge-react.ts"),
     );
     const pass = new FileReviewPass(llm, createMockLogger(), docProvider);
     await pass.execute(
@@ -816,12 +818,12 @@ describe("FileReviewPass", () => {
           },
         ],
       }),
-      new Map()
+      new Map(),
     );
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const tools = firstCall?.[1]?.map((tool) => tool.name) ?? [];
     const userMessage = firstCall?.[0]?.find(
-      (message) => message.role === "user"
+      (message) => message.role === "user",
     );
     expect(tools).not.toContain("doc_query");
     expect(userMessage?.content).toContain("--- Library Documentation ---");

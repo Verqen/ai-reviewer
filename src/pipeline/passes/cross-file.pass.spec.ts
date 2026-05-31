@@ -92,7 +92,7 @@ function buildCrossFileResponse(findingCount = 1): string {
 }
 
 function createMockOverlayView(
-  searchResults: Record<string, string> = {}
+  searchResults: Record<string, string> = {},
 ): IOverlayView {
   return {
     createToolExecutor: () => () => Promise.resolve(""),
@@ -101,7 +101,7 @@ function createMockOverlayView(
       Promise.resolve(`baseline content of ${path}`),
     searchContent: (pattern) =>
       Promise.resolve(
-        searchResults[pattern] ?? `No matches found for: ${pattern}`
+        searchResults[pattern] ?? `No matches found for: ${pattern}`,
       ),
   };
 }
@@ -183,7 +183,7 @@ describe("CrossFilePass", () => {
           severityThreshold: "info",
         }),
       }),
-      new Map()
+      new Map(),
     );
     const [firstCall] = llm.calls.chatCompletion;
     const systemMessage = firstCall?.[0]?.find((m) => m.role === "system");
@@ -270,7 +270,7 @@ describe("CrossFilePass", () => {
         ],
         overlayView: trackingOverlayView,
       }),
-      new Map()
+      new Map(),
     );
     expect(searchCalls).toEqual([]);
     expect(llm.calls.chatCompletion).toHaveLength(1);
@@ -290,7 +290,7 @@ describe("CrossFilePass", () => {
       },
       searchContent: () => {
         throw new Error(
-          "searchContent must not be called by cross-file gatherContext"
+          "searchContent must not be called by cross-file gatherContext",
         );
       },
     };
@@ -311,7 +311,7 @@ describe("CrossFilePass", () => {
         ],
         overlayView: trackingOverlayView,
       }),
-      new Map()
+      new Map(),
     );
     expect(readPaths.sort()).toEqual(["src/a.ts", "src/b.ts"]);
     const [firstCall] = llm.calls.chatCompletion;
@@ -346,9 +346,9 @@ describe("CrossFilePass", () => {
     const llm = createMockLlmClient({ defaultContent: offDiffResponse });
     const warnCalls: unknown[][] = [];
     const logger = createMockLogger();
-    logger.warn = ((...args: unknown[]): void => {
+    logger.warn = (...args: unknown[]): void => {
       warnCalls.push(args);
-    });
+    };
 
     const pass = new CrossFilePass(llm, logger);
     const result = await pass.execute(buildContext(), new Map());
@@ -359,7 +359,7 @@ describe("CrossFilePass", () => {
       warnCalls.some((args) => {
         const meta = args[0] as { off_diff_path?: string } | undefined;
         return meta?.off_diff_path === "apps/example-app/foo.ts";
-      })
+      }),
     ).toBe(true);
   });
 

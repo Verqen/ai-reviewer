@@ -11,7 +11,7 @@ class Application {
   constructor(
     private readonly app: FastifyInstance,
     private readonly appConfig: IConfig<AppConfigSchema>,
-    private readonly queue: IJobQueue<ReviewJob>
+    private readonly queue: IJobQueue<ReviewJob>,
   ) {
     process
       .once("unhandledRejection", (reason) => {
@@ -36,7 +36,7 @@ class Application {
     const shutdownTimeout = setTimeout(() => {
       this.app.log.warn(
         { elapsedMs: Date.now() - startedAt, timeoutMs },
-        "Shutdown timed out, halting now!"
+        "Shutdown timed out, halting now!",
       );
       process.exit(1);
     }, timeoutMs);
@@ -46,12 +46,12 @@ class Application {
     if (inFlight > 0) {
       this.app.log.info(
         { count: inFlight, timeoutMs },
-        "Waiting for in-flight reviews to complete"
+        "Waiting for in-flight reviews to complete",
       );
       await this.queue.drain();
       this.app.log.info(
         { drainElapsedMs: Date.now() - startedAt },
-        "In-flight reviews drained"
+        "In-flight reviews drained",
       );
     }
 

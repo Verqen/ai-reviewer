@@ -25,7 +25,7 @@ class SnapshotRepository implements ISnapshotRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
   async storeBlobs(
-    blobs: Array<{ hash: string; content: Buffer }>
+    blobs: Array<{ hash: string; content: Buffer }>,
   ): Promise<void> {
     for (let i = 0; i < blobs.length; i += BLOB_BATCH_SIZE) {
       const batch = blobs.slice(i, i + BLOB_BATCH_SIZE);
@@ -56,7 +56,7 @@ class SnapshotRepository implements ISnapshotRepository {
         .onConflict((oc) =>
           oc.columns(["project_id", "commit_sha"]).doUpdateSet({
             file_count: entries.length,
-          })
+          }),
         )
         .execute();
 
@@ -75,14 +75,14 @@ class SnapshotRepository implements ISnapshotRepository {
               commit_sha: commitSha,
               file_path: e.filePath,
               project_id: projectId,
-            }))
+            })),
           )
           .onConflict((oc) =>
             oc
               .columns(["project_id", "commit_sha", "file_path"])
               .doUpdateSet((eb) => ({
                 blob_hash: eb.ref("excluded.blob_hash"),
-              }))
+              })),
           )
           .execute();
       }
@@ -92,14 +92,14 @@ class SnapshotRepository implements ISnapshotRepository {
   async getFileContent(
     projectId: number,
     commitSha: string,
-    filePath: string
+    filePath: string,
   ): Promise<string | null> {
     const result = await this.db
       .selectFrom("snapshot_entry")
       .innerJoin(
         "snapshot_blob",
         "snapshot_blob.hash",
-        "snapshot_entry.blob_hash"
+        "snapshot_entry.blob_hash",
       )
       .select(sql<string>`encode(snapshot_blob.content, 'escape')`.as("text"))
       .where("snapshot_entry.project_id", "=", projectId)
@@ -112,7 +112,7 @@ class SnapshotRepository implements ISnapshotRepository {
 
   async listPackageRootsFromSnapshot(
     projectId: number,
-    commitSha: string
+    commitSha: string,
   ): Promise<PackageRootsInsight> {
     const [hasTopLevelRow, rootRows] = await Promise.all([
       sql<{ hasTopLevelSrcTree: boolean }>`
@@ -157,7 +157,7 @@ class SnapshotRepository implements ISnapshotRepository {
       `.execute(this.db),
     ]);
     const hasTopLevelSrcTree = Boolean(
-      hasTopLevelRow.rows[0]?.hasTopLevelSrcTree
+      hasTopLevelRow.rows[0]?.hasTopLevelSrcTree,
     );
     const roots: string[] = [];
     const usingSrcList: string[] = [];
@@ -174,11 +174,10 @@ class SnapshotRepository implements ISnapshotRepository {
     };
   }
 
-
   async listFiles(
     projectId: number,
     commitSha: string,
-    pattern?: string
+    pattern?: string,
   ): Promise<string[]> {
     let query = this.db
       .selectFrom("snapshot_entry")
@@ -189,7 +188,7 @@ class SnapshotRepository implements ISnapshotRepository {
     if (pattern) {
       if (!filePathGlobPatternHasMagic(pattern)) {
         query = query.where(
-          sql<SqlBool>`starts_with(file_path, ${normalizeFilePathForGlob(pattern)})`
+          sql<SqlBool>`starts_with(file_path, ${normalizeFilePathForGlob(pattern)})`,
         );
       } else {
         const regexSource = getFilePathGlobPosixRegexSource(pattern);
@@ -212,14 +211,14 @@ class SnapshotRepository implements ISnapshotRepository {
     projectId: number,
     commitSha: string,
     pattern: string,
-    glob?: string
+    glob?: string,
   ): Promise<ContentMatch[]> {
     let query = this.db
       .selectFrom("snapshot_entry")
       .innerJoin(
         "snapshot_blob",
         "snapshot_blob.hash",
-        "snapshot_entry.blob_hash"
+        "snapshot_entry.blob_hash",
       )
       .select([
         "snapshot_entry.file_path",
@@ -230,13 +229,13 @@ class SnapshotRepository implements ISnapshotRepository {
       .where(
         sql`encode(snapshot_blob.content, 'escape')`,
         "like",
-        `%${pattern}%`
+        `%${pattern}%`,
       );
 
     if (glob) {
       if (!filePathGlobPatternHasMagic(glob)) {
         query = query.where(
-          sql<SqlBool>`starts_with(snapshot_entry.file_path, ${normalizeFilePathForGlob(glob)})`
+          sql<SqlBool>`starts_with(snapshot_entry.file_path, ${normalizeFilePathForGlob(glob)})`,
         );
       } else {
         const regexSource = getFilePathGlobPosixRegexSource(glob);
@@ -244,7 +243,7 @@ class SnapshotRepository implements ISnapshotRepository {
           query = query.where(sql<SqlBool>`false`);
         } else {
           query = query.where(
-            sql<SqlBool>`snapshot_entry.file_path ~ ${regexSource}`
+            sql<SqlBool>`snapshot_entry.file_path ~ ${regexSource}`,
           );
         }
       }
@@ -281,7 +280,7 @@ class SnapshotRepository implements ISnapshotRepository {
     projectId: number,
     commitSha: string,
     status: BaselineState["status"],
-    errorMessage?: string
+    errorMessage?: string,
   ): Promise<void> {
     await this.db
       .insertInto("baseline_state")
@@ -297,7 +296,7 @@ class SnapshotRepository implements ISnapshotRepository {
           error_message: errorMessage ?? null,
           status,
           updated_at: sql`NOW()`,
-        })
+        }),
       )
       .execute();
   }
@@ -306,7 +305,7 @@ class SnapshotRepository implements ISnapshotRepository {
     projectId: number,
     fromSha: string,
     toSha: string,
-    excludePaths?: Set<string>
+    excludePaths?: Set<string>,
   ): Promise<number> {
     const existingEntries = await this.db
       .selectFrom("snapshot_entry")
@@ -334,10 +333,10 @@ class SnapshotRepository implements ISnapshotRepository {
             commit_sha: toSha,
             file_path: e.file_path,
             project_id: projectId,
-          }))
+          })),
         )
         .onConflict((oc) =>
-          oc.columns(["project_id", "commit_sha", "file_path"]).doNothing()
+          oc.columns(["project_id", "commit_sha", "file_path"]).doNothing(),
         )
         .execute();
     }
@@ -365,19 +364,19 @@ class SnapshotRepository implements ISnapshotRepository {
               .whereRef(
                 "baseline_state.project_id",
                 "=",
-                "snapshot_commit.project_id"
+                "snapshot_commit.project_id",
               )
               .whereRef(
                 "baseline_state.commit_sha",
                 "=",
-                "snapshot_commit.commit_sha"
+                "snapshot_commit.commit_sha",
               )
-              .where("baseline_state.updated_at", "<", now)
-          )
+              .where("baseline_state.updated_at", "<", now),
+          ),
         )
         .executeTakeFirst();
       const deletedStaleBaselineCommits = Number(
-        deleteStaleBaselineCommitsResult.numDeletedRows ?? 0n
+        deleteStaleBaselineCommitsResult.numDeletedRows ?? 0n,
       );
       await trx
         .deleteFrom("baseline_state")
@@ -395,19 +394,19 @@ class SnapshotRepository implements ISnapshotRepository {
                 .whereRef(
                   "baseline_state.project_id",
                   "=",
-                  "snapshot_commit.project_id"
+                  "snapshot_commit.project_id",
                 )
                 .whereRef(
                   "baseline_state.commit_sha",
                   "=",
-                  "snapshot_commit.commit_sha"
-                )
-            )
-          )
+                  "snapshot_commit.commit_sha",
+                ),
+            ),
+          ),
         )
         .executeTakeFirst();
       const deletedOldCommits = Number(
-        deleteOldCommitsResult.numDeletedRows ?? 0n
+        deleteOldCommitsResult.numDeletedRows ?? 0n,
       );
       await this.deleteOrphanSnapshotBlobs(trx);
       return deletedStaleBaselineCommits + deletedOldCommits;
@@ -423,9 +422,9 @@ class SnapshotRepository implements ISnapshotRepository {
             eb
               .selectFrom("snapshot_entry")
               .select("blob_hash")
-              .whereRef("snapshot_entry.blob_hash", "=", "snapshot_blob.hash")
-          )
-        )
+              .whereRef("snapshot_entry.blob_hash", "=", "snapshot_blob.hash"),
+          ),
+        ),
       )
       .execute();
   }

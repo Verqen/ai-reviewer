@@ -59,7 +59,7 @@ const SKIP_RULES: readonly SkipRule[] = RULE_DEFINITIONS.map(
   ([category, pattern]) => ({
     category,
     matcher: new Minimatch(pattern, { dot: true, nocase: false }),
-  })
+  }),
 );
 
 function shouldSkip(path: string): boolean {

@@ -7,7 +7,7 @@ import { createMockLogger } from "~/test-utils/mock-logger";
 import { detectIncrementalTrigger } from "./detect-incremental-trigger";
 
 function makeCodeHost(
-  getCommitRangeDiff: ICodeHost["getCommitRangeDiff"]
+  getCommitRangeDiff: ICodeHost["getCommitRangeDiff"],
 ): ICodeHost {
   return { getCommitRangeDiff } as unknown as ICodeHost;
 }
@@ -29,7 +29,7 @@ describe("detectIncrementalTrigger", () => {
       {
         currentBaseSha: "main-tip-new",
         previousBaseSha: "main-tip-old",
-      }
+      },
     );
     expect(result).toBe("rebase");
     expect(getCommitRangeDiff).not.toHaveBeenCalled();
@@ -47,20 +47,20 @@ describe("detectIncrementalTrigger", () => {
       {
         currentBaseSha: "main-tip",
         previousBaseSha: "main-tip",
-      }
+      },
     );
     expect(result).toBe("push");
     expect(getCommitRangeDiff).toHaveBeenCalledWith(
       projectId,
       previousSha,
       newHeadSha,
-      { straight: true }
+      { straight: true },
     );
   });
 
   it("returns 'force_push' when base SHA unchanged and previous SHA is unreachable (404)", async () => {
     const codeHost = makeCodeHost(
-      vi.fn().mockRejectedValue(new GitLabNotFoundError("not found"))
+      vi.fn().mockRejectedValue(new GitLabNotFoundError("not found")),
     );
     const result = await detectIncrementalTrigger(
       codeHost,
@@ -71,7 +71,7 @@ describe("detectIncrementalTrigger", () => {
       {
         currentBaseSha: "main-tip",
         previousBaseSha: "main-tip",
-      }
+      },
     );
     expect(result).toBe("force_push");
   });
@@ -83,7 +83,7 @@ describe("detectIncrementalTrigger", () => {
       projectId,
       previousSha,
       newHeadSha,
-      createMockLogger()
+      createMockLogger(),
     );
     expect(result).toBe("push");
   });
@@ -99,21 +99,21 @@ describe("detectIncrementalTrigger", () => {
       {
         currentBaseSha: "",
         previousBaseSha: "",
-      }
+      },
     );
     expect(result).toBe("push");
   });
 
   it("returns 'force_push' on generic errors when no base SHA hints provided", async () => {
     const codeHost = makeCodeHost(
-      vi.fn().mockRejectedValue(new Error("network blew up"))
+      vi.fn().mockRejectedValue(new Error("network blew up")),
     );
     const result = await detectIncrementalTrigger(
       codeHost,
       projectId,
       previousSha,
       newHeadSha,
-      createMockLogger()
+      createMockLogger(),
     );
     expect(result).toBe("force_push");
   });

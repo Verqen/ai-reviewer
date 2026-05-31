@@ -7,7 +7,7 @@ interface MetricsRouteOptions {
 
 function metricsRoute(
   app: FastifyInstance,
-  { registry }: MetricsRouteOptions
+  { registry }: MetricsRouteOptions,
 ): void {
   app.get("/metrics", async (_req, reply) => {
     const body = await registry.metrics();

@@ -29,7 +29,7 @@ function buildFileReviewAnalysisSystemBlocks(
   projectRules: string | null,
   architectureSnapshot: string | undefined,
   applyCacheControl: boolean,
-  language: string = getReviewLanguage()
+  language: string = getReviewLanguage(),
 ): TextBlock[] {
   let text = [
     "You are reviewing one file diff.",
@@ -63,7 +63,7 @@ function buildFileReviewAnalysisSystemBlocks(
 
 function buildFileReviewExtractionSystemBlocks(
   applyCacheControl: boolean,
-  language: string = getReviewLanguage()
+  language: string = getReviewLanguage(),
 ): TextBlock[] {
   const text = [
     `You convert a prior ${language} code-review analysis into a machine-readable findings list.`,
@@ -97,7 +97,7 @@ function buildFileReviewAnalysisUserPrompt(
   diffText: string,
   pathRules: string | null,
   codebaseContext?: string,
-  docContext?: string
+  docContext?: string,
 ): string {
   const parts = [
     `MR: ${mrInfo.title}`,

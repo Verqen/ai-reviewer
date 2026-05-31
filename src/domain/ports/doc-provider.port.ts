@@ -9,7 +9,7 @@ interface IDocProvider {
   queryDocs(
     libraryId: string,
     topic: string,
-    maxTokens?: number
+    maxTokens?: number,
   ): Promise<string>;
   resolveLibrary(name: string, query?: string): Promise<LibraryInfo | null>;
 }

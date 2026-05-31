@@ -12,7 +12,7 @@ interface InlinePositionResult {
 
 function findExactMatch(
   finding: Finding,
-  fileDiff: ParsedFileDiff
+  fileDiff: ParsedFileDiff,
 ): DiffLine | null {
   const match = fileDiff.lines.find((line) => {
     if (finding.lineType === "removed") {
@@ -30,7 +30,7 @@ function makePosition(
   finding: Finding,
   versions: VersionInfo,
   fileDiff: ParsedFileDiff,
-  matchingLine: DiffLine
+  matchingLine: DiffLine,
 ): InlinePosition | null {
   const position: InlinePosition = {
     baseSha: versions.baseSha,
@@ -62,7 +62,7 @@ function makePosition(
 function buildPosition(
   finding: Finding,
   versions: VersionInfo,
-  diffs: ParsedFileDiff[]
+  diffs: ParsedFileDiff[],
 ): InlinePositionResult | null {
   const fileDiff = diffs.find((d) => d.newPath === finding.filePath);
   if (!fileDiff) {
@@ -79,7 +79,7 @@ function buildPosition(
 function originalSnippetMatchesDiff(
   originalSnippet: string,
   finding: Finding,
-  diffs: ParsedFileDiff[]
+  diffs: ParsedFileDiff[],
 ): boolean {
   const fileDiff = diffs.find((d) => d.newPath === finding.filePath);
   if (!fileDiff) {

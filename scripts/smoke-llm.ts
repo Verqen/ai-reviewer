@@ -46,7 +46,7 @@ const FAKE_READ_FILE_TOOL: ToolDefinition = {
 
 async function probePlain(
   llm: ILlmClient,
-  model: string
+  model: string,
 ): Promise<ProbeResult> {
   const messages: ChatMessage[] = [
     { content: "Say only the word OK.", role: "user" },
@@ -78,7 +78,7 @@ async function probePlain(
 
 async function probeJsonSchema(
   llm: ILlmClient,
-  model: string
+  model: string,
 ): Promise<ProbeResult> {
   const messages: ChatMessage[] = [
     {
@@ -132,7 +132,7 @@ async function probeJsonSchema(
 
 async function probeToolCall(
   llm: ILlmClient,
-  model: string
+  model: string,
 ): Promise<ProbeResult> {
   const messages: ChatMessage[] = [
     {
@@ -159,7 +159,7 @@ async function probeToolCall(
         maxToolRounds: 2,
         model,
         temperature: 0,
-      }
+      },
     );
     return {
       completionTokens: res.usage.completionTokens,
@@ -190,7 +190,7 @@ function formatResult(label: string, model: string, r: ProbeResult): string {
 
 async function runSuite(
   llm: ILlmClient,
-  models: { label: string; model: string }[]
+  models: { label: string; model: string }[],
 ): Promise<{ failures: number }> {
   let failures = 0;
   for (const { label, model } of models) {

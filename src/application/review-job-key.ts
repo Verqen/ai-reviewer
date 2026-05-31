@@ -1,6 +1,6 @@
 export function buildCanonicalMrReviewJobKey(
   projectId: number,
-  mrIid: number
+  mrIid: number,
 ): string {
   return `full_review:${projectId}:${mrIid}`;
 }

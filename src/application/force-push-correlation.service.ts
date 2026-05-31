@@ -26,14 +26,14 @@ class ForcePushCorrelationService {
     private readonly infraRepoPorts: ReviewInfraRepoPorts,
     private readonly codeHost: ICodeHost,
     private readonly pipelineConfig: PipelineConfig,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async execute(
     pendingFindings: ReviewFinding[],
     parsedDiffs: ParsedFileDiff[],
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<ForcePushCorrelationResult> {
     const lineMatchTabWidth =
       this.pipelineConfig.envs.FORCE_PUSH_LINE_MATCH_TAB_WIDTH;
@@ -45,7 +45,7 @@ class ForcePushCorrelationService {
     const addressedFindingIds = await this.markAddressedMany(
       plan.findingsToMarkAddressed,
       projectId,
-      mrIid
+      mrIid,
     );
     const addressed: string[] = [];
     const pending = [...plan.pendingFindingIds];
@@ -66,7 +66,7 @@ class ForcePushCorrelationService {
   private async markAddressedMany(
     findings: readonly ReviewFinding[],
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<Set<string>> {
     if (findings.length === 0) {
       return new Set();
@@ -81,18 +81,18 @@ class ForcePushCorrelationService {
           projectId,
           mrIid,
           finding.hostDiscussionId,
-          FORCE_PUSH_ADDRESS_REPLY
+          FORCE_PUSH_ADDRESS_REPLY,
         );
         await this.codeHost.resolveDiscussion(
           projectId,
           mrIid,
-          finding.hostDiscussionId
+          finding.hostDiscussionId,
         );
         resolvedFindings.push(finding);
       } catch (err) {
         this.logger.warn(
           { discussionId: finding.hostDiscussionId, err },
-          "Failed to resolve discussion for finding after force-push; keeping pending"
+          "Failed to resolve discussion for finding after force-push; keeping pending",
         );
       }
     }
@@ -103,12 +103,12 @@ class ForcePushCorrelationService {
     try {
       await this.infraRepoPorts.reviewFindingRepo.updateResolutionMany(
         addressedIds,
-        "addressed"
+        "addressed",
       );
     } catch (err) {
       const rollbackRefs = resolvedFindings
         .filter((f): f is ReviewFinding & { hostDiscussionId: string } =>
-          Boolean(f.hostDiscussionId)
+          Boolean(f.hostDiscussionId),
         )
         .map((f) => ({
           discussionId: f.hostDiscussionId,
@@ -121,11 +121,11 @@ class ForcePushCorrelationService {
           mrIid,
           projectId,
         },
-        rollbackRefs
+        rollbackRefs,
       );
       this.logger.warn(
         { addressedIds, err },
-        "Failed to mark findings as addressed; keeping pending"
+        "Failed to mark findings as addressed; keeping pending",
       );
       return new Set();
     }

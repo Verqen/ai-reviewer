@@ -24,7 +24,7 @@ interface HealthRouteOptions {
 
 function healthRoute(
   app: FastifyInstance,
-  { db, queue }: HealthRouteOptions
+  { db, queue }: HealthRouteOptions,
 ): void {
   app.get("/health", async (_req, reply) => {
     let dbStatus: HealthCheckStatus = "ok";

@@ -15,7 +15,7 @@ interface ISnapshotRepository {
     projectId: number,
     fromSha: string,
     toSha: string,
-    excludePaths?: Set<string>
+    excludePaths?: Set<string>,
   ): Promise<number>;
 
   deleteCommit(projectId: number, commitSha: string): Promise<void>;
@@ -27,32 +27,32 @@ interface ISnapshotRepository {
   getFileContent(
     projectId: number,
     commitSha: string,
-    filePath: string
+    filePath: string,
   ): Promise<string | null>;
 
   listFiles(
     projectId: number,
     commitSha: string,
-    pattern?: string
+    pattern?: string,
   ): Promise<string[]>;
 
   listPackageRootsFromSnapshot(
     projectId: number,
-    commitSha: string
+    commitSha: string,
   ): Promise<PackageRootsInsight>;
 
   searchContent(
     projectId: number,
     commitSha: string,
     pattern: string,
-    glob?: string
+    glob?: string,
   ): Promise<ContentMatch[]>;
 
   setBaselineState(
     projectId: number,
     commitSha: string,
     status: BaselineState["status"],
-    errorMessage?: string
+    errorMessage?: string,
   ): Promise<void>;
 
   storeBlobs(blobs: Array<{ hash: string; content: Buffer }>): Promise<void>;

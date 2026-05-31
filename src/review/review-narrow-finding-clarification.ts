@@ -13,7 +13,7 @@ async function runNarrowFindingClarification(
   llm: ILlmClient,
   finding: ReviewFinding,
   developerNote: string,
-  language: string = getReviewLanguage()
+  language: string = getReviewLanguage(),
 ): Promise<string> {
   const location = finding.endLineNumber
     ? `${finding.filePath}:${finding.lineNumber}-${finding.endLineNumber}`

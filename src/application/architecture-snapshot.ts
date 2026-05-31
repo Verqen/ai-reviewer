@@ -17,7 +17,7 @@ type BuildArchitectureSnapshotParams = {
 };
 
 async function buildArchitectureSnapshot(
-  params: BuildArchitectureSnapshotParams
+  params: BuildArchitectureSnapshotParams,
 ): Promise<string | undefined> {
   const { commitSha, limits, logger, projectId, snapshotRepo } = params;
   try {
@@ -65,14 +65,14 @@ async function buildArchitectureSnapshot(
           truncatedPackageJson,
           truncatedTotal,
         },
-        "Architecture snapshot clamped by limits"
+        "Architecture snapshot clamped by limits",
       );
     }
     return output;
   } catch (err) {
     logger.warn(
       { err, projectId },
-      "Failed to build architecture snapshot; file-review will fall back to no snapshot"
+      "Failed to build architecture snapshot; file-review will fall back to no snapshot",
     );
     return undefined;
   }

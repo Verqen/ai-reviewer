@@ -47,11 +47,11 @@ function range<T>(count: number, build: (i: number) => T): T[] {
 describe("token budget guard (architectural)", () => {
   it("skip-filter eliminates configs, migrations and declarations on a realistic 75-file MR", () => {
     const reviewable = REALISTIC_75_FILE_MR.filter(
-      (f) => getPrimarySkipReason(f.path) === null
+      (f) => getPrimarySkipReason(f.path) === null,
     );
 
     const reviewableSources = reviewable.filter(
-      (f) => f.category === "source" || f.category === "spec"
+      (f) => f.category === "source" || f.category === "spec",
     );
 
     expect(reviewable.length).toBeLessThanOrEqual(45);
@@ -59,22 +59,22 @@ describe("token budget guard (architectural)", () => {
 
     const skippedCategories = new Set(
       REALISTIC_75_FILE_MR.filter(
-        (f) => getPrimarySkipReason(f.path) !== null
-      ).map((f) => f.category)
+        (f) => getPrimarySkipReason(f.path) !== null,
+      ).map((f) => f.category),
     );
     expect(skippedCategories).toEqual(
-      new Set(["config", "migration", "declaration"])
+      new Set(["config", "migration", "declaration"]),
     );
   });
 
   it("estimated file-review prompt budget for a realistic 75-file MR stays under the run-level cap of the previous design (25K)", () => {
     const reviewable = REALISTIC_75_FILE_MR.filter(
-      (f) => getPrimarySkipReason(f.path) === null
+      (f) => getPrimarySkipReason(f.path) === null,
     );
     const estimatedBytes =
       reviewable.length * AVG_CHARS_PER_REVIEWED_FILE_PROMPT;
     const estimatedPromptTokens = Math.ceil(
-      estimatedBytes / APPROX_CHARS_PER_TOKEN
+      estimatedBytes / APPROX_CHARS_PER_TOKEN,
     );
 
     expect(reviewable.length).toBeLessThanOrEqual(45);

@@ -11,14 +11,14 @@ import type {
 
 async function handleMrUpdate(
   deps: WebhookOrchestratorDeps,
-  event: Extract<WebhookEvent, { type: "mr_update" }>
+  event: Extract<WebhookEvent, { type: "mr_update" }>,
 ): Promise<WebhookOrchestrationResult> {
   const { headSha, mrIid, previousHeadSha, projectId } = event;
   await ensureBaseline(
     projectId,
     deps.snapshotRepo,
     deps.queue,
-    deps.jobHandler
+    deps.jobHandler,
   );
   const reviewKey = buildCanonicalMrReviewJobKey(projectId, mrIid);
   if (deps.queue.isPending(reviewKey)) {
@@ -28,7 +28,7 @@ async function handleMrUpdate(
     projectId,
     mrIid,
     undefined,
-    { includeFailedForBaseline: true }
+    { includeFailedForBaseline: true },
   );
   if (!previousRun) {
     const job: ReviewJob = {
@@ -45,7 +45,7 @@ async function handleMrUpdate(
   }
   const versions = await deps.codeHost.getMergeRequestVersions(
     projectId,
-    mrIid
+    mrIid,
   );
   const hasPreviousBaseSha =
     typeof previousRun.baseCommitSha === "string" &&
@@ -60,7 +60,7 @@ async function handleMrUpdate(
         projectId,
         resolvedPreviousSha,
         headSha,
-        deps.log
+        deps.log,
       );
   const job: ReviewJob = {
     mrIid,

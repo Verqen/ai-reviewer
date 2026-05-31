@@ -135,7 +135,7 @@ class PipelineMetrics {
     this.tokensInput.inc({ model: call.model, phase: call.phase }, inputTokens);
     this.tokensOutput.inc(
       { model: call.model, phase: call.phase },
-      outputTokens
+      outputTokens,
     );
     if (safeCachedInput > 0) {
       this.tokensCached.inc({ model: call.model }, safeCachedInput);
@@ -144,7 +144,7 @@ class PipelineMetrics {
     if (inputTokens > 0) {
       this.cacheHitRate.set(
         { model: call.model },
-        safeCachedInput / inputTokens
+        safeCachedInput / inputTokens,
       );
     }
 

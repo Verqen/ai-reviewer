@@ -35,7 +35,7 @@ class ThreadManagerService {
     private readonly codeHost: ICodeHost,
     private readonly reviewLearningService: ReviewLearningService,
     private readonly reviewService: IReviewService,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async handleReply(input: HandleReplyInput): Promise<void> {
@@ -43,26 +43,26 @@ class ThreadManagerService {
 
     const findings = await this.reviewFindingRepo.findByProjectAndMr(
       projectId,
-      mrIid
+      mrIid,
     );
 
     const finding = findings.find(
       (currentFinding) =>
         currentFinding.hostDiscussionId === discussionId &&
-        currentFinding.resolution === "pending"
+        currentFinding.resolution === "pending",
     );
 
     if (!finding) {
       this.logger.info(
         { discussionId, mrIid, projectId },
-        "Thread reply has no matching pending finding; ignoring (use @ai mention to invoke full review context)"
+        "Thread reply has no matching pending finding; ignoring (use @ai mention to invoke full review context)",
       );
       return;
     }
 
     const classifiedIntent = await this.reviewLearningService.classifyIntent(
       finding.comment,
-      noteBody
+      noteBody,
     );
 
     switch (classifiedIntent.intent) {
@@ -75,7 +75,7 @@ class ThreadManagerService {
           noteBody,
           authorUsername,
           classifiedIntent,
-          "Understood, marking as false positive."
+          "Understood, marking as false positive.",
         );
         break;
 
@@ -88,7 +88,7 @@ class ThreadManagerService {
           noteBody,
           authorUsername,
           classifiedIntent,
-          "Acknowledged as accepted technical debt."
+          "Acknowledged as accepted technical debt.",
         );
         break;
 
@@ -101,7 +101,7 @@ class ThreadManagerService {
           noteBody,
           authorUsername,
           classifiedIntent,
-          "Good point, resolving."
+          "Good point, resolving.",
         );
         break;
 
@@ -114,13 +114,13 @@ class ThreadManagerService {
             mrIid,
             projectId,
           },
-          "Developer agreed with finding; posting ack and resolving"
+          "Developer agreed with finding; posting ack and resolving",
         );
         await this.ackAndResolve(
           projectId,
           mrIid,
           discussionId,
-          "Acknowledged, thanks."
+          "Acknowledged, thanks.",
         );
         break;
 
@@ -130,7 +130,7 @@ class ThreadManagerService {
           mrIid,
           discussionId,
           finding,
-          noteBody
+          noteBody,
         );
         break;
     }
@@ -140,19 +140,19 @@ class ThreadManagerService {
     projectId: number,
     mrIid: number,
     discussionId: string,
-    ackText: string
+    ackText: string,
   ): Promise<void> {
     try {
       await this.codeHost.replyToDiscussion(
         projectId,
         mrIid,
         discussionId,
-        ackText
+        ackText,
       );
     } catch (err) {
       this.logger.warn(
         { discussionId, err, mrIid, projectId },
-        "Failed to post agreement ack reply"
+        "Failed to post agreement ack reply",
       );
     }
     try {
@@ -160,7 +160,7 @@ class ThreadManagerService {
     } catch (err) {
       this.logger.warn(
         { discussionId, err, mrIid, projectId },
-        "Failed to resolve discussion after agreement ack"
+        "Failed to resolve discussion after agreement ack",
       );
     }
   }
@@ -170,7 +170,7 @@ class ThreadManagerService {
     mrIid: number,
     discussionId: string,
     finding: ReviewFinding,
-    devReply: string
+    devReply: string,
   ): Promise<void> {
     this.logger.info(
       {
@@ -180,7 +180,7 @@ class ThreadManagerService {
         mrIid,
         projectId,
       },
-      "Thread reply: generating clarification answer"
+      "Thread reply: generating clarification answer",
     );
     let answer: string;
     try {
@@ -188,7 +188,7 @@ class ThreadManagerService {
         projectId,
         mrIid,
         finding,
-        devReply
+        devReply,
       );
     } catch (err) {
       this.logger.warn(
@@ -200,7 +200,7 @@ class ThreadManagerService {
           mrIid,
           projectId,
         },
-        "Failed to generate clarification answer; skipping reply"
+        "Failed to generate clarification answer; skipping reply",
       );
       return;
     }
@@ -210,12 +210,12 @@ class ThreadManagerService {
         projectId,
         mrIid,
         discussionId,
-        answer
+        answer,
       );
     } catch (err) {
       this.logger.warn(
         { discussionId, err, mrIid, projectId },
-        "Failed to post clarification reply"
+        "Failed to post clarification reply",
       );
     }
   }
@@ -228,7 +228,7 @@ class ThreadManagerService {
     devReply: string,
     authorUsername: string,
     classifiedIntent: ClassifiedIntent,
-    botReply: string
+    botReply: string,
   ): Promise<void> {
     let isDiscussionResolved = false;
     try {
@@ -236,12 +236,12 @@ class ThreadManagerService {
         projectId,
         mrIid,
         discussionId,
-        botReply
+        botReply,
       );
     } catch (err) {
       this.logger.warn(
         { discussionId, err },
-        "Failed to post reply before resolving"
+        "Failed to post reply before resolving",
       );
     }
 
@@ -267,18 +267,18 @@ class ThreadManagerService {
           await this.codeHost.unresolveDiscussion(
             projectId,
             mrIid,
-            discussionId
+            discussionId,
           );
         } catch (rollbackErr) {
           this.logger.warn(
             { discussionId, err: rollbackErr, findingId: finding.id },
-            "Failed to rollback discussion resolution after learning failure"
+            "Failed to rollback discussion resolution after learning failure",
           );
         }
       }
       this.logger.warn(
         { err, findingId: finding.id },
-        "Failed to record learning"
+        "Failed to record learning",
       );
     }
   }

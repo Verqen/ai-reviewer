@@ -10,7 +10,7 @@ import { createMockLogger } from "~/test-utils/mock-logger";
 import { ReviewLearningService } from "./review-learning.service";
 
 function buildMockFinding(
-  overrides: Partial<ReviewFinding> = {}
+  overrides: Partial<ReviewFinding> = {},
 ): ReviewFinding {
   return {
     category: "best_practice",
@@ -30,7 +30,7 @@ function buildMockFinding(
 }
 
 function buildMockDismissedPattern(
-  overrides: Partial<DismissedPattern> = {}
+  overrides: Partial<DismissedPattern> = {},
 ): DismissedPattern {
   return {
     category: "best_practice",
@@ -94,12 +94,12 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.classifyIntent(
         "This code smell is bad",
-        "This is intentional, it's part of our design"
+        "This is intentional, it's part of our design",
       );
 
       expect(result.intent).toBe("false_positive");
@@ -121,7 +121,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.classifyIntent("bot comment", "dev reply");
@@ -143,7 +143,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.classifyIntent("bot comment", "dev reply");
@@ -168,7 +168,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const result = await service.classifyIntent("bot", "dev");
@@ -191,7 +191,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.classifyIntent("bot", "dev");
@@ -218,7 +218,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.classifyIntent("BAD", "предложи исправление");
@@ -234,7 +234,7 @@ describe("ReviewLearningService", () => {
       expect(systemText.toLowerCase()).toContain("clarification");
       expect(systemText.toLowerCase()).toContain("agreement");
       expect(systemText.toLowerCase()).toContain(
-        "any request for a fix, code, suggestion, example, or explanation is clarification, never agreement"
+        "any request for a fix, code, suggestion, example, or explanation is clarification, never agreement",
       );
       expect(systemText.toLowerCase()).toContain("предложи исправление");
     });
@@ -256,7 +256,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const finding = buildMockFinding({
@@ -288,7 +288,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.answerClarification(buildMockFinding(), "?");
@@ -313,7 +313,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const finding = buildMockFinding({
@@ -354,7 +354,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const reply = await service.answerClarification(buildMockFinding(), "?");
@@ -377,7 +377,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.answerClarification(buildMockFinding(), "?");
@@ -390,7 +390,7 @@ describe("ReviewLearningService", () => {
         : systemMsg!.content;
 
       expect(systemText.toLowerCase()).toContain(
-        "answer the developer's specific question"
+        "answer the developer's specific question",
       );
       expect(systemText.toLowerCase()).toContain("maximum 3 short sentences");
       expect(systemText.toLowerCase()).not.toContain("[out_of_scope]");
@@ -421,7 +421,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       const finding = buildMockFinding();
@@ -437,20 +437,20 @@ describe("ReviewLearningService", () => {
       expect(findSimilarFn).toHaveBeenCalledWith(
         1,
         "best_practice",
-        finding.comment
+        finding.comment,
       );
       expect(createFn).toHaveBeenCalledWith(
         expect.objectContaining({
           category: "best_practice",
           createdBy: "dev-user",
           projectId: 1,
-        })
+        }),
       );
       expect(updateResolutionFn).toHaveBeenCalledWith(
         "finding-1",
         "dismissed",
         "dev-user",
-        "by design"
+        "by design",
       );
     });
 
@@ -475,7 +475,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.learnFromReply({
@@ -505,7 +505,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.learnFromReply({
@@ -543,7 +543,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.learnFromReply({
@@ -558,7 +558,7 @@ describe("ReviewLearningService", () => {
         "finding-1",
         "wont_fix",
         "dev-user",
-        "trade-off"
+        "trade-off",
       );
     });
 
@@ -568,7 +568,7 @@ describe("ReviewLearningService", () => {
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
-        createMockLogger()
+        createMockLogger(),
       );
 
       await service.learnFromReply({

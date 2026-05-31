@@ -38,7 +38,7 @@ interface PassResult {
 interface IReviewPass {
   execute(
     context: ReviewContext,
-    priorResults: Map<string, PassResult>
+    priorResults: Map<string, PassResult>,
   ): Promise<PassResult>;
   readonly name: string;
 }

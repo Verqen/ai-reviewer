@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Fail on first error
+set -e
+
+echo "🔍 Running pre-push checks..."
+
+echo "→ Formatting..."
+pnpm run format:fix
+
+echo "→ Linting..."
+pnpm run lint:fix
+
+echo "→ Type checking..."
+pnpm run types:check
+
+echo "→ Building..."
+pnpm run build
+
+echo "→ Unit tests..."
+pnpm run test:unit
+
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+printf "\n"
+printf "${CYAN}  ╔══════════════════════════════════════╗${RESET}\n"
+printf "${CYAN}  ║                                      ║${RESET}\n"
+printf "${CYAN}  ║${RESET}   ${YELLOW}${BOLD}>>> PUSH APPROVED <<<${RESET}              ${CYAN}║${RESET}\n"
+printf "${CYAN}  ║                                      ║${RESET}\n"
+printf "${CYAN}  ║${RESET}   ${GREEN}✔${RESET} format   ${GREEN}✔${RESET} lint   ${GREEN}✔${RESET} types        ${CYAN}║${RESET}\n"
+printf "${CYAN}  ║${RESET}   ${GREEN}✔${RESET} build    ${GREEN}✔${RESET} unit tests          ${CYAN}║${RESET}\n"
+printf "${CYAN}  ║                                      ║${RESET}\n"
+printf "${CYAN}  ╚══════════════════════════════════════╝${RESET}\n"
+printf "\n"

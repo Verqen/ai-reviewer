@@ -98,7 +98,6 @@ const diffHunkTool: ToolDefinition = {
   },
 };
 
-
 const codebaseTools: ToolDefinition[] = [
   readFileTool,
   listFilesTool,

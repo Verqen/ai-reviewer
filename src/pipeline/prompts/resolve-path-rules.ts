@@ -7,11 +7,12 @@ type PathRuleEntry = {
 
 function getPathRulesTextForFile(
   filePath: string,
-  pathRules: ReadonlyArray<PathRuleEntry>
+  pathRules: ReadonlyArray<PathRuleEntry>,
 ): string | null {
   const normalizedPath: string = filePath.replace(/\\/g, "/");
   const matchedRules: PathRuleEntry[] = pathRules.filter(
-    (rule) => rule.path !== "**" && matchFilePathGlob(normalizedPath, rule.path)
+    (rule) =>
+      rule.path !== "**" && matchFilePathGlob(normalizedPath, rule.path),
   );
   const mergedRules: string = matchedRules
     .map((rule) => rule.extraRules?.trim())
@@ -35,11 +36,11 @@ type ProjectAndPathRulesText = {
  * across all given file paths (same semantics as per-file file-review).
  */
 function resolveProjectAndPathRulesText(
-  params: ResolveProjectAndPathRulesTextParams
+  params: ResolveProjectAndPathRulesTextParams,
 ): ProjectAndPathRulesText {
   const { filePaths, pathRules } = params;
   const projectRaw: string | undefined = pathRules.find(
-    (rule) => rule.path === "**"
+    (rule) => rule.path === "**",
   )?.extraRules;
   const projectTrimmed: string = projectRaw?.trim() ?? "";
   const projectRules: string | null = projectTrimmed || null;

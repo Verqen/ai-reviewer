@@ -13,7 +13,7 @@ class MemoryCache<T> implements ICache<T> {
 
   constructor(
     private readonly maxSize: number = DEFAULT_MAX_SIZE,
-    private readonly defaultTtlMs: number = DEFAULT_TTL_MS
+    private readonly defaultTtlMs: number = DEFAULT_TTL_MS,
   ) {}
 
   get(key: string): T | undefined {

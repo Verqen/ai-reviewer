@@ -20,10 +20,10 @@ function buildEventTelemetry(event: WebhookEvent): Record<string, unknown> {
 }
 
 function createWebhookOrchestrator(
-  deps: WebhookOrchestratorDeps
+  deps: WebhookOrchestratorDeps,
 ): WebhookOrchestrator {
   const handleEvent = async (
-    event: WebhookEvent
+    event: WebhookEvent,
   ): Promise<WebhookOrchestrationResult> => {
     const startedAt = Date.now();
     const eventMeta = buildEventTelemetry(event);
@@ -47,7 +47,7 @@ function createWebhookOrchestrator(
         outcome: result.kind,
         reason: "reason" in result ? result.reason : undefined,
       },
-      "Webhook event processed"
+      "Webhook event processed",
     );
     return result;
   };

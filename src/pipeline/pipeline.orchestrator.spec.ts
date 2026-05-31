@@ -85,7 +85,7 @@ function makeAggPass(findings: Finding[] = []): IReviewPass {
   return {
     execute: (
       _ctx: ReviewContext,
-      _prior: Map<string, PassResult>
+      _prior: Map<string, PassResult>,
     ): Promise<PassResult> => {
       const agg: AggregationResult = {
         allFindings: findings,
@@ -116,7 +116,7 @@ type TestOrchestratorOptions = {
 };
 
 function createTestOrchestrator(
-  options: TestOrchestratorOptions
+  options: TestOrchestratorOptions,
 ): PipelineOrchestrator {
   const {
     cache,
@@ -139,18 +139,18 @@ function createTestOrchestrator(
       config,
       llmConfig,
       createMockOpenRouterConfig(),
-      logger
+      logger,
     ),
     new ReviewFindingPublisherService(
       infraRepoPorts,
       codeHost,
       createMockCommentResolutionService(),
-      logger
+      logger,
     ),
     new ReviewRunCompletionService(infraRepoPorts, codeHost, cache, logger),
     passes,
     metrics,
-    logger
+    logger,
   );
 }
 
@@ -240,7 +240,7 @@ describe("PipelineOrchestrator", () => {
     const fileReviewCompletedLog = infoCalls.find(
       (call) =>
         call[1] === "Pipeline pass completed" &&
-        (call[0] as { passName?: string }).passName === "file-review"
+        (call[0] as { passName?: string }).passName === "file-review",
     );
     expect(fileReviewCompletedLog).toBeDefined();
     const payload = fileReviewCompletedLog?.[0] as {
@@ -327,19 +327,19 @@ describe("PipelineOrchestrator", () => {
             findings: [],
             metadata:
               name === "aggregation"
-                ? ({
+                ? {
                     allFindings: [],
                     postableFindings: [],
                     repostedFindings: [],
                     suppressedCount: 0,
-                  })
+                  }
                 : {},
             tokenUsage: { completionTokens: 0, promptTokens: 0 },
           };
           return Promise.resolve(result);
         },
         name,
-      })
+      }),
     );
 
     const infraRepoPorts = createMockInfraRepoPorts();
@@ -498,7 +498,7 @@ describe("PipelineOrchestrator", () => {
         projectId: 42,
         triggerType: "mr_open",
         versions: { baseSha: "base", headSha: "head", startSha: "start" },
-      })
+      }),
     ).rejects.toThrow("Pass exploded");
 
     const statusCalls = infraRepoPorts.calls.updateStatus;
@@ -506,7 +506,7 @@ describe("PipelineOrchestrator", () => {
 
     const statsCalls = infraRepoPorts.calls.updateStats;
     expect(
-      statsCalls.some(([, stats]) => stats.errorMessage === "Pass exploded")
+      statsCalls.some(([, stats]) => stats.errorMessage === "Pass exploded"),
     ).toBe(true);
   });
 
@@ -643,7 +643,7 @@ describe("PipelineOrchestrator", () => {
               review: "anthropic/claude-sonnet-4.6",
               triage: "minimax/minimax-m2.7",
             },
-          })
+          }),
         ),
     } as unknown as ReviewConfigLoader;
     const infraRepoPorts = createMockInfraRepoPorts();
@@ -729,10 +729,10 @@ describe("PipelineOrchestrator", () => {
     expect(captured.paths).toEqual(["src/index.ts"]);
     const output = await registry.metrics();
     expect(output).toMatch(
-      /ai_reviewer_files_skipped_total\{reason="lock"\} 1/
+      /ai_reviewer_files_skipped_total\{reason="lock"\} 1/,
     );
     expect(output).toMatch(
-      /ai_reviewer_files_skipped_total\{reason="translation"\} 1/
+      /ai_reviewer_files_skipped_total\{reason="translation"\} 1/,
     );
   });
 
@@ -908,7 +908,10 @@ describe("PipelineOrchestrator", () => {
       execute: (ctx): Promise<PassResult> => {
         captured.paths = ctx.diffs.map((d) => d.newPath);
         captured.linesByPath = new Map(
-          ctx.diffs.map((d) => [d.newPath, d.lines.map((line) => line.content)])
+          ctx.diffs.map((d) => [
+            d.newPath,
+            d.lines.map((line) => line.content),
+          ]),
         );
         return Promise.resolve({
           findings: [],
@@ -946,16 +949,16 @@ describe("PipelineOrchestrator", () => {
       versions: { baseSha: "base", headSha: "head", startSha: "start" },
     });
     expect(captured.paths.sort()).toEqual(
-      ["src/existing.ts", "src/new-file.ts"].sort()
+      ["src/existing.ts", "src/new-file.ts"].sort(),
     );
     expect(captured.linesByPath.get("src/existing.ts")).toContain(
-      "new risky change"
+      "new risky change",
     );
     expect(captured.linesByPath.get("src/existing.ts")).not.toContain(
-      "old import updated"
+      "old import updated",
     );
     expect(captured.linesByPath.get("src/new-file.ts")).toContain(
-      "export const created = true;"
+      "export const created = true;",
     );
   });
 
@@ -1030,7 +1033,7 @@ describe("PipelineOrchestrator", () => {
           ctx.diffs.map((diff) => [
             diff.newPath,
             [...new Set(diff.lines.map((line) => line.hunkHeader))],
-          ])
+          ]),
         );
         return Promise.resolve({
           findings: [],

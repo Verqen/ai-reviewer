@@ -95,7 +95,7 @@ describe("createJobHandler", () => {
 
     expect(executeWaitUntilBaselineReadyForReview).toHaveBeenCalledWith(99);
     expect(
-      executeWaitUntilBaselineReadyForReview.mock.invocationCallOrder[0]!
+      executeWaitUntilBaselineReadyForReview.mock.invocationCallOrder[0]!,
     ).toBeLessThan(reviewMergeRequest.mock.invocationCallOrder[0]!);
   });
 
@@ -152,7 +152,7 @@ describe("createJobHandler", () => {
 
     expect(executeWaitUntilBaselineReadyForReview).toHaveBeenCalledWith(44);
     expect(
-      executeWaitUntilBaselineReadyForReview.mock.invocationCallOrder[0]!
+      executeWaitUntilBaselineReadyForReview.mock.invocationCallOrder[0]!,
     ).toBeLessThan(run.mock.invocationCallOrder[0]!);
   });
 
@@ -257,7 +257,7 @@ describe("createJobHandler", () => {
 
     expect(executeWaitUntilBaselineReadyForReview).toHaveBeenCalledWith(77);
     expect(
-      executeWaitUntilBaselineReadyForReview.mock.invocationCallOrder[0]!
+      executeWaitUntilBaselineReadyForReview.mock.invocationCallOrder[0]!,
     ).toBeLessThan(runMainPushScopedReview.mock.invocationCallOrder[0]!);
   });
 
@@ -352,7 +352,7 @@ describe("createJobHandler", () => {
       job: { type: "bootstrap_baseline" },
     });
     expect(firstWarnCall?.[1]).toBe(
-      "bootstrap_baseline handler not configured"
+      "bootstrap_baseline handler not configured",
     );
   });
 

@@ -73,7 +73,7 @@ function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
       _projectId: number,
       _from: string,
       _to: string,
-      _options?: { straight?: boolean | undefined }
+      _options?: { straight?: boolean | undefined },
     ): Promise<DiffFile[]> {
       return Promise.resolve([]);
     },
@@ -102,7 +102,7 @@ function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
 
     getMergeRequestInfo(
       projectId: number,
-      mrIid: number
+      mrIid: number,
     ): Promise<MergeRequestInfo> {
       calls.getMergeRequestInfo.push([projectId, mrIid]);
       return Promise.resolve(defaultMrInfo);
@@ -110,7 +110,7 @@ function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
 
     getMergeRequestVersions(
       projectId: number,
-      mrIid: number
+      mrIid: number,
     ): Promise<VersionInfo> {
       calls.getMergeRequestVersions.push([projectId, mrIid]);
       return Promise.resolve(defaultVersions);
@@ -128,7 +128,7 @@ function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
       projectId: number,
       mrIid: number,
       body: string,
-      position: InlinePosition
+      position: InlinePosition,
     ): Promise<{ discussionId: string; noteId: string }> {
       calls.postInlineComment.push([projectId, mrIid, body, position]);
       return Promise.resolve({ discussionId: "disc-1", noteId: "note-1" });
@@ -137,7 +137,7 @@ function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
     postNote(
       projectId: number,
       mrIid: number,
-      body: string
+      body: string,
     ): Promise<{ noteId: string }> {
       calls.postNote.push([projectId, mrIid, body]);
       return Promise.resolve({ noteId: "note-post-1" });
@@ -147,7 +147,7 @@ function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
       projectId: number,
       mrIid: number,
       discussionId: string,
-      body: string
+      body: string,
     ): Promise<{ noteId: string }> {
       calls.replyToDiscussion.push([projectId, mrIid, discussionId, body]);
       return Promise.resolve({ noteId: "note-reply-1" });
@@ -164,7 +164,7 @@ function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
     unresolveDiscussion(
       projectId: number,
       mrIid: number,
-      discussionId: string
+      discussionId: string,
     ): Promise<void> {
       calls.unresolveDiscussion.push([projectId, mrIid, discussionId]);
       return Promise.resolve();

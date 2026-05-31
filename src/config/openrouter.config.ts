@@ -8,6 +8,12 @@ import {
 
 const OpenRouterConfigSchema = z.object({
   OPENROUTER_API_KEY: z.string(),
+  // OpenAI-compatible chat-completions endpoint. Defaults to OpenRouter; point
+  // it at any compatible provider (e.g. https://api.deepseek.com/v1/chat/completions)
+  // to switch backends without code changes.
+  OPENROUTER_API_URL: z
+    .url()
+    .default("https://openrouter.ai/api/v1/chat/completions"),
   OPENROUTER_MODEL: z.string().default(OPENROUTER_REVIEW_MODEL),
   OPENROUTER_TRIAGE_MODEL: z.string().default(OPENROUTER_TRIAGE_MODEL),
 });

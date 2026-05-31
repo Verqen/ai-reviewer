@@ -12,7 +12,6 @@ import type {
 } from "~/domain/types/llm.types";
 import { assertPromptTokenBudget } from "~/infrastructure/llm/estimate-prompt-tokens";
 
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 2;
 const RETRY_DELAYS_MS = [1000, 2000];
@@ -130,6 +129,7 @@ function parseToolCalls(raw: OpenRouterToolCall[]): ToolCall[] {
 
 class OpenRouterClient implements ILlmClient {
   private readonly apiKey: string;
+  private readonly apiUrl: string;
   private readonly defaultModel: string;
 
   constructor(
@@ -137,6 +137,7 @@ class OpenRouterClient implements ILlmClient {
     private readonly logger: FastifyBaseLogger,
   ) {
     this.apiKey = config.envs.OPENROUTER_API_KEY;
+    this.apiUrl = config.envs.OPENROUTER_API_URL;
     this.defaultModel = config.envs.OPENROUTER_MODEL;
   }
 
@@ -383,7 +384,7 @@ class OpenRouterClient implements ILlmClient {
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
       try {
-        const response = await fetch(API_URL, {
+        const response = await fetch(this.apiUrl, {
           body: JSON.stringify(requestBody),
           headers: {
             Authorization: `Bearer ${this.apiKey}`,

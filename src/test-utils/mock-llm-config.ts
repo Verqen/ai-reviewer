@@ -32,6 +32,7 @@ export function createMockOpenRouterConfig(options?: {
   return {
     envs: {
       OPENROUTER_API_KEY: "mock-api-key",
+      OPENROUTER_API_URL: "https://openrouter.ai/api/v1/chat/completions",
       OPENROUTER_MODEL: options?.model ?? OPENROUTER_REVIEW_MODEL,
       OPENROUTER_TRIAGE_MODEL: options?.triageModel ?? OPENROUTER_TRIAGE_MODEL,
     },

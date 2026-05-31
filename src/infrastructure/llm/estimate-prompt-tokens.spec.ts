@@ -54,7 +54,7 @@ describe("estimatePromptTokens", () => {
       { content: "tool result", role: "tool", toolCallId: "t1" },
     ];
     expect(estimatePromptTokens(messages)).toBe(
-      Math.ceil("tool result".length / 4)
+      Math.ceil("tool result".length / 4),
     );
   });
 });
@@ -65,8 +65,8 @@ describe("assertPromptTokenBudget", () => {
       assertPromptTokenBudget(
         [{ content: "x".repeat(100_000), role: "user" }],
         undefined,
-        undefined
-      )
+        undefined,
+      ),
     ).not.toThrow();
   });
 
@@ -75,8 +75,8 @@ describe("assertPromptTokenBudget", () => {
       assertPromptTokenBudget(
         [{ content: "hello", role: "user" }],
         undefined,
-        100
-      )
+        100,
+      ),
     ).not.toThrow();
   });
 
@@ -85,8 +85,8 @@ describe("assertPromptTokenBudget", () => {
       assertPromptTokenBudget(
         [{ content: "x".repeat(20_000), role: "user" }],
         undefined,
-        4000
-      )
+        4000,
+      ),
     ).toThrow(PromptTokenBudgetExceededError);
   });
 
@@ -95,7 +95,7 @@ describe("assertPromptTokenBudget", () => {
       assertPromptTokenBudget(
         [{ content: "x".repeat(20_000), role: "user" }],
         undefined,
-        4000
+        4000,
       );
       throw new Error("should have thrown");
     } catch (err) {

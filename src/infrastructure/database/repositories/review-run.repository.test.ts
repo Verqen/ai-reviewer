@@ -79,7 +79,7 @@ describe("ReviewRunRepository", () => {
     await repo.updateStatus(
       mainPushRun.id,
       "completed",
-      new Date(Date.now() - 10 * 60 * 1000)
+      new Date(Date.now() - 10 * 60 * 1000),
     );
 
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -93,7 +93,7 @@ describe("ReviewRunRepository", () => {
     const latestMainPush = await repo.findLatestByProjectAndMr(
       42,
       7,
-      "main_push"
+      "main_push",
     );
     expect(latestMainPush?.id).toBe(mainPushRun.id);
 
@@ -145,7 +145,7 @@ describe("ReviewRunRepository", () => {
       7,
       "head-abc",
       "base-abc",
-      "mr_open"
+      "mr_open",
     );
     expect(found?.id).toBe(created.id);
   });
@@ -157,7 +157,7 @@ describe("ReviewRunRepository", () => {
       7,
       "head-abc",
       "base-abc",
-      "mention"
+      "mention",
     );
     expect(found).toBeUndefined();
   });

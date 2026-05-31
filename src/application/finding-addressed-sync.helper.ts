@@ -16,14 +16,14 @@ interface DiscussionRollbackRef {
 
 async function unresolveDiscussionsAfterFailedPersist(
   ctx: AddressedSyncHostContext,
-  refs: readonly DiscussionRollbackRef[]
+  refs: readonly DiscussionRollbackRef[],
 ): Promise<void> {
   for (const ref of refs) {
     try {
       await ctx.codeHost.unresolveDiscussion(
         ctx.projectId,
         ctx.mrIid,
-        ref.discussionId
+        ref.discussionId,
       );
     } catch (rollbackErr) {
       ctx.logger.warn(
@@ -32,7 +32,7 @@ async function unresolveDiscussionsAfterFailedPersist(
           err: rollbackErr,
           findingId: ref.findingId,
         },
-        "Failed to rollback discussion resolution after DB update failure"
+        "Failed to rollback discussion resolution after DB update failure",
       );
     }
   }

@@ -30,7 +30,7 @@ describe("getCacheMinTokens", () => {
     expect(getCacheMinTokens("anthropic/claude-sonnet-4-5")).toBe(1024);
     expect(getCacheMinTokens("anthropic/claude-sonnet-4.5")).toBe(1024);
     expect(getCacheMinTokens("anthropic/claude-3-5-sonnet-20240620")).toBe(
-      1024
+      1024,
     );
   });
 

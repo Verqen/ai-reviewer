@@ -5,14 +5,14 @@ const MAX_FINDINGS_PER_FILE = 3;
 
 function filterOutFinding(
   findings: readonly ReviewFinding[],
-  excludeId: string
+  excludeId: string,
 ): ReviewFinding[] {
   return findings.filter((f) => f.id !== excludeId);
 }
 
 function formatFindingGroup(
   label: string,
-  findings: readonly ReviewFinding[]
+  findings: readonly ReviewFinding[],
 ): string | undefined {
   if (findings.length === 0) {
     return undefined;
@@ -25,13 +25,13 @@ function formatFindingGroup(
   }
   const blocks: string[] = [`${label}`];
   for (const [filePath, fileFindings] of [...byFile.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0])
+    a[0].localeCompare(b[0]),
   )) {
     const summaries = fileFindings
       .slice(0, MAX_FINDINGS_PER_FILE)
       .map(
         (f) =>
-          `  [${f.severity}/${f.category}] L${String(f.lineNumber)}: ${f.comment.slice(0, COMMENT_PREVIEW_LENGTH)}`
+          `  [${f.severity}/${f.category}] L${String(f.lineNumber)}: ${f.comment.slice(0, COMMENT_PREVIEW_LENGTH)}`,
       )
       .join("\n");
     blocks.push(`${filePath}:\n${summaries}`);
@@ -42,7 +42,7 @@ function formatFindingGroup(
 function buildThreadPriorFindingsSummary(
   prior: PriorFindings,
   excludeFindingId: string,
-  maxChars: number
+  maxChars: number,
 ): string | undefined {
   const pending = filterOutFinding(prior.pending, excludeFindingId);
   const addressed = filterOutFinding(prior.addressed, excludeFindingId);

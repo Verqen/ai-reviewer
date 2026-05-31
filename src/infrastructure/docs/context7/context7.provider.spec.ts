@@ -7,7 +7,7 @@ import { createMockLogger } from "~/test-utils/mock-logger";
 import { Context7Provider } from "./context7.provider";
 
 function buildConfig(
-  overrides: Partial<Context7ConfigSchema> = {}
+  overrides: Partial<Context7ConfigSchema> = {},
 ): IConfig<Context7ConfigSchema> {
   return {
     envs: {
@@ -233,13 +233,13 @@ describe("Context7Provider", () => {
 
       const provider = new Context7Provider(
         buildConfig({ CONTEXT7_API_KEY: "test-key-123" }),
-        createMockLogger()
+        createMockLogger(),
       );
       await provider.queryDocs("/colinhacks/zod", "coerce");
 
       const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect((opts.headers as Record<string, string>)["Authorization"]).toBe(
-        "Bearer test-key-123"
+        "Bearer test-key-123",
       );
     });
   });

@@ -40,7 +40,7 @@ describe("FakeGitLabServer", () => {
 
   it("returns MR changes", async () => {
     const response = await fetch(
-      `${baseUrl}projects/42/merge_requests/7/changes`
+      `${baseUrl}projects/42/merge_requests/7/changes`,
     );
     const data = (await response.json()) as { changes: unknown[] };
     expect(response.ok).toBe(true);
@@ -49,7 +49,7 @@ describe("FakeGitLabServer", () => {
 
   it("returns MR versions", async () => {
     const response = await fetch(
-      `${baseUrl}projects/42/merge_requests/7/versions`
+      `${baseUrl}projects/42/merge_requests/7/versions`,
     );
     const data = (await response.json()) as unknown[];
     expect(response.ok).toBe(true);
@@ -66,7 +66,7 @@ describe("FakeGitLabServer", () => {
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
-      }
+      },
     );
     expect(response.ok).toBe(true);
     const comments = server.getPostedComments();

@@ -6,7 +6,7 @@ interface IOverlayView {
   readFileAtBaseline(
     path: string,
     startLine?: number,
-    endLine?: number
+    endLine?: number,
   ): Promise<string>;
   searchContent(pattern: string, glob?: string): Promise<string>;
 }

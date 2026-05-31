@@ -36,13 +36,13 @@ Point your GitLab webhook at `http://your-host:3000/webhook` with `WEBHOOK_SECRE
 
 ## Configuration highlights
 
-| Env | Purpose |
-|---|---|
-| `REVIEW_LANGUAGE` | Output language for findings (default `en`; aliases: `ru`, `de`, `es`, `fr`, `ja`, `ko`, `pt`, `uk`, `zh-cn`, `zh-tw`) |
-| `LLM_PROVIDER` | `openrouter` or `ollama` |
-| `WORKSPACE_PACKAGE_PREFIXES` | Comma-separated workspace prefixes to skip in doc-context resolution |
-| `ARCHITECTURE_SNAPSHOT_ENABLED` | Inject target-repo overview (CLAUDE.md, package.json, src tree) into prompts |
-| `SEVERITY_THRESHOLD` | Lowest severity that gets posted inline |
+| Env                             | Purpose                                                                                                                |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `REVIEW_LANGUAGE`               | Output language for findings (default `en`; aliases: `ru`, `de`, `es`, `fr`, `ja`, `ko`, `pt`, `uk`, `zh-cn`, `zh-tw`) |
+| `LLM_PROVIDER`                  | `openrouter` or `ollama`                                                                                               |
+| `WORKSPACE_PACKAGE_PREFIXES`    | Comma-separated workspace prefixes to skip in doc-context resolution                                                   |
+| `ARCHITECTURE_SNAPSHOT_ENABLED` | Inject target-repo overview (CLAUDE.md, package.json, src tree) into prompts                                           |
+| `SEVERITY_THRESHOLD`            | Lowest severity that gets posted inline                                                                                |
 
 Full list: `.env.example`.
 

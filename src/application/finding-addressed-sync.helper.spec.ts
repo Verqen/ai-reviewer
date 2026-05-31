@@ -16,7 +16,7 @@ describe("unresolveDiscussionsAfterFailedPersist", () => {
       [
         { discussionId: "d1", findingId: "f1" },
         { discussionId: "d2", findingId: "f2" },
-      ]
+      ],
     );
     expect(unresolveDiscussion).toHaveBeenCalledTimes(2);
     expect(unresolveDiscussion).toHaveBeenNthCalledWith(1, 3, 7, "d1");
@@ -38,7 +38,7 @@ describe("unresolveDiscussionsAfterFailedPersist", () => {
       [
         { discussionId: "d-bad", findingId: "f-bad" },
         { discussionId: "d-ok", findingId: "f-ok" },
-      ]
+      ],
     );
     expect(unresolveDiscussion).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalled();

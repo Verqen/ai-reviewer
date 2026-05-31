@@ -30,14 +30,14 @@ describe("matchFilePathGlob", () => {
 describe("matchFilePathGlobWithLiteralPrefix", () => {
   it("uses prefix semantics when the pattern has no glob magic", () => {
     expect(matchFilePathGlobWithLiteralPrefix("src/app/file.ts", "src/")).toBe(
-      true
+      true,
     );
     expect(matchFilePathGlobWithLiteralPrefix("lib/x.ts", "src/")).toBe(false);
   });
 
   it("matches glob patterns when the pattern has magic", () => {
     expect(
-      matchFilePathGlobWithLiteralPrefix("pkg/src/a.ts", "**/src/*.ts")
+      matchFilePathGlobWithLiteralPrefix("pkg/src/a.ts", "**/src/*.ts"),
     ).toBe(true);
   });
 });

@@ -50,7 +50,7 @@ const ReviewPipelineConfigSchema = z.object({
         extraRules: z.string().optional(),
         focus: z.array(z.string()).optional(),
         path: z.string(),
-      })
+      }),
     )
     .default([]),
   reReviewCooldownMinutes: z.number().int().nonnegative().default(5),

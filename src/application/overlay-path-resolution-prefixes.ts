@@ -47,15 +47,15 @@ function mrTouchesDeclaredSrcFolder(mrPaths: readonly string[]): boolean {
 function filterPackageRootsUsingWorkspaceDeclaredGlobs(
   packageRoots: readonly string[],
   workspaceGlobs: readonly string[],
-  usesWorkspaceDeclaredPackagesList: boolean
+  usesWorkspaceDeclaredPackagesList: boolean,
 ): readonly string[] {
   if (!usesWorkspaceDeclaredPackagesList || workspaceGlobs.length === 0) {
     return packageRoots;
   }
   const filtered = packageRoots.filter((rootCandidate) =>
     workspaceGlobs.some((globCandidate) =>
-      minimatch(rootCandidate, globCandidate, { dot: true })
-    )
+      minimatch(rootCandidate, globCandidate, { dot: true }),
+    ),
   );
   return filtered.length > 0 ? filtered : [...packageRoots];
 }
@@ -71,18 +71,18 @@ type BuildOverlayPathResolutionPrefixesParams = Readonly<{
 }>;
 
 function buildOverlayPathResolutionPrefixes(
-  params: BuildOverlayPathResolutionPrefixesParams
+  params: BuildOverlayPathResolutionPrefixesParams,
 ): OverlayResolutionPathPrefixes {
   const maxPrefixes = params.maxPrefixes ?? DEFAULT_MAX_OVERLAY_PATH_PREFIXES;
   const filteredRootsByWorkspace =
     filterPackageRootsUsingWorkspaceDeclaredGlobs(
       params.packageRoots,
       params.workspaceGlobs ?? [],
-      params.workspaceUsesDeclaredPackages ?? false
+      params.workspaceUsesDeclaredPackages ?? false,
     );
   const rootsMarkedUsingSrcSubtreeFiltered =
     params.packageRootsUsingSrcSubtree.filter((candidate) =>
-      filteredRootsByWorkspace.includes(candidate)
+      filteredRootsByWorkspace.includes(candidate),
     );
   const rootsMarkedUsingSubtree = new Set(rootsMarkedUsingSrcSubtreeFiltered);
   const ordered: string[] = [];
@@ -108,7 +108,7 @@ function buildOverlayPathResolutionPrefixes(
   if (mrTouchesDeclaredSrcFolder(params.mrPaths) || params.hasTopLevelSrcTree)
     pushDistinctTrailing("src");
   const alphabeticalRoots = [...filteredRootsByWorkspace].sort((lead, trail) =>
-    lead.localeCompare(trail)
+    lead.localeCompare(trail),
   );
   for (const rootCandidate of alphabeticalRoots) {
     pushDistinctTrailing(rootCandidate);
@@ -126,7 +126,7 @@ type FinalizeOverlayPrefixesArgs = Readonly<{
 }>;
 
 function finalizeOverlayPrefixes(
-  params: FinalizeOverlayPrefixesArgs
+  params: FinalizeOverlayPrefixesArgs,
 ): OverlayResolutionPathPrefixes {
   const prefixesUsingSrcSubtree: string[] = [];
   const { rootsMarkedUsingSubtree, trimmedOrdered } = params;

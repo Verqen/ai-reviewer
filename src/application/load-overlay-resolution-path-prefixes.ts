@@ -18,7 +18,7 @@ type LoadOverlayResolutionPathPrefixesParams = Readonly<{
 }>;
 
 async function loadOverlayResolutionPathPrefixesFromBaselineSnapshot(
-  params: LoadOverlayResolutionPathPrefixesParams
+  params: LoadOverlayResolutionPathPrefixesParams,
 ): Promise<OverlayResolutionPathPrefixes> {
   const mrPathsCombined = [...params.mrChangedPaths, ...params.mrDeletedPaths];
   const yamlParseMarkedFailureHint = { value: false };
@@ -26,18 +26,18 @@ async function loadOverlayResolutionPathPrefixesFromBaselineSnapshot(
     await Promise.all([
       params.snapshotRepo.listPackageRootsFromSnapshot(
         params.projectId,
-        params.baselineCommitSha
+        params.baselineCommitSha,
       ),
       params.snapshotRepo.getFileContent(
         params.projectId,
         params.baselineCommitSha,
-        "pnpm-workspace.yaml"
+        "pnpm-workspace.yaml",
       ),
     ]);
   const declaredWorkspaceGlobFilterApplied =
     deriveWorkspaceFilterFromYamlDocument(
       maybePnpmWorkspaceRawSource,
-      yamlParseMarkedFailureHint
+      yamlParseMarkedFailureHint,
     );
   if (yamlParseMarkedFailureHint.value) {
     params.logger.warn(
@@ -45,7 +45,7 @@ async function loadOverlayResolutionPathPrefixesFromBaselineSnapshot(
         baselineCommitSha: params.baselineCommitSha,
         projectId: params.projectId,
       },
-      "pnpmWorkspaceYamlParseFailedUsingUnfilteredPackageRoots"
+      "pnpmWorkspaceYamlParseFailedUsingUnfilteredPackageRoots",
     );
   }
   return buildOverlayPathResolutionPrefixes({

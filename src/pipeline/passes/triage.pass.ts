@@ -32,7 +32,7 @@ const TriageResponseSchema = z.object({
     z.object({
       hunk_id: z.number().int().nonnegative(),
       verdict: z.enum(["needs-review", "trivial"]).catch("needs-review"),
-    })
+    }),
   ),
 });
 
@@ -52,7 +52,7 @@ const TriageResponseSchemaMerged = z
           .union([z.number().int().nonnegative(), z.string().transform(Number)])
           .optional(),
         verdict: z.enum(["needs-review", "trivial"]).catch("needs-review"),
-      })
+      }),
     ),
   })
   .transform((data) => ({
@@ -156,7 +156,7 @@ function extractHunks(diffs: readonly ParsedFileDiff[]): InternalHunk[] {
 
 function applyTriageFilter(
   diffs: readonly ParsedFileDiff[],
-  trivialKeys: ReadonlySet<string>
+  trivialKeys: ReadonlySet<string>,
 ): ParsedFileDiff[] {
   if (trivialKeys.size === 0) {
     return [...diffs];
@@ -165,7 +165,7 @@ function applyTriageFilter(
   const result: ParsedFileDiff[] = [];
   for (const diff of diffs) {
     const keptLines = diff.lines.filter(
-      (line) => !trivialKeys.has(hunkKey(diff.newPath, line.hunkHeader))
+      (line) => !trivialKeys.has(hunkKey(diff.newPath, line.hunkHeader)),
     );
     if (keptLines.length === 0) {
       continue;
@@ -189,10 +189,10 @@ interface ApplyConservativeCapResult {
 function applyConservativeCap(
   hunks: readonly InternalHunk[],
   decisions: readonly TriageDecision[],
-  trivialKeys: ReadonlySet<string>
+  trivialKeys: ReadonlySet<string>,
 ): ApplyConservativeCapResult {
   const maxAllowedTrivialCount = Math.floor(
-    hunks.length * TRIAGE_MAX_TRIVIAL_SHARE
+    hunks.length * TRIAGE_MAX_TRIVIAL_SHARE,
   );
   if (trivialKeys.size <= maxAllowedTrivialCount) {
     return {
@@ -233,6 +233,8 @@ function applyConservativeCap(
 }
 
 function toPassMetadata(metadata: TriagePassMetadata): Record<string, unknown> {
+  // WHY: TriagePassMetadata has no index signature, so it is not directly assignable
+  // to the untyped PassResult.metadata bag; the conversion is structurally safe.
   return metadata as unknown as Record<string, unknown>;
 }
 
@@ -256,7 +258,7 @@ class TriagePass implements IReviewPass {
     private readonly llm: ILlmClient,
     private readonly logger: FastifyBaseLogger,
     private readonly promptHardLimit?: number,
-    private readonly metrics?: PipelineMetrics
+    private readonly metrics?: PipelineMetrics,
   ) {}
 
   private observeOutcome(model: string, outcome: TriageParseOutcome): void {
@@ -267,7 +269,7 @@ class TriagePass implements IReviewPass {
 
   private estimateBatchPromptTokens(
     systemPrompt: string,
-    hunks: InternalHunk[]
+    hunks: InternalHunk[],
   ): number {
     const userPrompt = buildTriageUserPrompt(
       hunks.map<TriageHunkInput>((h) => ({
@@ -275,7 +277,7 @@ class TriagePass implements IReviewPass {
         filePath: h.filePath,
         header: h.header,
         id: h.id,
-      }))
+      })),
     );
     return estimatePromptTokens([
       { content: systemPrompt, role: "system" },
@@ -285,7 +287,7 @@ class TriagePass implements IReviewPass {
 
   private buildBatches(
     hunks: InternalHunk[],
-    systemPrompt: string
+    systemPrompt: string,
   ): InternalHunk[][] {
     const batches: InternalHunk[][] = [];
     let current: InternalHunk[] = [];
@@ -314,7 +316,7 @@ class TriagePass implements IReviewPass {
     decisions: TriageDecision[],
     trivialKeys: Set<string>,
     seenIds: Set<number>,
-    logContext: BatchLogContext
+    logContext: BatchLogContext,
   ): { parseFailed: boolean; trivialCount: number } {
     const raw: unknown = parseLlmJson(rawContent);
     const parsed = TriageResponseSchema.safeParse(raw);
@@ -336,7 +338,7 @@ class TriagePass implements IReviewPass {
               batchSize: batchHunks.length,
               resultCount: proseParsed.data.results.length,
             },
-            "Triage batch parsed via prose fallback (model emitted markdown instead of JSON)"
+            "Triage batch parsed via prose fallback (model emitted markdown instead of JSON)",
           );
           this.observeOutcome(logContext.model, "prose_fallback");
           return this.applyParsedTriageResults(
@@ -345,7 +347,7 @@ class TriagePass implements IReviewPass {
             hunkById,
             decisions,
             trivialKeys,
-            seenIds
+            seenIds,
           );
         }
       }
@@ -363,7 +365,7 @@ class TriagePass implements IReviewPass {
           rawContent: truncateForLog(rawContent),
           rawContentLength: rawContent.length,
         },
-        "TRIAGE_PARSE_FAILURE: Failed to parse triage batch response"
+        "TRIAGE_PARSE_FAILURE: Failed to parse triage batch response",
       );
       this.observeOutcome(logContext.model, "parse_failed");
       for (const hunk of batchHunks) {
@@ -385,11 +387,11 @@ class TriagePass implements IReviewPass {
         batchSize: batchHunks.length,
         resultCount: mergedParsed.data.results.length,
       },
-      "Triage batch parsed successfully"
+      "Triage batch parsed successfully",
     );
     this.observeOutcome(
       logContext.model,
-      parsed.success ? "json_strict" : "json_merged"
+      parsed.success ? "json_strict" : "json_merged",
     );
     return this.applyParsedTriageResults(
       batchHunks,
@@ -397,7 +399,7 @@ class TriagePass implements IReviewPass {
       hunkById,
       decisions,
       trivialKeys,
-      seenIds
+      seenIds,
     );
   }
 
@@ -407,7 +409,7 @@ class TriagePass implements IReviewPass {
     hunkById: Map<number, InternalHunk>,
     decisions: TriageDecision[],
     trivialKeys: Set<string>,
-    seenIds: Set<number>
+    seenIds: Set<number>,
   ): { parseFailed: boolean; trivialCount: number } {
     let trivialCount = 0;
     for (const item of parsedResults) {
@@ -435,7 +437,7 @@ class TriagePass implements IReviewPass {
       }
       this.logger.warn(
         { filePath: hunk.filePath, hunkId: hunk.id },
-        "Triage response missing verdict for hunk, defaulting to needs-review"
+        "Triage response missing verdict for hunk, defaulting to needs-review",
       );
       seenIds.add(hunk.id);
       decisions.push({
@@ -450,7 +452,7 @@ class TriagePass implements IReviewPass {
 
   async execute(
     context: ReviewContext,
-    _priorResults: Map<string, PassResult>
+    _priorResults: Map<string, PassResult>,
   ): Promise<PassResult> {
     const hunks = extractHunks(context.diffs);
     if (hunks.length === 0) {
@@ -486,7 +488,7 @@ class TriagePass implements IReviewPass {
         reviewRunId: context.reviewRunId,
         singleEstimate,
       },
-      "Triage pass starting"
+      "Triage pass starting",
     );
 
     const hunkById = new Map(hunks.map((h) => [h.id, h]));
@@ -507,7 +509,7 @@ class TriagePass implements IReviewPass {
           filePath: h.filePath,
           header: h.header,
           id: h.id,
-        }))
+        })),
       );
       const estimatedTokens = estimatePromptTokens([
         { content: systemPrompt, role: "system" },
@@ -516,12 +518,12 @@ class TriagePass implements IReviewPass {
       totalEstimatedPromptTokens += estimatedTokens;
       const batchMaxTokens = Math.max(
         TRIAGE_MIN_MAX_TOKENS,
-        batchHunks.length * TRIAGE_MAX_TOKENS_PER_HUNK
+        batchHunks.length * TRIAGE_MAX_TOKENS_PER_HUNK,
       );
 
       this.logger.debug(
         { batchIndex, batchSize: batchHunks.length, estimatedTokens },
-        "Triage batch starting"
+        "Triage batch starting",
       );
 
       try {
@@ -535,14 +537,14 @@ class TriagePass implements IReviewPass {
             maxTokens: batchMaxTokens,
             model,
             responseSchema: TRIAGE_JSON_SCHEMA,
-          }
+          },
         );
         totalPromptTokens += response.usage.promptTokens;
         totalCompletionTokens += response.usage.completionTokens;
         if (response.content === null) {
           this.logger.warn(
             { batchIndex, batchSize: batchHunks.length },
-            "Triage batch returned null content, marking batch hunks as needs-review"
+            "Triage batch returned null content, marking batch hunks as needs-review",
           );
           for (const hunk of batchHunks) {
             if (!seenIds.has(hunk.id)) {
@@ -569,7 +571,7 @@ class TriagePass implements IReviewPass {
               mrIid: context.mrIid,
               projectId: context.projectId,
               reviewRunId: context.reviewRunId,
-            }
+            },
           );
           rawTrivialCount += batchResult.trivialCount;
           if (batchResult.parseFailed) parseFailures++;
@@ -590,13 +592,13 @@ class TriagePass implements IReviewPass {
               reviewRunId: context.reviewRunId,
               trivialInBatch,
             },
-            "Triage batch completed"
+            "Triage batch completed",
           );
         }
       } catch (err) {
         this.logger.warn(
           { batchIndex, batchSize: batchHunks.length, err, model },
-          "Triage batch LLM call failed, marking batch hunks as needs-review"
+          "Triage batch LLM call failed, marking batch hunks as needs-review",
         );
         parseFailures++;
         for (const hunk of batchHunks) {
@@ -639,7 +641,7 @@ class TriagePass implements IReviewPass {
         trivialCapMaxAllowedCount: capResult.maxAllowedTrivialCount,
         trivialCount,
       },
-      "Triage completed"
+      "Triage completed",
     );
 
     const triageModel = context.reviewConfig.models.triage;

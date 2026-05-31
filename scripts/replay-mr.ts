@@ -116,7 +116,7 @@ function getDiffFiles(base: string, head: string): DiffFile[] {
     const newPath = status.startsWith("R") ? parts[2] : oldPath;
     if (oldPath === undefined || newPath === undefined) continue;
     const fileDiff = gitOrEmpty(
-      `diff --no-color --no-ext-diff -U3 ${base}...${head} -- "${newPath}"`
+      `diff --no-color --no-ext-diff -U3 ${base}...${head} -- "${newPath}"`,
     );
     if (fileDiff.trim().length === 0) continue;
     const cleaned = stripGitDiffHeader(fileDiff);
@@ -139,7 +139,7 @@ function stripGitDiffHeader(rawDiff: string): string {
 
 function getMrInfo(
   base: string,
-  head: string
+  head: string,
 ): {
   description: string;
   title: string;
@@ -199,7 +199,7 @@ function buildOverlayView(headRef: string): IOverlayView {
           const pattern = call.arguments["pattern"];
           if (typeof pattern !== "string") return Promise.resolve("");
           const out = gitOrEmpty(
-            `grep -n --fixed-strings ${JSON.stringify(pattern)} ${headRef}`
+            `grep -n --fixed-strings ${JSON.stringify(pattern)} ${headRef}`,
           );
           return Promise.resolve(out.split("\n").slice(0, 30).join("\n"));
         }
@@ -218,7 +218,7 @@ function buildOverlayView(headRef: string): IOverlayView {
     },
     searchContent(pattern: string): Promise<string> {
       const out = gitOrEmpty(
-        `grep -n --fixed-strings ${JSON.stringify(pattern)} ${headRef}`
+        `grep -n --fixed-strings ${JSON.stringify(pattern)} ${headRef}`,
       );
       if (!out) return Promise.resolve(`No matches found for: ${pattern}`);
       return Promise.resolve(out.split("\n").slice(0, 30).join("\n"));
@@ -247,7 +247,7 @@ interface PhaseResult {
 
 async function runPass(
   passName: string,
-  fn: () => Promise<PassResult>
+  fn: () => Promise<PassResult>,
 ): Promise<{ phase: PhaseResult; result: PassResult | null }> {
   const startedAt = Date.now();
   try {
@@ -266,7 +266,7 @@ async function runPass(
     };
   } catch (err) {
     process.stderr.write(
-      `\n[REPLAY] ${passName} pass FAILED: ${err instanceof Error ? err.message : String(err)}\n`
+      `\n[REPLAY] ${passName} pass FAILED: ${err instanceof Error ? err.message : String(err)}\n`,
     );
     return {
       phase: {
@@ -284,7 +284,7 @@ async function runPass(
 
 async function main(): Promise<void> {
   process.stderr.write(
-    `\n[REPLAY] Repo: ${REPO_ROOT}\n[REPLAY] base=${BASE_REF}  head=${HEAD_REF}  maxFiles=${MAX_FILES.toString()}\n`
+    `\n[REPLAY] Repo: ${REPO_ROOT}\n[REPLAY] base=${BASE_REF}  head=${HEAD_REF}  maxFiles=${MAX_FILES.toString()}\n`,
   );
 
   const allDiffs = getDiffFiles(BASE_REF, HEAD_REF);
@@ -296,7 +296,7 @@ async function main(): Promise<void> {
   const cappedDiffs = allDiffs.slice(0, MAX_FILES);
   if (allDiffs.length > MAX_FILES) {
     process.stderr.write(
-      `[REPLAY] Found ${allDiffs.length.toString()} files, capped to ${MAX_FILES.toString()} (override with --max-files)\n`
+      `[REPLAY] Found ${allDiffs.length.toString()} files, capped to ${MAX_FILES.toString()} (override with --max-files)\n`,
     );
   }
 
@@ -311,17 +311,17 @@ async function main(): Promise<void> {
   });
 
   process.stderr.write(
-    `[REPLAY] Diff files: ${cappedDiffs.length.toString()} → after skip-filter: ${reviewableDiffs.length.toString()}\n`
+    `[REPLAY] Diff files: ${cappedDiffs.length.toString()} → after skip-filter: ${reviewableDiffs.length.toString()}\n`,
   );
   if (skippedByReason.size > 0) {
     for (const [reason, paths] of skippedByReason) {
       process.stderr.write(
-        `  skipped[${reason}] (${paths.length.toString()}):\n${paths.map((p) => `    - ${p}`).join("\n")}\n`
+        `  skipped[${reason}] (${paths.length.toString()}):\n${paths.map((p) => `    - ${p}`).join("\n")}\n`,
       );
     }
   }
   process.stderr.write(
-    `  reviewable (${reviewableDiffs.length.toString()}):\n${reviewableDiffs.map((d) => `    - ${d.newPath}`).join("\n")}\n`
+    `  reviewable (${reviewableDiffs.length.toString()}):\n${reviewableDiffs.map((d) => `    - ${d.newPath}`).join("\n")}\n`,
   );
 
   const parsedDiffs = reviewableDiffs.map(parseDiff);
@@ -344,7 +344,7 @@ async function main(): Promise<void> {
   }
 
   process.stderr.write(
-    `[REPLAY] Provider=${llmConfig.envs.LLM_PROVIDER}  review=${reviewModel}  triage=${triageModel}\n\n`
+    `[REPLAY] Provider=${llmConfig.envs.LLM_PROVIDER}  review=${reviewModel}  triage=${triageModel}\n\n`,
   );
 
   const mrInfo = getMrInfo(BASE_REF, HEAD_REF);
@@ -382,7 +382,7 @@ async function main(): Promise<void> {
     process.stderr.write(`[REPLAY] ▶ triage\n`);
     const triage = new TriagePass(llm, logger);
     const out = await runPass("triage", () =>
-      triage.execute(context, passResults)
+      triage.execute(context, passResults),
     );
     phases.push(out.phase);
     if (out.result) {
@@ -390,22 +390,22 @@ async function main(): Promise<void> {
       const triageMeta = out.result.metadata as unknown as TriagePassMetadata;
       const filteredDiffs = applyTriageFilter(
         context.diffs,
-        triageMeta.trivialKeys
+        triageMeta.trivialKeys,
       );
       const removedFiles = context.diffs.length - filteredDiffs.length;
       process.stderr.write(
-        `[REPLAY] triage filter: ${context.diffs.length.toString()} → ${filteredDiffs.length.toString()} files (${removedFiles.toString()} fully-trivial files removed; ${triageMeta.trivialHunkCount.toString()} trivial hunks; parseFailures=${triageMeta.parseFailures.toString()}/${triageMeta.totalBatches.toString()})\n`
+        `[REPLAY] triage filter: ${context.diffs.length.toString()} → ${filteredDiffs.length.toString()} files (${removedFiles.toString()} fully-trivial files removed; ${triageMeta.trivialHunkCount.toString()} trivial hunks; parseFailures=${triageMeta.parseFailures.toString()}/${triageMeta.totalBatches.toString()})\n`,
       );
       context = { ...context, diffs: filteredDiffs };
     }
   }
 
   process.stderr.write(
-    `[REPLAY] ▶ file-review (${context.diffs.length.toString()} files)\n`
+    `[REPLAY] ▶ file-review (${context.diffs.length.toString()} files)\n`,
   );
   const fileReview = new FileReviewPass(llm, logger);
   const fileReviewOut = await runPass("file-review", () =>
-    fileReview.execute(context, passResults)
+    fileReview.execute(context, passResults),
   );
   phases.push(fileReviewOut.phase);
   if (fileReviewOut.result)
@@ -415,7 +415,7 @@ async function main(): Promise<void> {
     process.stderr.write(`[REPLAY] ▶ cross-file\n`);
     const crossFile = new CrossFilePass(llm, logger);
     const out = await runPass("cross-file", () =>
-      crossFile.execute(context, passResults)
+      crossFile.execute(context, passResults),
     );
     phases.push(out.phase);
     if (out.result) passResults.set("cross-file", out.result);
@@ -424,7 +424,7 @@ async function main(): Promise<void> {
   process.stderr.write(`[REPLAY] ▶ aggregation\n`);
   const aggregation = new AggregationPass(buildEmptyDismissedRepo(), logger, 3);
   const aggOut = await runPass("aggregation", () =>
-    aggregation.execute(context, passResults)
+    aggregation.execute(context, passResults),
   );
   phases.push(aggOut.phase);
   if (aggOut.result) passResults.set("aggregation", aggOut.result);
@@ -436,7 +436,7 @@ async function main(): Promise<void> {
 
 function findOffDiffFindings(
   passResults: Map<string, PassResult>,
-  allowedPaths: Set<string>
+  allowedPaths: Set<string>,
 ): Array<{
   filePath: string;
   lineNumber: number;
@@ -466,7 +466,7 @@ function findOffDiffFindings(
 
 function printSummary(
   phases: PhaseResult[],
-  passResults: Map<string, PassResult>
+  passResults: Map<string, PassResult>,
 ): void {
   process.stderr.write(`\n═══ REPLAY SUMMARY ═══\n`);
   const headers = [
@@ -479,7 +479,7 @@ function printSummary(
   ];
   const widths = [14, 9, 12, 12, 9, 9];
   process.stderr.write(
-    headers.map((h, i) => h.padEnd(widths[i] ?? 12)).join("  ") + "\n"
+    headers.map((h, i) => h.padEnd(widths[i] ?? 12)).join("  ") + "\n",
   );
   let totalPrompt = 0;
   let totalCompl = 0;
@@ -496,11 +496,11 @@ function printSummary(
         `${(p.durationMs / 1000).toFixed(1)}s`,
       ]
         .map((c, i) => c.padEnd(widths[i] ?? 12))
-        .join("  ") + "\n"
+        .join("  ") + "\n",
     );
   }
   process.stderr.write(
-    `\n  totals: promptTok=${totalPrompt.toLocaleString("en-US")}  complTok=${totalCompl.toLocaleString("en-US")}  total=${(totalPrompt + totalCompl).toLocaleString("en-US")}\n`
+    `\n  totals: promptTok=${totalPrompt.toLocaleString("en-US")}  complTok=${totalCompl.toLocaleString("en-US")}  total=${(totalPrompt + totalCompl).toLocaleString("en-US")}\n`,
   );
 
   const aggMeta = passResults.get("aggregation")?.metadata as
@@ -518,16 +518,16 @@ function printSummary(
   const allFindings = aggMeta?.allFindings ?? [];
   if (allFindings.length > 0) {
     process.stderr.write(
-      `\n═══ FINDINGS (${String(allFindings.length)}) ═══\n`
+      `\n═══ FINDINGS (${String(allFindings.length)}) ═══\n`,
     );
     for (const f of allFindings.slice(0, 30)) {
       process.stderr.write(
-        `  [${f.severity}] ${f.filePath}:${String(f.lineNumber)} (${f.category})\n    ${f.comment.slice(0, 200)}\n`
+        `  [${f.severity}] ${f.filePath}:${String(f.lineNumber)} (${f.category})\n    ${f.comment.slice(0, 200)}\n`,
       );
     }
     if (allFindings.length > 30) {
       process.stderr.write(
-        `  ... and ${String(allFindings.length - 30)} more findings\n`
+        `  ... and ${String(allFindings.length - 30)} more findings\n`,
       );
     }
   } else {
@@ -539,29 +539,29 @@ function printSummary(
   const fmtSummaryComment = (c: string): string =>
     c.replace(/\r?\n/g, " ").trim();
   const fileTop = allFindings.filter(
-    (f) => isVisible(f.severity) && f.passName === "file-review"
+    (f) => isVisible(f.severity) && f.passName === "file-review",
   );
   const archTop = allFindings.filter(
-    (f) => isVisible(f.severity) && f.passName === "cross-file"
+    (f) => isVisible(f.severity) && f.passName === "cross-file",
   );
   if (fileTop.length > 0 || archTop.length > 0) {
     process.stderr.write(
-      `\n═══ SUMMARY FINDINGS PREVIEW (as it appears in the MR note) ═══\n`
+      `\n═══ SUMMARY FINDINGS PREVIEW (as it appears in the MR note) ═══\n`,
     );
     if (fileTop.length > 0) {
       process.stderr.write(`\n--- File Findings ---\n`);
       fileTop.forEach((f, i) =>
         process.stderr.write(
-          `  ${String(i + 1)}. [${f.severity.toUpperCase()}] ${f.filePath}:${String(f.lineNumber)} - ${fmtSummaryComment(f.comment)}\n`
-        )
+          `  ${String(i + 1)}. [${f.severity.toUpperCase()}] ${f.filePath}:${String(f.lineNumber)} - ${fmtSummaryComment(f.comment)}\n`,
+        ),
       );
     }
     if (archTop.length > 0) {
       process.stderr.write(`\n--- Architecture Findings ---\n`);
       archTop.forEach((f, i) =>
         process.stderr.write(
-          `  ${String(i + 1)}. [${f.severity.toUpperCase()}] ${f.filePath}:${String(f.lineNumber)} - ${fmtSummaryComment(f.comment)}\n`
-        )
+          `  ${String(i + 1)}. [${f.severity.toUpperCase()}] ${f.filePath}:${String(f.lineNumber)} - ${fmtSummaryComment(f.comment)}\n`,
+        ),
       );
     }
   }
@@ -572,7 +572,7 @@ function printSummary(
 function printGitLabPreview(
   passResults: Map<string, PassResult>,
   context: ReviewContext,
-  parsedDiffs: ParsedFileDiff[]
+  parsedDiffs: ParsedFileDiff[],
 ): void {
   const aggMeta = passResults.get("aggregation")?.metadata as
     | {
@@ -606,7 +606,7 @@ function printGitLabPreview(
   process.stderr.write(
     `\n═══════════════════════════════════════════════════════════\n` +
       `  GITLAB MR PREVIEW (what reviewers see in GitLab)\n` +
-      `═══════════════════════════════════════════════════════════\n`
+      `═══════════════════════════════════════════════════════════\n`,
   );
 
   if (postableFindings.length === 0) {
@@ -614,7 +614,7 @@ function printGitLabPreview(
   } else {
     process.stderr.write(
       `\n--- INLINE THREADS (${String(postableFindings.length)}) ---\n` +
-        `Each block below = a separate inline thread in GitLab on a specific line.\n`
+        `Each block below = a separate inline thread in GitLab on a specific line.\n`,
     );
     let threadIdx = 0;
     let droppedNoPosition = 0;
@@ -622,14 +622,14 @@ function printGitLabPreview(
       const positionResult = buildPosition(
         finding,
         context.versions,
-        parsedDiffs
+        parsedDiffs,
       );
       if (!positionResult) {
         droppedNoPosition++;
         process.stderr.write(
           `\n  ⚠ NO POSITION (would NOT post inline, only in summary):\n` +
             `    file=${finding.filePath}:${String(finding.lineNumber)} pass=${finding.passName} severity=${finding.severity}\n` +
-            `    comment: ${finding.comment.slice(0, 200)}\n`
+            `    comment: ${finding.comment.slice(0, 200)}\n`,
         );
         continue;
       }
@@ -645,7 +645,7 @@ function printGitLabPreview(
         finding.originalSnippet,
         finding.lineType,
         position.newLine ?? finding.lineNumber,
-        finding.endLineNumber
+        finding.endLineNumber,
       );
       threadIdx++;
       const targetLine = position.newLine ?? position.oldLine ?? "?";
@@ -660,12 +660,12 @@ function printGitLabPreview(
             .split("\n")
             .map((l) => `  │ ${l}`)
             .join("\n") +
-          "\n"
+          "\n",
       );
     }
     if (droppedNoPosition > 0) {
       process.stderr.write(
-        `\n  (${String(droppedNoPosition)} finding(s) without inline position — only in summary)\n`
+        `\n  (${String(droppedNoPosition)} finding(s) without inline position — only in summary)\n`,
       );
     }
   }
@@ -687,13 +687,13 @@ function printGitLabPreview(
         .split("\n")
         .map((l) => `  │ ${l}`)
         .join("\n") +
-      "\n\n"
+      "\n\n",
   );
 }
 
 function enforceOffDiffInvariant(
   passResults: Map<string, PassResult>,
-  reviewableDiffs: DiffFile[]
+  reviewableDiffs: DiffFile[],
 ): void {
   const allowedPaths = new Set(reviewableDiffs.map((d) => d.newPath));
   const leaks = findOffDiffFindings(passResults, allowedPaths);
@@ -701,11 +701,11 @@ function enforceOffDiffInvariant(
     process.stderr.write(`\n═══ OFF-DIFF LEAK DETECTED ═══\n`);
     for (const leak of leaks) {
       process.stderr.write(
-        `  [OFF-DIFF LEAK] pass=${leak.passName} file=${leak.filePath}:${String(leak.lineNumber)} severity=${leak.severity}\n`
+        `  [OFF-DIFF LEAK] pass=${leak.passName} file=${leak.filePath}:${String(leak.lineNumber)} severity=${leak.severity}\n`,
       );
     }
     process.stderr.write(
-      `\nTotal leaks: ${String(leaks.length)} — failing replay (exit 1)\n\n`
+      `\nTotal leaks: ${String(leaks.length)} — failing replay (exit 1)\n\n`,
     );
     process.exit(1);
   }
@@ -713,7 +713,7 @@ function enforceOffDiffInvariant(
 
 main().catch((err: unknown) => {
   process.stderr.write(
-    `\n[REPLAY] Fatal: ${err instanceof Error ? err.message : String(err)}\n`
+    `\n[REPLAY] Fatal: ${err instanceof Error ? err.message : String(err)}\n`,
   );
   process.exit(1);
 });

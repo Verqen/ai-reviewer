@@ -21,7 +21,7 @@ describe("formatCommentWithSuggestion", () => {
       "old code",
       "removed",
       10,
-      undefined
+      undefined,
     );
     expect(result).toBe("[INFO] Old code removed");
     expect(result).not.toContain("```suggestion");
@@ -35,7 +35,7 @@ describe("formatCommentWithSuggestion", () => {
       "var x = 1;",
       "added",
       5,
-      undefined
+      undefined,
     );
     expect(result).toContain("```suggestion:-0+0");
     expect(result).toContain("const x = 1;");
@@ -48,7 +48,7 @@ describe("formatCommentWithSuggestion", () => {
       "const x = 1;",
       "added",
       5,
-      undefined
+      undefined,
     );
     expect(result).toContain("```suggestion:-0+0");
     expect(result).toContain("```");
@@ -63,7 +63,7 @@ describe("formatCommentWithSuggestion", () => {
       "var a = 1;\nvar b = 2;",
       "added",
       10,
-      11
+      11,
     );
     expect(result).toContain("```suggestion:-0+1");
   });
@@ -76,7 +76,7 @@ describe("formatCommentWithSuggestion", () => {
       undefined,
       "added",
       3,
-      undefined
+      undefined,
     );
     expect(result).toBe("[INFO] Missing snippet");
     expect(result).not.toContain("```suggestion");
@@ -90,7 +90,7 @@ describe("formatCommentWithSuggestion", () => {
       "original",
       undefined,
       7,
-      undefined
+      undefined,
     );
     expect(result).not.toContain("```suggestion");
   });
@@ -103,7 +103,7 @@ describe("formatCommentWithSuggestion", () => {
       "original",
       "added",
       undefined,
-      undefined
+      undefined,
     );
     expect(result).not.toContain("```suggestion");
   });
@@ -116,7 +116,7 @@ describe("formatCommentWithSuggestion", () => {
       "original line",
       "context",
       20,
-      undefined
+      undefined,
     );
     expect(result).toContain("```suggestion:-0+0");
     expect(result).toContain("improved line");
@@ -130,7 +130,7 @@ describe("formatCommentWithSuggestion", () => {
       "broken",
       "added",
       1,
-      undefined
+      undefined,
     );
     expect(result).toContain("[WARNING] Fix this\n\n```suggestion");
   });
@@ -143,7 +143,7 @@ describe("formatCommentWithSuggestion", () => {
       "broken code",
       "added",
       1,
-      undefined
+      undefined,
     );
     expect(result).toMatch(/```$/);
   });
@@ -156,7 +156,7 @@ describe("formatCommentWithSuggestion", () => {
       "x\ny\nz",
       "added",
       1,
-      3
+      3,
     );
     expect(result).toContain("```suggestion:-0+2");
   });

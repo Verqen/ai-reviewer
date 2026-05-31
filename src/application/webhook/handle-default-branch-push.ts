@@ -8,7 +8,7 @@ import type {
 
 async function handleDefaultBranchPush(
   deps: WebhookOrchestratorDeps,
-  event: Extract<WebhookEvent, { type: "push" }>
+  event: Extract<WebhookEvent, { type: "push" }>,
 ): Promise<WebhookOrchestrationResult> {
   const { afterSha, commits, projectId, ref } = event;
   const branchFromRef = ref.startsWith("refs/heads/")
@@ -25,7 +25,7 @@ async function handleDefaultBranchPush(
   }
   const changedFiles = [
     ...new Set(
-      commits.flatMap((c) => [...c.added, ...c.modified, ...c.removed])
+      commits.flatMap((c) => [...c.added, ...c.modified, ...c.removed]),
     ),
   ];
   const baselineKey = `update_baseline:${projectId}`;

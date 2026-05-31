@@ -23,7 +23,7 @@ type IncrementalTriggerType = Extract<
 type ForcePushLikeTriggerType = Exclude<IncrementalTriggerType, "push">;
 
 function isForcePushLikeTriggerType(
-  triggerType: TriggerType
+  triggerType: TriggerType,
 ): triggerType is ForcePushLikeTriggerType {
   return triggerType === "force_push" || triggerType === "rebase";
 }

@@ -86,8 +86,8 @@ class ReviewRunRepository implements IReviewRunRepository {
               .selectFrom("review_run")
               .select("id")
               .where("status", "in", ["completed", "failed"])
-              .where("completed_at", "<", now)
-          )
+              .where("completed_at", "<", now),
+          ),
         )
         .execute();
       const deleteRunResult = await trx
@@ -130,7 +130,7 @@ class ReviewRunRepository implements IReviewRunRepository {
 
   async findByProjectAndMr(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<ReviewRun[]> {
     const rows = await this.db
       .selectFrom("review_run")
@@ -147,7 +147,7 @@ class ReviewRunRepository implements IReviewRunRepository {
     projectId: number,
     mrIid: number,
     triggerType?: TriggerType,
-    options?: FindLatestReviewRunOptions
+    options?: FindLatestReviewRunOptions,
   ): Promise<ReviewRun | undefined> {
     const includeFailed = options?.includeFailedForBaseline === true;
     let query = this.db
@@ -177,7 +177,7 @@ class ReviewRunRepository implements IReviewRunRepository {
     mrIid: number,
     headCommitSha: string,
     baseCommitSha: string,
-    triggerType: TriggerType
+    triggerType: TriggerType,
   ): Promise<ReviewRun | undefined> {
     const row = await this.db
       .selectFrom("review_run")
@@ -195,7 +195,7 @@ class ReviewRunRepository implements IReviewRunRepository {
   async updateStatus(
     id: string,
     status: ReviewStatus,
-    timestamp?: Date
+    timestamp?: Date,
   ): Promise<void> {
     const update: Record<string, Date | ReviewStatus> = { status };
 
@@ -214,7 +214,7 @@ class ReviewRunRepository implements IReviewRunRepository {
 
   async updateStats(
     id: string,
-    stats: UpdateReviewRunStatsInput
+    stats: UpdateReviewRunStatsInput,
   ): Promise<void> {
     await this.db
       .updateTable("review_run")
@@ -241,7 +241,7 @@ class ReviewRunRepository implements IReviewRunRepository {
       baseCommitSha: string;
       stats: UpdateReviewRunStatsInput;
       timestamp: Date;
-    }
+    },
   ): Promise<void> {
     await this.db.transaction().execute(async (trx) => {
       await trx

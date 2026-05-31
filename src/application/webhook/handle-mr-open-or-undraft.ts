@@ -10,7 +10,7 @@ import type {
 
 async function handleMrOpenOrUndraft(
   deps: WebhookOrchestratorDeps,
-  event: Extract<WebhookEvent, { type: "mr_open" } | { type: "mr_undraft" }>
+  event: Extract<WebhookEvent, { type: "mr_open" } | { type: "mr_undraft" }>,
 ): Promise<WebhookOrchestrationResult> {
   const triggerType =
     event.type === "mr_open" ? ("mr_open" as const) : ("mr_undraft" as const);
@@ -18,14 +18,14 @@ async function handleMrOpenOrUndraft(
   if (deps.cache.has(cacheKey)) {
     deps.log.info(
       { cacheKey, mrIid: event.mrIid, projectId: event.projectId },
-      "Memory cache hit; enqueuing anyway for orchestrator dedup"
+      "Memory cache hit; enqueuing anyway for orchestrator dedup",
     );
   }
   await ensureBaseline(
     event.projectId,
     deps.snapshotRepo,
     deps.queue,
-    deps.jobHandler
+    deps.jobHandler,
   );
   const reviewKey = buildCanonicalMrReviewJobKey(event.projectId, event.mrIid);
   if (deps.queue.isPending(reviewKey)) {

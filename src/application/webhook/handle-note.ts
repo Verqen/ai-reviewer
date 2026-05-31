@@ -11,7 +11,7 @@ import type {
 
 async function handleNote(
   deps: WebhookOrchestratorDeps,
-  event: Extract<WebhookEvent, { type: "note" }>
+  event: Extract<WebhookEvent, { type: "note" }>,
 ): Promise<WebhookOrchestrationResult> {
   const botUsername = deps.gitlabConfig.envs.GITLAB_BOT_USERNAME;
   if (event.authorUsername === botUsername) {
@@ -20,10 +20,10 @@ async function handleNote(
   if (event.discussionId) {
     const findings = await deps.reviewFindingRepo.findByProjectAndMr(
       event.projectId,
-      event.mrIid
+      event.mrIid,
     );
     const isBotDiscussion = findings.some(
-      (f) => f.hostDiscussionId === event.discussionId
+      (f) => f.hostDiscussionId === event.discussionId,
     );
     if (isBotDiscussion) {
       if (!isBotMentioned(event.note, botUsername)) {
@@ -44,7 +44,7 @@ async function handleNote(
       const enqueued = deps.queue.enqueue(
         threadKey,
         threadJob,
-        deps.jobHandler
+        deps.jobHandler,
       );
       if (!enqueued) {
         return { kind: "conflict", reason: "response_in_progress" };
@@ -58,7 +58,7 @@ async function handleNote(
   if (isReviewRequest(event.note)) {
     const reviewKey = buildCanonicalMrReviewJobKey(
       event.projectId,
-      event.mrIid
+      event.mrIid,
     );
     const reviewJob: ReviewJob = {
       mrIid: event.mrIid,

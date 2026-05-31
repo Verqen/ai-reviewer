@@ -62,10 +62,10 @@ describe("planForcePushLineCorrelation", () => {
       const plan = planForcePushLineCorrelation(
         [finding],
         [parseMrFile(mrFile)],
-        matchOptions()
+        matchOptions(),
       );
       expect(plan.correlated.map((c) => c.finding.hostDiscussionId)).toContain(
-        "disc-ws"
+        "disc-ws",
       );
     });
 
@@ -84,10 +84,10 @@ describe("planForcePushLineCorrelation", () => {
       const plan = planForcePushLineCorrelation(
         [finding],
         [parseMrFile(mrFile)],
-        matchOptions()
+        matchOptions(),
       );
       expect(plan.correlated.map((c) => c.finding.hostDiscussionId)).toContain(
-        "disc-internal-ws"
+        "disc-internal-ws",
       );
     });
 
@@ -106,10 +106,10 @@ describe("planForcePushLineCorrelation", () => {
       const plan = planForcePushLineCorrelation(
         [finding],
         [parseMrFile(mrFile)],
-        matchOptions()
+        matchOptions(),
       );
       expect(plan.correlated.map((c) => c.finding.hostDiscussionId)).toContain(
-        "disc-tab-vs-spaces"
+        "disc-tab-vs-spaces",
       );
     });
 
@@ -128,10 +128,10 @@ describe("planForcePushLineCorrelation", () => {
       const plan = planForcePushLineCorrelation(
         [finding],
         [parseMrFile(mrFile)],
-        matchOptions()
+        matchOptions(),
       );
       expect(plan.correlated.map((c) => c.finding.hostDiscussionId)).toContain(
-        "disc-two-tabs"
+        "disc-two-tabs",
       );
     });
 
@@ -151,12 +151,12 @@ describe("planForcePushLineCorrelation", () => {
       const plan = planForcePushLineCorrelation(
         [finding],
         [parseMrFile(mrFile)],
-        matchOptions()
+        matchOptions(),
       );
       const hasExpectedCorrelation = plan.correlated.some(
         (candidate) =>
           candidate.finding.hostDiscussionId === "disc-full-scan" &&
-          candidate.newLineNumber === 2
+          candidate.newLineNumber === 2,
       );
       expect(hasExpectedCorrelation).toBe(true);
     });

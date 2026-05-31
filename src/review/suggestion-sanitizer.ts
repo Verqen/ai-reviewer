@@ -41,7 +41,7 @@ function isLikelyProse(value: string): boolean {
 }
 
 function sanitizeSuggestionAndComment(
-  params: SanitizeSuggestionAndCommentParams
+  params: SanitizeSuggestionAndCommentParams,
 ): SanitizeSuggestionAndCommentResult {
   const normalizedComment = normalizeForComparison(params.comment);
   if (params.suggestion === undefined || params.suggestion === null) {

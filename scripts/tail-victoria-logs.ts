@@ -197,7 +197,7 @@ function formatLine(rawJson: string, args: CliArgs): string | null {
   const msg = toScalarString(entry["msg"] ?? entry["_msg"]);
   if (args.important) {
     const isImportant = IMPORTANT_PATTERNS.some((p) =>
-      msg.toLowerCase().includes(p.toLowerCase())
+      msg.toLowerCase().includes(p.toLowerCase()),
     );
     if (!isImportant) return null;
   }
@@ -259,14 +259,14 @@ async function runQuery(args: CliArgs): Promise<void> {
   });
   if (!response.ok) {
     console.error(
-      `Query failed: ${response.status} ${response.statusText}: ${await response.text()}`
+      `Query failed: ${response.status} ${response.statusText}: ${await response.text()}`,
     );
     process.exit(1);
   }
   const text = await response.text();
   const lines = text.split("\n").filter((l) => l.trim().length > 0);
   console.log(
-    `${COLOR.cyan}# query: ${query} | since: ${args.since} | results: ${lines.length}${COLOR.reset}`
+    `${COLOR.cyan}# query: ${query} | since: ${args.since} | results: ${lines.length}${COLOR.reset}`,
   );
   for (const line of lines) {
     const formatted = formatLine(line, args);
@@ -287,7 +287,7 @@ async function runTail(args: CliArgs): Promise<void> {
   });
   if (!response.ok) {
     console.error(
-      `Tail failed: ${response.status} ${response.statusText}: ${await response.text()}`
+      `Tail failed: ${response.status} ${response.statusText}: ${await response.text()}`,
     );
     process.exit(1);
   }
@@ -296,7 +296,7 @@ async function runTail(args: CliArgs): Promise<void> {
     process.exit(1);
   }
   console.log(
-    `${COLOR.cyan}# tailing: ${query} | since: ${args.since} | Ctrl+C to stop${COLOR.reset}`
+    `${COLOR.cyan}# tailing: ${query} | since: ${args.since} | Ctrl+C to stop${COLOR.reset}`,
   );
   const reader: ReadableStreamDefaultReader<Uint8Array> =
     response.body.getReader();

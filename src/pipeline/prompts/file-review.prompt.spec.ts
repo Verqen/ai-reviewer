@@ -36,13 +36,13 @@ describe("buildFileReviewAnalysisSystemBlocks", () => {
   it("requires tool verification before missing-file claims", () => {
     const text = analysisSystemText();
     expect(text).toContain(
-      "Never claim that an imported file does not exist unless you first verify it with repository tools"
+      "Never claim that an imported file does not exist unless you first verify it with repository tools",
     );
   });
 
   it("forces output language (default English)", () => {
     expect(analysisSystemText()).toContain(
-      "You MUST write the entire analysis in English."
+      "You MUST write the entire analysis in English.",
     );
   });
 
@@ -51,7 +51,7 @@ describe("buildFileReviewAnalysisSystemBlocks", () => {
       null,
       undefined,
       true,
-      "Russian"
+      "Russian",
     );
     const text = blocks.map((b) => b.text).join("\n");
     expect(text).toContain("You MUST write the entire analysis in Russian.");
@@ -65,7 +65,7 @@ describe("buildFileReviewAnalysisSystemBlocks", () => {
 
   it("includes analysis discipline for checkable line-anchored output", () => {
     expect(analysisSystemText()).toContain(
-      buildAnalysisDisciplineInstruction("English")
+      buildAnalysisDisciplineInstruction("English"),
     );
   });
 
@@ -86,7 +86,7 @@ describe("buildFileReviewAnalysisSystemBlocks", () => {
     const blocks = buildFileReviewAnalysisSystemBlocks(
       null,
       "<package_json>{}</package_json>",
-      true
+      true,
     );
     expect(blocks[0]?.text).toContain("<architecture_snapshot>");
     expect(blocks[0]?.text).toContain("<package_json>{}</package_json>");
@@ -96,7 +96,7 @@ describe("buildFileReviewAnalysisSystemBlocks", () => {
     const blocks = buildFileReviewAnalysisSystemBlocks(
       "PROJECT_RULE",
       undefined,
-      true
+      true,
     );
     expect(blocks[0]?.text).toContain("Project rules:");
     expect(blocks[0]?.text).toContain("PROJECT_RULE");
@@ -106,7 +106,7 @@ describe("buildFileReviewAnalysisSystemBlocks", () => {
 describe("buildFileReviewExtractionSystemBlocks", () => {
   it("does not embed phase-1 analysis discipline instruction", () => {
     expect(extractionSystemText()).not.toContain(
-      "Discipline (phase 1 analysis)"
+      "Discipline (phase 1 analysis)",
     );
   });
 
@@ -124,13 +124,13 @@ describe("buildFileReviewExtractionSystemBlocks", () => {
     const text = extractionSystemText();
     expect(text).toContain("Keep rationale strictly in comment");
     expect(text).toContain(
-      "suggestion must contain only replacement code lines"
+      "suggestion must contain only replacement code lines",
     );
   });
 
   it("allows empty suggestion value for deletion-only fixes", () => {
     expect(extractionSystemText()).toContain(
-      "suggestion may be an empty string to produce deletion-only apply suggestion"
+      "suggestion may be an empty string to produce deletion-only apply suggestion",
     );
   });
 
@@ -178,7 +178,7 @@ describe("buildFileReviewAnalysisUserPrompt", () => {
     const text = buildFileReviewAnalysisUserPrompt(
       mrInfo,
       "--- a\n+++ b\n",
-      null
+      null,
     );
     expect(text).not.toContain("Allowable anchors");
   });
@@ -203,7 +203,7 @@ describe("formatCommentWithSuggestion", () => {
   it("formats comment with severity header", () => {
     const result = formatCommentWithSuggestion(
       "Potential null reference",
-      "warning"
+      "warning",
     );
     expect(result).toBe("[WARNING] Potential null reference");
   });
@@ -216,7 +216,7 @@ describe("formatCommentWithSuggestion", () => {
       "user.update(data);",
       "added",
       42,
-      undefined
+      undefined,
     );
     expect(result).toContain("```suggestion:-0+0");
     expect(result).toContain("if (user != null)");
@@ -230,7 +230,7 @@ describe("formatCommentWithSuggestion", () => {
       "user.update(data);\nuser.save();",
       "added",
       42,
-      43
+      43,
     );
     expect(result).toContain("```suggestion:-0+1");
   });
@@ -243,7 +243,7 @@ describe("formatCommentWithSuggestion", () => {
       "original code",
       "removed",
       10,
-      undefined
+      undefined,
     );
     expect(result).not.toContain("```suggestion");
     expect(result).toBe("[INFO] This line was removed");
@@ -257,7 +257,7 @@ describe("formatCommentWithSuggestion", () => {
       undefined,
       "added",
       5,
-      undefined
+      undefined,
     );
     expect(result).not.toContain("```suggestion");
     expect(result).toBe("[NITPICK] Some finding");
@@ -271,7 +271,7 @@ describe("formatCommentWithSuggestion", () => {
       undefined,
       "added",
       5,
-      undefined
+      undefined,
     );
     expect(result).not.toContain("```suggestion");
   });
@@ -284,7 +284,7 @@ describe("formatCommentWithSuggestion", () => {
       "original code",
       undefined,
       5,
-      undefined
+      undefined,
     );
     expect(result).not.toContain("```suggestion");
   });
@@ -307,7 +307,7 @@ describe("formatCommentWithSuggestion", () => {
       "original code",
       "context",
       20,
-      undefined
+      undefined,
     );
     expect(result).toContain("```suggestion:-0+0");
     expect(result).toContain("better code");

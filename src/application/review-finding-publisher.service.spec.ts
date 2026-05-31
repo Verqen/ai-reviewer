@@ -109,13 +109,13 @@ function makeCodeHost(params: {
         return Promise.resolve("// file exists");
       }
       return Promise.reject(new Error("File not found"));
-    }
+    },
   );
   const postInlineCommentMock = vi.fn(() =>
-    Promise.resolve({ discussionId: "discussion-id", noteId: "note-id" })
+    Promise.resolve({ discussionId: "discussion-id", noteId: "note-id" }),
   );
   const replyToDiscussionMock = vi.fn(() =>
-    Promise.resolve({ noteId: "note-id" })
+    Promise.resolve({ noteId: "note-id" }),
   );
   const resolveDiscussionMock = vi.fn(() => Promise.resolve());
   return {
@@ -166,7 +166,7 @@ function makeCommentResolutionService(): CommentResolutionService {
 describe("ReviewFindingPublisherService missing-file validator", () => {
   it("drops finding when referenced import path exists at MR head", async () => {
     const finding = makeFinding(
-      "Imports a file that does not exist './user/user.router.ts'. File not found in the repository."
+      "Imports a file that does not exist './user/user.router.ts'. File not found in the repository.",
     );
     const infra = makeInfraRepoPorts();
     const codeHost = makeCodeHost({
@@ -176,7 +176,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
       infra,
       codeHost,
       makeCommentResolutionService(),
-      createMockLogger()
+      createMockLogger(),
     );
 
     await service.publishInlineFindingsAndStore({
@@ -195,7 +195,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
 
   it("keeps finding when referenced import path does not exist at MR head", async () => {
     const finding = makeFinding(
-      "Imports a file that does not exist './user/missing.router.ts'. File not found in the repository."
+      "Imports a file that does not exist './user/missing.router.ts'. File not found in the repository.",
     );
     const infra = makeInfraRepoPorts();
     const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
@@ -203,7 +203,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
       infra,
       codeHost,
       makeCommentResolutionService(),
-      createMockLogger()
+      createMockLogger(),
     );
 
     await service.publishInlineFindingsAndStore({
@@ -222,7 +222,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
 
   it("drops finding when import path cannot be extracted or resolved safely", async () => {
     const finding = makeFinding(
-      "Imports a file that does not exist '@alias/user.router'. File not found in the repository."
+      "Imports a file that does not exist '@alias/user.router'. File not found in the repository.",
     );
     const infra = makeInfraRepoPorts();
     const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
@@ -230,7 +230,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
       infra,
       codeHost,
       makeCommentResolutionService(),
-      createMockLogger()
+      createMockLogger(),
     );
 
     await service.publishInlineFindingsAndStore({
@@ -258,7 +258,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
       infra,
       codeHost,
       makeCommentResolutionService(),
-      createMockLogger()
+      createMockLogger(),
     );
     await service.publishInlineFindingsAndStore({
       allFindings: [finding],
@@ -281,7 +281,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
       infra,
       codeHost,
       makeCommentResolutionService(),
-      createMockLogger()
+      createMockLogger(),
     );
     await service.publishInlineFindingsAndStore({
       allFindings: [finding],
@@ -308,7 +308,7 @@ describe("ReviewFindingPublisherService force-push correlation lifecycle", () =>
       infra,
       codeHost,
       makeCommentResolutionService(),
-      createMockLogger()
+      createMockLogger(),
     );
     await service.repostCorrelatedFindings({
       correlated: [
@@ -333,7 +333,7 @@ describe("ReviewFindingPublisherService force-push correlation lifecycle", () =>
     expect(codeHost.resolveDiscussionMock).toHaveBeenCalledTimes(1);
     expect(infra.updateResolutionManyMock).toHaveBeenCalledWith(
       ["finding-1"],
-      "addressed"
+      "addressed",
     );
   });
 });

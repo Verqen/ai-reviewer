@@ -45,12 +45,12 @@ const MINIMAL_DIFF: DiffFile = {
 };
 
 function createPassWithFindings(
-  findings: PassResult["findings"] = []
+  findings: PassResult["findings"] = [],
 ): IReviewPass {
   return {
     execute: (
       _ctx: ReviewContext,
-      _prior: Map<string, PassResult>
+      _prior: Map<string, PassResult>,
     ): Promise<PassResult> =>
       Promise.resolve({
         findings,
@@ -62,12 +62,12 @@ function createPassWithFindings(
 }
 
 function createAggregationPass(
-  findings: PassResult["findings"] = []
+  findings: PassResult["findings"] = [],
 ): IReviewPass {
   return {
     execute: (
       _ctx: ReviewContext,
-      _prior: Map<string, PassResult>
+      _prior: Map<string, PassResult>,
     ): Promise<PassResult> =>
       Promise.resolve({
         findings,
@@ -85,7 +85,7 @@ function createAggregationPass(
 
 function createPipelineConfig(
   threshold = "info",
-  commentResponseMaxToolRounds?: number
+  commentResponseMaxToolRounds?: number,
 ): PipelineConfig {
   const savedThreshold = process.env["SEVERITY_THRESHOLD"];
   const savedCommentResponseMaxToolRounds =
@@ -94,7 +94,7 @@ function createPipelineConfig(
   process.env["SEVERITY_THRESHOLD"] = threshold;
   if (commentResponseMaxToolRounds !== undefined) {
     process.env["COMMENT_RESPONSE_MAX_TOOL_ROUNDS"] = String(
-      commentResponseMaxToolRounds
+      commentResponseMaxToolRounds,
     );
   }
 
@@ -153,7 +153,7 @@ type TestOrchestratorOptions = {
 };
 
 function createTestOrchestrator(
-  options: TestOrchestratorOptions
+  options: TestOrchestratorOptions,
 ): PipelineOrchestrator {
   const {
     cache,
@@ -175,18 +175,18 @@ function createTestOrchestrator(
       config,
       llmConfig,
       createMockOpenRouterConfig(),
-      logger
+      logger,
     ),
     new ReviewFindingPublisherService(
       infraRepoPorts,
       codeHost,
       createMockCommentResolutionService(),
-      logger
+      logger,
     ),
     new ReviewRunCompletionService(infraRepoPorts, codeHost, cache, logger),
     passes,
     createMockPipelineMetrics(),
-    logger
+    logger,
   );
 }
 
@@ -218,7 +218,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
 
     await service.reviewMergeRequest(1, 42, "mr_open");
@@ -256,7 +256,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
 
     await service.reviewMergeRequest(1, 42, "mr_open");
@@ -306,7 +306,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
 
     await service.reviewMergeRequest(1, 42, "mr_open");
@@ -356,7 +356,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
 
     await service.reviewMergeRequest(1, 42, "mr_open");
@@ -397,7 +397,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
 
     await service.reviewMergeRequest(1, 42, "mr_open");
@@ -411,7 +411,7 @@ describe("ReviewService", () => {
     const loadReviewConfig = vi.fn().mockResolvedValue(
       createMockReviewConfig({
         pathRules: [{ extraRules: commentRule, path: "**" }],
-      })
+      }),
     );
     const reviewConfigLoader = {
       load: loadReviewConfig,
@@ -439,7 +439,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -469,7 +469,7 @@ describe("ReviewService", () => {
             review: "review-model",
             triage: "gpt-oss:120b-cloud",
           },
-        })
+        }),
       ),
     } as unknown as ReviewConfigLoader;
     const orchestrator = createTestOrchestrator({
@@ -490,7 +490,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -546,7 +546,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -567,7 +567,7 @@ describe("ReviewService", () => {
       createMockReviewConfig({
         modelOverrides: { review: false, triage: true },
         models: { premium: null, review: "review-model", triage: triajeModel },
-      })
+      }),
     );
     const reviewConfigLoader = {
       load: loadReviewConfig,
@@ -595,7 +595,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -631,7 +631,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -669,7 +669,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -680,7 +680,7 @@ describe("ReviewService", () => {
     expect(firstCall?.[2]?.maxToolRounds).toBe(expectedMaxToolRounds);
     const systemMessage = firstCall?.[0]?.find((m) => m.role === "system");
     expect(systemMessage?.content).toContain(
-      `max ${String(expectedMaxToolRounds)} tool rounds`
+      `max ${String(expectedMaxToolRounds)} tool rounds`,
     );
   });
 
@@ -709,7 +709,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -718,7 +718,9 @@ describe("ReviewService", () => {
     });
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const userMessage = firstCall?.[0]?.find((m) => m.role === "user");
-    expect(userMessage?.content).toContain(buildReplyCompletionInstruction("English"));
+    expect(userMessage?.content).toContain(
+      buildReplyCompletionInstruction("English"),
+    );
   });
 
   it("posts fallback reply and does not rethrow when LLM throws PromptTokenBudgetExceededError", async () => {
@@ -748,7 +750,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -792,7 +794,7 @@ describe("ReviewService", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToComment(1, 42, {
       newLine: 1,
@@ -801,7 +803,7 @@ describe("ReviewService", () => {
     });
     expect(codeHost.calls.postNote).toHaveLength(1);
     expect(codeHost.calls.postNote[0]?.[2]).toBe(
-      COMMENT_RESPONSE_FALLBACK_TEXT
+      COMMENT_RESPONSE_FALLBACK_TEXT,
     );
   });
 });
@@ -830,7 +832,7 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
     const llm = createMockLlmClient({ defaultContent: "narrow-reply" });
     const infraRepoPorts = createMockInfraRepoPorts();
     vi.spyOn(infraRepoPorts.snapshotRepo, "getBaselineState").mockResolvedValue(
-      null
+      null,
     );
     const cache = new MemoryCache<boolean>();
     const pipelineConfig = createPipelineConfig("info");
@@ -853,14 +855,14 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
 
     const actualText = await service.respondToFindingThreadClarification(
       1,
       42,
       buildPendingFindingForThread(),
-      "explain this"
+      "explain this",
     );
 
     expect(actualText).toBe("narrow-reply");
@@ -878,7 +880,7 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
         commitSha: "baseline-sha",
         errorMessage: null,
         status: "ready",
-      }
+      },
     );
     vi.spyOn(codeHost, "getFileContent").mockResolvedValue("blob");
     const cache = new MemoryCache<boolean>();
@@ -902,23 +904,25 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
 
     const actualText = await service.respondToFindingThreadClarification(
       1,
       42,
       buildPendingFindingForThread(),
-      "please verify fix"
+      "please verify fix",
     );
 
     expect(actualText).toBe("with-tools-reply");
     expect(llm.calls.chatCompletionWithTools).toHaveLength(1);
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const userMessage = firstCall?.[0]?.find((m) => m.role === "user");
-    expect(userMessage?.content).toContain(buildReplyCompletionInstruction("English"));
+    expect(userMessage?.content).toContain(
+      buildReplyCompletionInstruction("English"),
+    );
     expect(firstCall?.[2]?.maxPromptTokensHard).toBe(
-      pipelineConfig.envs.FINDING_THREAD_PROMPT_HARD_LIMIT
+      pipelineConfig.envs.FINDING_THREAD_PROMPT_HARD_LIMIT,
     );
   });
 
@@ -932,7 +936,7 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
         commitSha: "baseline-sha",
         errorMessage: null,
         status: "ready",
-      }
+      },
     );
     vi.spyOn(codeHost, "getFileContent").mockResolvedValue("blob");
     const cache = new MemoryCache<boolean>();
@@ -956,19 +960,19 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       createMockReviewHistoryService(),
-      logger
+      logger,
     );
     await service.respondToFindingThreadClarification(
       1,
       42,
       buildPendingFindingForThread(),
-      "please verify fix"
+      "please verify fix",
     );
     const [firstCall] = llm.calls.chatCompletionWithTools;
     expect(firstCall?.[2]?.maxToolRounds).toBe(expectedMaxToolRounds);
     const systemMessage = firstCall?.[0]?.find((m) => m.role === "system");
     expect(systemMessage?.content).toContain(
-      `max ${String(expectedMaxToolRounds)} rounds`
+      `max ${String(expectedMaxToolRounds)} rounds`,
     );
   });
 
@@ -986,7 +990,7 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
         commitSha: "baseline-sha",
         errorMessage: null,
         status: "ready",
-      }
+      },
     );
     vi.spyOn(codeHost, "getFileContent").mockResolvedValue("blob");
     const cache = new MemoryCache<boolean>();
@@ -1026,13 +1030,13 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
       createMockOpenRouterConfig(),
       infraRepoPorts.snapshotRepo,
       reviewHistoryService,
-      logger
+      logger,
     );
     await service.respondToFindingThreadClarification(
       1,
       42,
       buildPendingFindingForThread(),
-      "question"
+      "question",
     );
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const userMessage = firstCall?.[0]?.find((m) => m.role === "user");

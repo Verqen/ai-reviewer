@@ -25,7 +25,7 @@ const docQueryTool: ToolDefinition = {
 
 async function executeDocTool(
   call: ToolCall,
-  docProvider: IDocProvider
+  docProvider: IDocProvider,
 ): Promise<string> {
   const library = call.arguments["library"];
   const topic = call.arguments["topic"];

@@ -67,7 +67,7 @@ function buildFindingSummaries(priorFindings: Finding[]): string {
       .slice(0, 3)
       .map(
         (f) =>
-          `  [${f.severity}/${f.category}] L${f.lineNumber}: ${f.comment.slice(0, 80)}`
+          `  [${f.severity}/${f.category}] L${f.lineNumber}: ${f.comment.slice(0, 80)}`,
       )
       .join("\n");
     lines.push(`${file}:\n${summaries}`);
@@ -78,12 +78,12 @@ function buildFindingSummaries(priorFindings: Finding[]): string {
 
 async function gatherContext(
   diffs: readonly ParsedFileDiff[],
-  overlayView: IOverlayView
+  overlayView: IOverlayView,
 ): Promise<string> {
   if (diffs.length === 0) return "";
   const perFileBudget = Math.max(
     Math.floor(IN_DIFF_CONTEXT_BUDGET_CHARS / diffs.length),
-    256
+    256,
   );
   const sections: string[] = [];
   let totalChars = 0;
@@ -119,7 +119,7 @@ function buildCompactMrDiffsSection(diffs: readonly ParsedFileDiff[]): {
     }
     const alloc = Math.max(
       Math.floor(remaining / filesRemaining),
-      CROSS_FILE_COMPACT_DIFF_MIN_ALLOC
+      CROSS_FILE_COMPACT_DIFF_MIN_ALLOC,
     );
     const payload = formatParsedDiffForPromptWithBudget(d, {
       maxCharacters: Math.min(alloc, remaining),
@@ -158,12 +158,12 @@ class CrossFilePass implements IReviewPass {
   constructor(
     private readonly llm: ILlmClient,
     private readonly logger: FastifyBaseLogger,
-    private readonly promptHardLimit?: number
+    private readonly promptHardLimit?: number,
   ) {}
 
   async execute(
     context: ReviewContext,
-    priorResults: Map<string, PassResult>
+    priorResults: Map<string, PassResult>,
   ): Promise<PassResult> {
     const { diffs, mrInfo, reviewConfig } = context;
 
@@ -171,11 +171,11 @@ class CrossFilePass implements IReviewPass {
     const priorFindings = fileReviewResult?.findings ?? [];
     const totalDiffLines = diffs.reduce(
       (sum, diff) => sum + diff.lines.length,
-      0
+      0,
     );
     const hasElevatedRisk = priorFindings.some(
       (finding) =>
-        finding.severity === "critical" || finding.severity === "attention"
+        finding.severity === "critical" || finding.severity === "attention",
     );
     if (
       diffs.length < CROSS_FILE_MIN_FILES ||
@@ -194,7 +194,7 @@ class CrossFilePass implements IReviewPass {
           skipped: "low_cross_file_risk",
           totalDiffLines,
         },
-        "Cross-file pass skipped"
+        "Cross-file pass skipped",
       );
       return {
         findings: [],
@@ -205,7 +205,7 @@ class CrossFilePass implements IReviewPass {
 
     const fileSummaries: FileSummary[] = diffs.map((d) => {
       const fileFindings = priorFindings.filter(
-        (f) => f.filePath === d.newPath
+        (f) => f.filePath === d.newPath,
       );
       const topSeverity =
         fileFindings.find((f) => f.severity === "critical")?.severity ??
@@ -244,7 +244,7 @@ class CrossFilePass implements IReviewPass {
         fileSummaries,
         findingSummaries,
         mrDiffsCompactSection,
-        codebaseContext
+        codebaseContext,
       );
 
       this.logger.info(
@@ -257,7 +257,7 @@ class CrossFilePass implements IReviewPass {
           projectId: context.projectId,
           reviewRunId: context.reviewRunId,
         },
-        "Cross-file pass LLM call starting"
+        "Cross-file pass LLM call starting",
       );
 
       const response = await this.llm.chatCompletion(
@@ -272,7 +272,7 @@ class CrossFilePass implements IReviewPass {
           reasoning: { effort: "low" },
           responseSchema: CROSS_FILE_JSON_SCHEMA,
           temperature: CROSS_FILE_TEMPERATURE,
-        }
+        },
       );
 
       const usageByReviewModel = {
@@ -285,7 +285,7 @@ class CrossFilePass implements IReviewPass {
       if (response.content === null) {
         this.logger.warn(
           { model: reviewConfig.models.review },
-          "Cross-file review returned null content — skipping pass"
+          "Cross-file review returned null content — skipping pass",
         );
         return {
           findings: [],
@@ -304,7 +304,7 @@ class CrossFilePass implements IReviewPass {
             errors: parsed.error.issues.slice(0, 3),
             rawContent: String(response.content).slice(0, 500),
           },
-          "Failed to parse cross-file response, skipping"
+          "Failed to parse cross-file response, skipping",
         );
         return {
           findings: [],
@@ -326,7 +326,7 @@ class CrossFilePass implements IReviewPass {
               projectId: context.projectId,
               reviewRunId: context.reviewRunId,
             },
-            "Dropping off-diff finding"
+            "Dropping off-diff finding",
           );
           return false;
         })
@@ -340,7 +340,7 @@ class CrossFilePass implements IReviewPass {
               projectId: context.projectId,
               reviewRunId: context.reviewRunId,
             },
-            "Dropping finding: file not in compact MR diff section"
+            "Dropping finding: file not in compact MR diff section",
           );
           return false;
         })
@@ -351,7 +351,7 @@ class CrossFilePass implements IReviewPass {
           }
           const positionValidation = validateFindingPositionInHunk(
             item,
-            fileDiff
+            fileDiff,
           );
           if (positionValidation.valid) {
             return true;
@@ -367,7 +367,7 @@ class CrossFilePass implements IReviewPass {
               reason: positionValidation.reason,
               reviewRunId: context.reviewRunId,
             },
-            "Dropping off-hunk finding"
+            "Dropping off-hunk finding",
           );
           return false;
         })
@@ -393,7 +393,7 @@ class CrossFilePass implements IReviewPass {
           promptTokens: response.usage.promptTokens,
           reviewRunId: context.reviewRunId,
         },
-        "Cross-file pass completed"
+        "Cross-file pass completed",
       );
 
       return {
@@ -411,7 +411,7 @@ class CrossFilePass implements IReviewPass {
       if (err instanceof PromptTokenBudgetExceededError) {
         this.logger.warn(
           { estimatedTokens: err.estimatedTokens, hardLimit: err.hardLimit },
-          "Cross-file pass skipped: prompt token hard limit exceeded"
+          "Cross-file pass skipped: prompt token hard limit exceeded",
         );
       } else {
         this.logger.warn({ err }, "Cross-file pass failed, skipping");

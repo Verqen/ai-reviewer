@@ -76,7 +76,7 @@ const GitLabPushWebhookSchema = z.object({
         added: z.array(z.string()).default([]),
         modified: z.array(z.string()).default([]),
         removed: z.array(z.string()).default([]),
-      })
+      }),
     )
     .default([]),
   object_kind: z.literal("push"),
@@ -97,7 +97,7 @@ function isMrPayloadDraft(
   },
   changes:
     | { draft?: { current: boolean; previous: boolean } | undefined }
-    | undefined
+    | undefined,
 ): boolean {
   if (objectAttributes.draft === true) {
     return true;

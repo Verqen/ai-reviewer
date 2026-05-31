@@ -42,7 +42,7 @@ class GitLabCodeHost implements ICodeHost {
 
   constructor(
     config: IConfig<GitLabConfigSchema>,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {
     this.apiUrl = config.envs.GITLAB_API_URL;
     this.token = config.envs.GITLAB_TOKEN;
@@ -50,7 +50,7 @@ class GitLabCodeHost implements ICodeHost {
 
   async getBranchHeadSha(projectId: number, branch: string): Promise<string> {
     const response = await this.request<GitLabBranchApiResponse>(
-      `/projects/${projectId}/repository/branches/${encodeURIComponent(branch)}`
+      `/projects/${projectId}/repository/branches/${encodeURIComponent(branch)}`,
     );
 
     return response.commit.id;
@@ -58,7 +58,7 @@ class GitLabCodeHost implements ICodeHost {
 
   async getDefaultBranch(projectId: number): Promise<string> {
     const response = await this.request<GitLabProjectApiResponse>(
-      `/projects/${projectId}`
+      `/projects/${projectId}`,
     );
 
     return response.default_branch;
@@ -66,10 +66,10 @@ class GitLabCodeHost implements ICodeHost {
 
   async getMergeRequestInfo(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<MergeRequestInfo> {
     const response = await this.request<GitLabMrApiResponse>(
-      `/projects/${projectId}/merge_requests/${mrIid}`
+      `/projects/${projectId}/merge_requests/${mrIid}`,
     );
 
     return {
@@ -93,10 +93,10 @@ class GitLabCodeHost implements ICodeHost {
    */
   async getMergeRequestDiff(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<DiffFile[]> {
     const response = await this.request<GitLabMrChangesResponse>(
-      `/projects/${projectId}/merge_requests/${mrIid}/changes`
+      `/projects/${projectId}/merge_requests/${mrIid}/changes`,
     );
 
     const returnedCount = response.changes.length;
@@ -128,7 +128,7 @@ class GitLabCodeHost implements ICodeHost {
           reportedCount,
           returnedCount,
         },
-        "GitLab /changes truncated MR diff but diff_refs missing — returning truncated set"
+        "GitLab /changes truncated MR diff but diff_refs missing — returning truncated set",
       );
       return response.changes.map((change) => ({
         diff: change.diff,
@@ -147,7 +147,7 @@ class GitLabCodeHost implements ICodeHost {
         reportedCount,
         returnedCount,
       },
-      "GitLab /changes truncated MR diff — falling back to /repository/compare"
+      "GitLab /changes truncated MR diff — falling back to /repository/compare",
     );
 
     const fallback = await this.getCommitRangeDiff(projectId, baseSha, headSha);
@@ -159,17 +159,17 @@ class GitLabCodeHost implements ICodeHost {
         recoveredCount: fallback.length - returnedCount,
         truncatedCount: returnedCount,
       },
-      "GitLab MR diff recovered via /repository/compare"
+      "GitLab MR diff recovered via /repository/compare",
     );
     return fallback;
   }
 
   async getMergeRequestVersions(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<VersionInfo> {
     const versions = await this.request<GitLabVersionApiEntry[]>(
-      `/projects/${projectId}/merge_requests/${mrIid}/versions`
+      `/projects/${projectId}/merge_requests/${mrIid}/versions`,
     );
 
     const latest = versions[0];
@@ -189,11 +189,11 @@ class GitLabCodeHost implements ICodeHost {
     projectId: number,
     from: string,
     to: string,
-    options?: CommitRangeDiffOptions
+    options?: CommitRangeDiffOptions,
   ): Promise<DiffFile[]> {
     const straightClause = options?.straight === true ? "&straight=true" : "";
     const response = await this.request<GitLabCompareResponse>(
-      `/projects/${projectId}/repository/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${straightClause}`
+      `/projects/${projectId}/repository/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${straightClause}`,
     );
 
     return response.diffs.map((change) => ({
@@ -205,7 +205,7 @@ class GitLabCodeHost implements ICodeHost {
 
   async listOpenMergeRequests(
     projectId: number,
-    targetBranch: string
+    targetBranch: string,
   ): Promise<MergeRequestInfo[]> {
     const allMrs: MergeRequestInfo[] = [];
     let page = 1;
@@ -236,7 +236,7 @@ class GitLabCodeHost implements ICodeHost {
       if (page === MAX_PAGES) {
         this.logger.warn(
           { projectId, targetBranch },
-          "listOpenMergeRequests reached MAX_PAGES limit"
+          "listOpenMergeRequests reached MAX_PAGES limit",
         );
         break;
       }
@@ -250,7 +250,7 @@ class GitLabCodeHost implements ICodeHost {
   async getFileContent(
     projectId: number,
     ref: string,
-    path: string
+    path: string,
   ): Promise<string> {
     const url = `${this.apiUrl}/projects/${projectId}/repository/files/${encodeURIComponent(path)}/raw?ref=${encodeURIComponent(ref)}`;
 
@@ -299,7 +299,7 @@ class GitLabCodeHost implements ICodeHost {
       if (page === MAX_PAGES) {
         this.logger.warn(
           { projectId, ref },
-          "getFileTree reached MAX_PAGES limit"
+          "getFileTree reached MAX_PAGES limit",
         );
         break;
       }
@@ -313,10 +313,10 @@ class GitLabCodeHost implements ICodeHost {
   async getDiscussionNotes(
     projectId: number,
     mrIid: number,
-    discussionId: string
+    discussionId: string,
   ): Promise<Note[]> {
     const discussion = await this.request<GitLabDiscussionApiResponse>(
-      `/projects/${projectId}/merge_requests/${mrIid}/discussions/${discussionId}`
+      `/projects/${projectId}/merge_requests/${mrIid}/discussions/${discussionId}`,
     );
 
     return discussion.notes.map((note) => ({
@@ -329,7 +329,7 @@ class GitLabCodeHost implements ICodeHost {
     projectId: number,
     mrIid: number,
     body: string,
-    position: InlinePosition
+    position: InlinePosition,
   ): Promise<{ discussionId: string; noteId: string }> {
     const positionPayload: Record<string, number | string> = {
       base_sha: position.baseSha,
@@ -353,7 +353,7 @@ class GitLabCodeHost implements ICodeHost {
       {
         body: JSON.stringify({ body, position: positionPayload }),
         method: "POST",
-      }
+      },
     );
 
     const noteId = response.notes[0]?.id;
@@ -369,14 +369,14 @@ class GitLabCodeHost implements ICodeHost {
     projectId: number,
     mrIid: number,
     discussionId: string,
-    body: string
+    body: string,
   ): Promise<{ noteId: string }> {
     const response = await this.request<GitLabNoteCreatedResponse>(
       `/projects/${projectId}/merge_requests/${mrIid}/discussions/${discussionId}/notes`,
       {
         body: JSON.stringify({ body }),
         method: "POST",
-      }
+      },
     );
 
     return { noteId: response.id };
@@ -385,14 +385,14 @@ class GitLabCodeHost implements ICodeHost {
   async postNote(
     projectId: number,
     mrIid: number,
-    body: string
+    body: string,
   ): Promise<{ noteId: string }> {
     const response = await this.request<GitLabNoteCreatedResponse>(
       `/projects/${projectId}/merge_requests/${mrIid}/notes`,
       {
         body: JSON.stringify({ body }),
         method: "POST",
-      }
+      },
     );
 
     return { noteId: response.id };
@@ -401,48 +401,48 @@ class GitLabCodeHost implements ICodeHost {
   async resolveDiscussion(
     projectId: number,
     mrIid: number,
-    discussionId: string
+    discussionId: string,
   ): Promise<void> {
     await this.request(
       `/projects/${projectId}/merge_requests/${mrIid}/discussions/${discussionId}`,
       {
         body: JSON.stringify({ resolved: true }),
         method: "PUT",
-      }
+      },
     );
   }
 
   async unresolveDiscussion(
     projectId: number,
     mrIid: number,
-    discussionId: string
+    discussionId: string,
   ): Promise<void> {
     await this.request(
       `/projects/${projectId}/merge_requests/${mrIid}/discussions/${discussionId}`,
       {
         body: JSON.stringify({ resolved: false }),
         method: "PUT",
-      }
+      },
     );
   }
 
   async approveMergeRequest(projectId: number, mrIid: number): Promise<void> {
     await this.request(
       `/projects/${projectId}/merge_requests/${mrIid}/approve`,
-      { method: "POST" }
+      { method: "POST" },
     );
   }
 
   async unapprove(projectId: number, mrIid: number): Promise<void> {
     await this.request(
       `/projects/${projectId}/merge_requests/${mrIid}/unapprove`,
-      { method: "POST" }
+      { method: "POST" },
     );
   }
 
   async getRepositoryArchive(
     projectId: number,
-    ref: string
+    ref: string,
   ): Promise<ArchiveEntry[]> {
     const url = `${this.apiUrl}/projects/${projectId}/repository/archive.tar.gz?sha=${encodeURIComponent(ref)}`;
 
@@ -488,8 +488,8 @@ class GitLabCodeHost implements ICodeHost {
         if (res.statusCode === 404) {
           reject(
             new GitLabNotFoundError(
-              `Repository archive not found: project=${projectId} ref=${ref}`
-            )
+              `Repository archive not found: project=${projectId} ref=${ref}`,
+            ),
           );
           res.resume();
           return;
@@ -501,8 +501,8 @@ class GitLabCodeHost implements ICodeHost {
           res.on("end", () => {
             reject(
               new Error(
-                `GitLab API error: ${res.statusCode} ${Buffer.concat(chunks).toString()}`
-              )
+                `GitLab API error: ${res.statusCode} ${Buffer.concat(chunks).toString()}`,
+              ),
             );
           });
           return;
@@ -514,7 +514,7 @@ class GitLabCodeHost implements ICodeHost {
 
     this.logger.info(
       { fileCount: entries.length, projectId, ref },
-      "Repository archive extracted"
+      "Repository archive extracted",
     );
 
     return entries;
@@ -525,7 +525,7 @@ class GitLabCodeHost implements ICodeHost {
 
     this.logger.debug(
       { method: init?.method ?? "GET", url },
-      "GitLab API request"
+      "GitLab API request",
     );
 
     const response = await fetch(url, {

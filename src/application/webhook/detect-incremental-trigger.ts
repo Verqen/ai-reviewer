@@ -25,7 +25,7 @@ async function detectIncrementalTrigger(
   previousSha: string,
   newHeadSha: string,
   logger: FastifyBaseLogger,
-  options: DetectIncrementalTriggerOptions = {}
+  options: DetectIncrementalTriggerOptions = {},
 ): Promise<"force_push" | "push" | "rebase"> {
   const { currentBaseSha, previousBaseSha } = options;
   if (
@@ -37,7 +37,7 @@ async function detectIncrementalTrigger(
   ) {
     logger.info(
       { currentBaseSha, mrIid: projectId, previousBaseSha, projectId },
-      "Rebase detected: MR base SHA changed since previous review"
+      "Rebase detected: MR base SHA changed since previous review",
     );
     return "rebase";
   }
@@ -50,13 +50,13 @@ async function detectIncrementalTrigger(
     if (isUnreachableCommitRangeError(err)) {
       logger.info(
         { newHeadSha, previousSha, projectId },
-        "Force-push detected: old SHA not found in repo"
+        "Force-push detected: old SHA not found in repo",
       );
       return "force_push";
     }
     logger.warn(
       { err, newHeadSha, previousSha, projectId },
-      "Error checking commit range; treating as force-push"
+      "Error checking commit range; treating as force-push",
     );
     return "force_push";
   }

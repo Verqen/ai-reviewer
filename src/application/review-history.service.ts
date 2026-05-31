@@ -6,7 +6,7 @@ import type {
 } from "~/domain/types/review.types";
 
 function groupFindingsByFile(
-  findings: ReviewFinding[]
+  findings: ReviewFinding[],
 ): Map<string, ReviewFinding[]> {
   const grouped = new Map<string, ReviewFinding[]>();
 
@@ -24,17 +24,17 @@ class ReviewHistoryService {
 
   async loadPriorFindings(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<PriorFindings> {
     const findings = await this.reviewFindingRepo.findByProjectAndMr(
       projectId,
-      mrIid
+      mrIid,
     );
 
     return {
       addressed: findings.filter((f) => f.resolution === "addressed"),
       dismissed: findings.filter(
-        (f) => f.resolution === "dismissed" || f.resolution === "wont_fix"
+        (f) => f.resolution === "dismissed" || f.resolution === "wont_fix",
       ),
       pending: findings.filter((f) => f.resolution === "pending"),
     };
@@ -42,11 +42,11 @@ class ReviewHistoryService {
 
   async getPendingFindings(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<ReviewFinding[]> {
     const findings = await this.reviewFindingRepo.findByProjectAndMr(
       projectId,
-      mrIid
+      mrIid,
     );
 
     return findings.filter((f) => f.resolution === "pending");
@@ -54,7 +54,7 @@ class ReviewHistoryService {
 
   async loadPriorFindingsByFile(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<PriorFindingsByFile> {
     const findings = await this.loadPriorFindings(projectId, mrIid);
 

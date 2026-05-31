@@ -24,7 +24,7 @@ class JobQueue<T> implements IJobQueue<T> {
   constructor(
     private readonly concurrency: number = DEFAULT_CONCURRENCY,
     private readonly maxRetries: number = DEFAULT_MAX_RETRIES,
-    private readonly retryDelaysMs: number[] = DEFAULT_RETRY_DELAYS_MS
+    private readonly retryDelaysMs: number[] = DEFAULT_RETRY_DELAYS_MS,
   ) {}
 
   onError(handler: ErrorHandler): void {

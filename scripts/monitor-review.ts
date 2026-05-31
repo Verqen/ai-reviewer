@@ -110,7 +110,7 @@ const LOG_DIR = join(SCRIPT_DIR, "logs");
 mkdirSync(LOG_DIR, { recursive: true });
 const traceFile = join(
   LOG_DIR,
-  `monitor-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`
+  `monitor-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`,
 );
 const traceStream = createWriteStream(traceFile, { flags: "a" });
 
@@ -298,7 +298,7 @@ function formatInteresting(
   line: PinoLine,
   msg: string,
   ts: string,
-  tag: string
+  tag: string,
 ): string | null {
   const mr = line["mrIid"];
   const passNameRaw = line["passName"];
@@ -359,7 +359,7 @@ function printRunSummary(run: RunSnapshot): void {
 
   lines.push("");
   lines.push(
-    `${COLOR.bold}═══ RUN ${id}  ${mrLabel}  ${projLabel}  duration=${duration} ═══${COLOR.reset}`
+    `${COLOR.bold}═══ RUN ${id}  ${mrLabel}  ${projLabel}  duration=${duration} ═══${COLOR.reset}`,
   );
   const headers = [
     "pass",
@@ -374,7 +374,7 @@ function printRunSummary(run: RunSnapshot): void {
     headers
       .map((h, i) => h.padEnd(widths[i] ?? 12))
       .join("  ")
-      .trimEnd()
+      .trimEnd(),
   );
   for (const [name, pass] of run.passes) {
     const models = run.modelsByPass.get(name);
@@ -392,16 +392,16 @@ function printRunSummary(run: RunSnapshot): void {
       cells
         .map((c, i) => c.padEnd(widths[i] ?? 12))
         .join("  ")
-        .trimEnd()
+        .trimEnd(),
     );
   }
   lines.push("");
   lines.push(
-    `  totals: promptTok=${formatNum(run.totalPromptTokens)}  complTok=${formatNum(run.totalCompletionTokens)}  llmCalls=${run.llmCalls}  gitlabFiles=${run.gitlabFiles.size}/${run.gitlabApiCalls} calls`
+    `  totals: promptTok=${formatNum(run.totalPromptTokens)}  complTok=${formatNum(run.totalCompletionTokens)}  llmCalls=${run.llmCalls}  gitlabFiles=${run.gitlabFiles.size}/${run.gitlabApiCalls} calls`,
   );
   if (run.skippedPasses.length > 0) {
     lines.push(
-      `  ${COLOR.yellow}skipped passes: ${run.skippedPasses.join(", ")}${COLOR.reset}`
+      `  ${COLOR.yellow}skipped passes: ${run.skippedPasses.join(", ")}${COLOR.reset}`,
     );
   }
   if (run.warnings.length > 0) {
@@ -425,7 +425,7 @@ function printAllSummary(): void {
 emit(
   `${COLOR.bold}ai-reviewer monitor${COLOR.reset}${COLOR.dim}  filter: mr=${
     filterMrIid ?? "*"
-  } project=${filterProjectId ?? "*"}  trace=${traceFile}${COLOR.reset}`
+  } project=${filterProjectId ?? "*"}  trace=${traceFile}${COLOR.reset}`,
 );
 
 const rl = createInterface({ input: process.stdin });

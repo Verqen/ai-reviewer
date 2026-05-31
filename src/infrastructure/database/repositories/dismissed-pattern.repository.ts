@@ -77,7 +77,7 @@ class DismissedPatternRepository implements IDismissedPatternRepository {
   async findSimilar(
     projectId: number,
     category: FindingCategory,
-    comment: string
+    comment: string,
   ): Promise<DismissedPattern | undefined> {
     const rows = await this.db
       .selectFrom("dismissed_pattern")
@@ -88,7 +88,7 @@ class DismissedPatternRepository implements IDismissedPatternRepository {
 
     const normalizedComment = comment.toLowerCase().trim();
     const commentWords = new Set(
-      normalizedComment.split(/\s+/).filter((w) => w.length > 3)
+      normalizedComment.split(/\s+/).filter((w) => w.length > 3),
     );
 
     let bestMatch: DismissedPattern | undefined;
@@ -99,7 +99,7 @@ class DismissedPatternRepository implements IDismissedPatternRepository {
         row.pattern_description
           .toLowerCase()
           .split(/\s+/)
-          .filter((w) => w.length > 3)
+          .filter((w) => w.length > 3),
       );
       let overlap = 0;
       for (const word of commentWords) {

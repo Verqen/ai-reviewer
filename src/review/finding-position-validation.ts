@@ -14,7 +14,7 @@ interface FindingPositionValidationResult {
 
 function resolveLineNumberForType(
   line: DiffLine,
-  lineType: LineType
+  lineType: LineType,
 ): number | undefined {
   if (lineType === "removed") {
     return line.oldLine;
@@ -25,18 +25,18 @@ function resolveLineNumberForType(
 function findMatchingDiffLine(
   fileDiff: ParsedFileDiff,
   lineType: LineType,
-  lineNumber: number
+  lineNumber: number,
 ): DiffLine | undefined {
   return fileDiff.lines.find(
     (line) =>
       line.type === lineType &&
-      resolveLineNumberForType(line, lineType) === lineNumber
+      resolveLineNumberForType(line, lineType) === lineNumber,
   );
 }
 
 function validateFindingPositionInHunk(
   finding: FindingPositionInput,
-  fileDiff: ParsedFileDiff
+  fileDiff: ParsedFileDiff,
 ): FindingPositionValidationResult {
   const lineType = finding.line_type as LineType;
   const startLine = finding.line_number;

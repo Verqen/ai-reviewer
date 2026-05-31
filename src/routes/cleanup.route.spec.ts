@@ -70,10 +70,10 @@ describe("cleanupRoute", () => {
       .calls[0]?.[0] as Date;
     expect(firstArg).toBeInstanceOf(Date);
     expect(firstArg.getTime()).toBe(
-      new Date("2024-06-05T12:00:00.000Z").getTime()
+      new Date("2024-06-05T12:00:00.000Z").getTime(),
     );
     expect(vi.mocked(deleteOldSnapshotsBefore).mock.calls[0]?.[0]).toEqual(
-      firstArg
+      firstArg,
     );
   });
 });

@@ -21,7 +21,7 @@ interface ICodeHost {
     projectId: number,
     from: string,
     to: string,
-    options?: CommitRangeDiffOptions
+    options?: CommitRangeDiffOptions,
   ): Promise<DiffFile[]>;
 
   getDefaultBranch(projectId: number): Promise<string>;
@@ -29,7 +29,7 @@ interface ICodeHost {
   getDiscussionNotes(
     projectId: number,
     mrIid: number,
-    discussionId: string
+    discussionId: string,
   ): Promise<Note[]>;
 
   getFileContent(projectId: number, ref: string, path: string): Promise<string>;
@@ -40,45 +40,45 @@ interface ICodeHost {
 
   getMergeRequestInfo(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<MergeRequestInfo>;
 
   getMergeRequestVersions(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<VersionInfo>;
 
   getRepositoryArchive(projectId: number, ref: string): Promise<ArchiveEntry[]>;
 
   listOpenMergeRequests(
     projectId: number,
-    targetBranch: string
+    targetBranch: string,
   ): Promise<MergeRequestInfo[]>;
 
   postInlineComment(
     projectId: number,
     mrIid: number,
     body: string,
-    position: InlinePosition
+    position: InlinePosition,
   ): Promise<{ discussionId: string; noteId: string }>;
 
   postNote(
     projectId: number,
     mrIid: number,
-    body: string
+    body: string,
   ): Promise<{ noteId: string }>;
 
   replyToDiscussion(
     projectId: number,
     mrIid: number,
     discussionId: string,
-    body: string
+    body: string,
   ): Promise<{ noteId: string }>;
 
   resolveDiscussion(
     projectId: number,
     mrIid: number,
-    discussionId: string
+    discussionId: string,
   ): Promise<void>;
 
   unapprove(projectId: number, mrIid: number): Promise<void>;
@@ -86,7 +86,7 @@ interface ICodeHost {
   unresolveDiscussion(
     projectId: number,
     mrIid: number,
-    discussionId: string
+    discussionId: string,
   ): Promise<void>;
 }
 

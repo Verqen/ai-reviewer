@@ -15,7 +15,7 @@ interface FileSummary {
 function buildCrossFileSystemPrompt(
   projectRules: string | null,
   pathRules: string | null,
-  language: string = getReviewLanguage()
+  language: string = getReviewLanguage(),
 ): string {
   const schema = JSON.stringify(
     {
@@ -32,7 +32,7 @@ function buildCrossFileSystemPrompt(
       ],
     },
     null,
-    2
+    2,
   );
 
   let prompt = [
@@ -101,12 +101,12 @@ function buildCrossFileUserPrompt(
   fileSummaries: FileSummary[],
   findingSummaries: string,
   mrDiffsCompactSection: string,
-  codebaseContext?: string
+  codebaseContext?: string,
 ): string {
   const fileList = fileSummaries
     .map(
       (f) =>
-        `${f.path} — ${f.findingCount} finding(s)${f.topSeverity ? `, top: ${f.topSeverity}` : ""}`
+        `${f.path} — ${f.findingCount} finding(s)${f.topSeverity ? `, top: ${f.topSeverity}` : ""}`,
     )
     .join("\n");
 

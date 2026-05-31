@@ -76,7 +76,7 @@ function findHunkHeaders(rawContent: string): HunkHeaderMatch[] {
 
 function parseFromHeaders(
   rawContent: string,
-  headers: readonly HunkHeaderMatch[]
+  headers: readonly HunkHeaderMatch[],
 ): ProseTriageItem[] {
   const results: ProseTriageItem[] = [];
   const seen = new Set<number>();
@@ -104,7 +104,7 @@ function parseFromHeaders(
 
 function parseProseTriageResponse(
   rawContent: string,
-  context?: ProseFallbackContext
+  context?: ProseFallbackContext,
 ): ProseTriageResponse | null {
   if (rawContent.length === 0) {
     return null;

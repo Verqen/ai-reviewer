@@ -8,19 +8,19 @@ interface IReviewService {
   respondToComment(
     projectId: number,
     mrIid: number,
-    context: CommentContext
+    context: CommentContext,
   ): Promise<void>;
   respondToFindingThreadClarification(
     projectId: number,
     mrIid: number,
     finding: ReviewFinding,
-    developerNote: string
+    developerNote: string,
   ): Promise<string>;
   reviewMergeRequest(
     projectId: number,
     mrIid: number,
     triggerType: TriggerType,
-    previousRunId?: string
+    previousRunId?: string,
   ): Promise<void>;
 }
 

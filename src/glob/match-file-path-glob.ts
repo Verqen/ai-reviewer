@@ -20,7 +20,7 @@ function matchFilePathGlob(filePath: string, pattern: string): boolean {
   return minimatch(
     normalizedPath,
     normalizedPattern,
-    FILE_PATH_GLOB_MINIMATCH_OPTIONS
+    FILE_PATH_GLOB_MINIMATCH_OPTIONS,
   );
 }
 
@@ -29,7 +29,7 @@ function matchFilePathGlob(filePath: string, pattern: string): boolean {
  */
 function matchFilePathGlobWithLiteralPrefix(
   filePath: string,
-  pattern: string
+  pattern: string,
 ): boolean {
   if (typeof pattern !== "string" || pattern.length === 0) {
     return true;
@@ -38,7 +38,7 @@ function matchFilePathGlobWithLiteralPrefix(
   const normalizedPattern = normalizeFilePathForGlob(pattern);
   const matcher = new Minimatch(
     normalizedPattern,
-    FILE_PATH_GLOB_MINIMATCH_OPTIONS
+    FILE_PATH_GLOB_MINIMATCH_OPTIONS,
   );
   if (!matcher.hasMagic()) {
     return normalizedPath.startsWith(normalizedPattern);
@@ -46,7 +46,7 @@ function matchFilePathGlobWithLiteralPrefix(
   return minimatch(
     normalizedPath,
     normalizedPattern,
-    FILE_PATH_GLOB_MINIMATCH_OPTIONS
+    FILE_PATH_GLOB_MINIMATCH_OPTIONS,
   );
 }
 
@@ -57,7 +57,7 @@ function filePathGlobPatternHasMagic(pattern: string): boolean {
   const normalizedPattern = normalizeFilePathForGlob(pattern);
   return new Minimatch(
     normalizedPattern,
-    FILE_PATH_GLOB_MINIMATCH_OPTIONS
+    FILE_PATH_GLOB_MINIMATCH_OPTIONS,
   ).hasMagic();
 }
 
@@ -68,7 +68,7 @@ function getFilePathGlobPosixRegexSource(pattern: string): string | null {
   const normalizedPattern = normalizeFilePathForGlob(pattern);
   const compiled = minimatch.makeRe(
     normalizedPattern,
-    FILE_PATH_GLOB_MINIMATCH_OPTIONS
+    FILE_PATH_GLOB_MINIMATCH_OPTIONS,
   );
   if (compiled === false) {
     return null;

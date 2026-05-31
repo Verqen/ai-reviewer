@@ -22,7 +22,7 @@ describe("metricsRoute", () => {
     expect(response.statusCode).toBe(200);
     expect(response.headers["content-type"]).toBe(prometheusContentType);
     expect(response.body).toMatch(
-      /ai_reviewer_files_skipped_total\{reason="lock"\} 3/
+      /ai_reviewer_files_skipped_total\{reason="lock"\} 3/,
     );
 
     await app.close();

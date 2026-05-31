@@ -92,7 +92,7 @@ describe("SnapshotRepository", () => {
     const entries = await db.selectFrom("snapshot_entry").selectAll().execute();
     expect(entries).toHaveLength(2);
     expect(new Set(entries.map((e) => e.blob_hash))).toEqual(
-      new Set(["hash-only-new", "hash-shared"])
+      new Set(["hash-only-new", "hash-shared"]),
     );
     const blobs = await db.selectFrom("snapshot_blob").select("hash").execute();
     expect(blobs.map((b) => b.hash).sort()).toEqual([

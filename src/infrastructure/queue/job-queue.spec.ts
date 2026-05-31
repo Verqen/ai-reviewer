@@ -45,11 +45,11 @@ describe("JobQueue", () => {
     const job1Enqueued = queue.enqueue(
       "same-key",
       null,
-      () => new Promise<void>((resolve) => setTimeout(resolve, 50))
+      () => new Promise<void>((resolve) => setTimeout(resolve, 50)),
     );
 
     const job2Enqueued = queue.enqueue("same-key", null, () =>
-      Promise.resolve()
+      Promise.resolve(),
     );
 
     expect(job1Enqueued).toBe(true);
@@ -62,7 +62,7 @@ describe("JobQueue", () => {
     queue.enqueue(
       "job1",
       null,
-      () => new Promise<void>((resolve) => setTimeout(resolve, 100))
+      () => new Promise<void>((resolve) => setTimeout(resolve, 100)),
     );
 
     queue.enqueue("job2", null, () => Promise.resolve());
@@ -125,7 +125,7 @@ describe("JobQueue", () => {
     queue.enqueue(
       "job1",
       null,
-      () => new Promise<void>((resolve) => setTimeout(resolve, 100))
+      () => new Promise<void>((resolve) => setTimeout(resolve, 100)),
     );
     queue.enqueue("job2", null, () => Promise.resolve());
 

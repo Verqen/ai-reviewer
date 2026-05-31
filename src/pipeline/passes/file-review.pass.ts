@@ -82,7 +82,7 @@ const VERIFIED_REPO_PATH_MARKER_REGEX =
 function mapToFinding(
   item: z.infer<typeof FileFindingSchema>,
   passName: string,
-  model: string
+  model: string,
 ): Finding {
   return {
     category: item.category,
@@ -106,7 +106,7 @@ function mapToFinding(
 
 function resolveMaxToolRounds(
   isTriageOnly: boolean,
-  diffLineCount: number
+  diffLineCount: number,
 ): number {
   if (isTriageOnly) return MAX_TOOL_ROUNDS_TRIAGE;
   if (diffLineCount >= HIGH_RISK_FILE_DIFF_LINES) return MAX_TOOL_ROUNDS;
@@ -140,7 +140,7 @@ function applyMissingFileVerificationGate(params: {
         projectId,
         reviewRunId,
       },
-      "Dropping unverified missing-file finding"
+      "Dropping unverified missing-file finding",
     );
     return { normalizedComment: comment, shouldKeep: false };
   }
@@ -160,7 +160,7 @@ function addUsageToModelTotals(
   usage: {
     completionTokens: number;
     promptTokens: number;
-  }
+  },
 ): void {
   const existing = totals.get(model) ?? {
     completionTokens: 0,
@@ -181,12 +181,12 @@ class FileReviewPass implements IReviewPass {
     private readonly docProvider?: IDocProvider,
     private readonly rateLimiter?: TokenBucket,
     private readonly promptHardLimit?: number,
-    private readonly maxDiffCharacters?: number
+    private readonly maxDiffCharacters?: number,
   ) {}
 
   async execute(
     context: ReviewContext,
-    _priorResults: Map<string, PassResult>
+    _priorResults: Map<string, PassResult>,
   ): Promise<PassResult> {
     const { diffs, mrInfo, reviewConfig } = context;
 
@@ -197,7 +197,7 @@ class FileReviewPass implements IReviewPass {
           projectId: context.projectId,
           reviewRunId: context.reviewRunId,
         },
-        "File review skipped: no diffs"
+        "File review skipped: no diffs",
       );
       return {
         findings: [],
@@ -211,7 +211,7 @@ class FileReviewPass implements IReviewPass {
       resolvedLibraries = await resolveLibrariesFromDiffs(
         diffs,
         this.docProvider,
-        this.logger
+        this.logger,
       );
     }
 
@@ -226,7 +226,7 @@ class FileReviewPass implements IReviewPass {
         projectId: context.projectId,
         reviewRunId: context.reviewRunId,
       },
-      "File review pass starting"
+      "File review pass starting",
     );
     const fileReviewCounters = {
       filesAbortedNoFinal: 0,
@@ -244,7 +244,7 @@ class FileReviewPass implements IReviewPass {
     const allFindings: Finding[] = [];
     let allFilesFailed = true;
     const allowedPaths = new Set(
-      diffs.flatMap((diff) => [diff.newPath, diff.oldPath])
+      diffs.flatMap((diff) => [diff.newPath, diff.oldPath]),
     );
     let totalUserPromptChars = 0;
     let totalToolCalls = 0;
@@ -269,7 +269,7 @@ class FileReviewPass implements IReviewPass {
           diff,
           this.maxDiffCharacters !== undefined
             ? { maxCharacters: this.maxDiffCharacters }
-            : undefined
+            : undefined,
         );
         const diffText = diffPromptPayload.text;
         const isTriageOnly = diffPromptPayload.isTruncated;
@@ -284,7 +284,7 @@ class FileReviewPass implements IReviewPass {
         const analysisCandidateBlocks = buildFileReviewAnalysisSystemBlocks(
           projectRules,
           snapshotForFile,
-          false
+          false,
         );
         const candidatePrefixText = analysisCandidateBlocks
           .map((b) => b.text)
@@ -292,13 +292,13 @@ class FileReviewPass implements IReviewPass {
         const applyCache = shouldApplyCachePrefix(
           candidatePrefixText,
           modelForRequest,
-          this.logger
+          this.logger,
         );
         const analysisSystemBlocks = applyCache
           ? buildFileReviewAnalysisSystemBlocks(
               projectRules,
               snapshotForFile,
-              true
+              true,
             )
           : analysisCandidateBlocks;
 
@@ -312,7 +312,7 @@ class FileReviewPass implements IReviewPass {
             this.logger,
             isTriageOnly
               ? Math.floor(DEFAULT_DOC_MAX_TOKENS / 2)
-              : DEFAULT_DOC_MAX_TOKENS
+              : DEFAULT_DOC_MAX_TOKENS,
           );
           if (docContext) {
             fileReviewCounters.filesWithEagerDocContext++;
@@ -324,7 +324,7 @@ class FileReviewPass implements IReviewPass {
           diffText,
           pathRules,
           undefined,
-          docContext || undefined
+          docContext || undefined,
         );
         totalUserPromptChars += analysisUserPrompt.length;
 
@@ -362,7 +362,7 @@ class FileReviewPass implements IReviewPass {
           };
           const toolExecutorForFile = createDedupeToolExecutor(
             rawToolExecutorForFile,
-            context.toolCallCache
+            context.toolCallCache,
           );
           const tools: ToolDefinition[] = [];
           if (codebaseToolsEnabled) {
@@ -380,7 +380,7 @@ class FileReviewPass implements IReviewPass {
           }
           const maxToolRounds = resolveMaxToolRounds(
             isTriageOnly,
-            diff.lines.length
+            diff.lines.length,
           );
           totalRequestedToolRounds += maxToolRounds;
 
@@ -400,7 +400,7 @@ class FileReviewPass implements IReviewPass {
               model: modelForRequest,
               reasoning: { effort: "low" },
               temperature: FILE_REVIEW_TEMPERATURE,
-            }
+            },
           );
 
           totalPromptTokens += responsePhaseA.usage.promptTokens;
@@ -423,7 +423,7 @@ class FileReviewPass implements IReviewPass {
                 model: modelForRequest,
                 phase: "file-review-analysis",
               },
-              "file-review cache usage"
+              "file-review cache usage",
             );
           }
 
@@ -443,7 +443,7 @@ class FileReviewPass implements IReviewPass {
                 toolCalls: responsePhaseA.usage.toolCalls ?? 0,
                 toolRounds: responsePhaseA.usage.toolRounds ?? 0,
               },
-              "File review aborted: tool loop exhausted before final assistant response — skipping file"
+              "File review aborted: tool loop exhausted before final assistant response — skipping file",
             );
           } else {
             const analysisText = responsePhaseA.content.trim();
@@ -457,7 +457,7 @@ class FileReviewPass implements IReviewPass {
                   projectId: context.projectId,
                   reviewRunId: context.reviewRunId,
                 },
-                "File review phase A returned empty analysis — skipping extraction"
+                "File review phase A returned empty analysis — skipping extraction",
               );
             } else {
               const extractionSystemBlocks =
@@ -479,7 +479,7 @@ class FileReviewPass implements IReviewPass {
                   model: modelForRequest,
                   responseSchema: FILE_REVIEW_JSON_SCHEMA,
                   temperature: FILE_REVIEW_TEMPERATURE,
-                }
+                },
               );
               totalPromptTokens += responsePhaseB.usage.promptTokens;
               totalCompletionTokens += responsePhaseB.usage.completionTokens;
@@ -500,7 +500,7 @@ class FileReviewPass implements IReviewPass {
                     model: modelForRequest,
                     phase: "file-review-extraction",
                   },
-                  "file-review cache usage"
+                  "file-review cache usage",
                 );
               }
               if (responsePhaseB.content === null) {
@@ -514,7 +514,7 @@ class FileReviewPass implements IReviewPass {
                     projectId: context.projectId,
                     reviewRunId: context.reviewRunId,
                   },
-                  "File review extraction returned null content"
+                  "File review extraction returned null content",
                 );
               } else {
                 const raw: unknown = parseLlmJson(responsePhaseB.content);
@@ -533,14 +533,14 @@ class FileReviewPass implements IReviewPass {
                           projectId: context.projectId,
                           reviewRunId: context.reviewRunId,
                         },
-                        "Dropping off-diff finding"
+                        "Dropping off-diff finding",
                       );
                       return false;
                     })
                     .filter((item) => {
                       const positionValidation = validateFindingPositionInHunk(
                         item,
-                        diff
+                        diff,
                       );
                       if (positionValidation.valid) {
                         return true;
@@ -557,7 +557,7 @@ class FileReviewPass implements IReviewPass {
                           reason: positionValidation.reason,
                           reviewRunId: context.reviewRunId,
                         },
-                        "Dropping off-hunk finding"
+                        "Dropping off-hunk finding",
                       );
                       return false;
                     })
@@ -587,7 +587,7 @@ class FileReviewPass implements IReviewPass {
                               : null,
                         },
                         "file-review",
-                        model
+                        model,
                       );
                     })
                     .filter((finding): finding is Finding => finding !== null);
@@ -601,7 +601,7 @@ class FileReviewPass implements IReviewPass {
                       file: diff.newPath,
                       rawContent: String(responsePhaseB.content).slice(0, 500),
                     },
-                    "Failed to parse file review extraction response"
+                    "Failed to parse file review extraction response",
                   );
                 }
               }
@@ -618,17 +618,17 @@ class FileReviewPass implements IReviewPass {
                 hardLimit: err.hardLimit,
                 model: reviewConfig.models.review,
               },
-              "File review skipped: per-file prompt token hard limit exceeded"
+              "File review skipped: per-file prompt token hard limit exceeded",
             );
           } else {
             fileReviewCounters.filesErrored++;
             this.logger.error(
               { err, file: diff.newPath },
-              "File review failed, skipping file"
+              "File review failed, skipping file",
             );
           }
         }
-      })
+      }),
     );
 
     await Promise.all(tasks);
@@ -651,7 +651,7 @@ class FileReviewPass implements IReviewPass {
         totalToolRounds,
         totalUserPromptChars,
       },
-      "File review pass completed"
+      "File review pass completed",
     );
 
     if (allFilesFailed && diffs.length > 0) {

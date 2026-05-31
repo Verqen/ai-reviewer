@@ -19,7 +19,7 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (reason) => {
   logger.fatal(
     { err: toError(reason) },
-    "Unhandled rejection in migration runner"
+    "Unhandled rejection in migration runner",
   );
   process.exit(1);
 });
@@ -40,12 +40,12 @@ async function runMigrations(): Promise<void> {
       if (result.status === "Success") {
         logger.info(
           { migrationName: result.migrationName },
-          "Migration applied successfully"
+          "Migration applied successfully",
         );
       } else if (result.status === "Error") {
         logger.error(
           { migrationName: result.migrationName },
-          "Migration failed"
+          "Migration failed",
         );
       }
     }

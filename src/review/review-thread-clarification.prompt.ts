@@ -16,7 +16,7 @@ function buildFindingThreadClarificationSystemPrompt(
     language?: string;
     maxToolRounds?: number;
     toolsAvailable: boolean;
-  }
+  },
 ): string {
   const maxToolRounds =
     options.maxToolRounds ?? DEFAULT_THREAD_PROMPT_TOOL_ROUNDS;
@@ -68,7 +68,7 @@ interface FindingThreadPromptParams {
 }
 
 function buildFindingThreadClarificationUserPrompt(
-  params: FindingThreadPromptParams
+  params: FindingThreadPromptParams,
 ): string {
   const {
     appendToolsCompletionInstruction,

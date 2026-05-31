@@ -45,7 +45,7 @@ const LOG_DIR = join(SCRIPT_DIR, "logs");
 mkdirSync(LOG_DIR, { recursive: true });
 const traceFile = join(
   LOG_DIR,
-  `review-trace-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`
+  `review-trace-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`,
 );
 const traceStream = createWriteStream(traceFile, { flags: "a" });
 
@@ -374,7 +374,7 @@ function printSummary(): void {
     ].join("  ");
     lines.push(`${COLOR.dim}${header}${COLOR.reset}`);
     const sortedPhases = [...phaseStats.entries()].sort(([a], [b]) =>
-      a.localeCompare(b)
+      a.localeCompare(b),
     );
     for (const [phase, ps] of sortedPhases) {
       const modelsList =
@@ -389,7 +389,7 @@ function printSummary(): void {
           ps.promptTokens.toLocaleString().padStart(colWidths.prompt),
           ps.completionTokens.toLocaleString().padStart(colWidths.completion),
           ps.cachedTokens.toLocaleString().padStart(colWidths.cached),
-        ].join("  ")
+        ].join("  "),
       );
     }
   }
@@ -399,7 +399,7 @@ function printSummary(): void {
     lines.push("");
     lines.push(`${COLOR.bold}=== THREAD INTENTS ===${COLOR.reset}`);
     for (const [intentName, count] of intentEntries.sort(
-      ([, a], [, b]) => b - a
+      ([, a], [, b]) => b - a,
     )) {
       lines.push(`  ${intentName.padEnd(20)} ${count}`);
     }

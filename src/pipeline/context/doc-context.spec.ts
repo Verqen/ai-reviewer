@@ -22,7 +22,7 @@ function buildDiff(content: string, path = "src/service.ts"): ParsedFileDiff {
 
 function buildDocProvider(
   resolveLibraryFn = vi.fn().mockResolvedValue(null),
-  queryDocsFn = vi.fn().mockResolvedValue("")
+  queryDocsFn = vi.fn().mockResolvedValue(""),
 ): {
   provider: IDocProvider;
   resolveLibraryFn: ReturnType<typeof vi.fn>;
@@ -45,14 +45,14 @@ describe("resolveLibrariesFromDiffs", () => {
     };
 
     const { provider, resolveLibraryFn } = buildDocProvider(
-      vi.fn().mockResolvedValue(zodInfo)
+      vi.fn().mockResolvedValue(zodInfo),
     );
 
     const diff = buildDiff(`import { z } from "zod";`);
     const result = await resolveLibrariesFromDiffs(
       [diff],
       provider,
-      createMockLogger()
+      createMockLogger(),
     );
 
     expect(result.byName.get("zod")).toEqual(zodInfo);
@@ -65,7 +65,7 @@ describe("resolveLibrariesFromDiffs", () => {
     try {
       const { provider, resolveLibraryFn } = buildDocProvider();
       const diff = buildDiff(
-        `import { thing } from "@workspace/utils";\nimport { other } from "@internal/api";`
+        `import { thing } from "@workspace/utils";\nimport { other } from "@internal/api";`,
       );
 
       await resolveLibrariesFromDiffs([diff], provider, createMockLogger());
@@ -100,7 +100,7 @@ describe("resolveLibrariesFromDiffs", () => {
 
     const imports = Array.from(
       { length: 15 },
-      (_, i) => `import x${i} from "pkg-${i}";`
+      (_, i) => `import x${i} from "pkg-${i}";`,
     ).join("\n");
     const diff = buildDiff(imports);
 
@@ -122,12 +122,12 @@ describe("resolveLibrariesFromDiffs", () => {
     const { provider } = buildDocProvider(resolveLibraryFn);
 
     const diff = buildDiff(
-      `import fastify from "fastify";\nimport { z } from "zod";`
+      `import fastify from "fastify";\nimport { z } from "zod";`,
     );
     const result = await resolveLibrariesFromDiffs(
       [diff],
       provider,
-      createMockLogger()
+      createMockLogger(),
     );
 
     expect(result.byName.size).toBe(1);
@@ -164,7 +164,7 @@ describe("fetchDocContextForFile", () => {
 
     const { provider } = buildDocProvider(
       vi.fn().mockResolvedValue(null),
-      vi.fn().mockResolvedValue("z.coerce converts values")
+      vi.fn().mockResolvedValue("z.coerce converts values"),
     );
 
     const resolvedLibraries = { byName: new Map([["zod", zodInfo]]) };
@@ -175,7 +175,7 @@ describe("fetchDocContextForFile", () => {
       resolvedLibraries,
       provider,
       createMockLogger(),
-      10000
+      10000,
     );
 
     expect(result).toContain("--- Library Documentation ---");
@@ -192,7 +192,7 @@ describe("fetchDocContextForFile", () => {
       resolvedLibraries,
       provider,
       createMockLogger(),
-      10000
+      10000,
     );
 
     expect(result).toBe("");
@@ -208,7 +208,7 @@ describe("fetchDocContextForFile", () => {
 
     const { provider } = buildDocProvider(
       vi.fn().mockResolvedValue(null),
-      vi.fn().mockResolvedValue("")
+      vi.fn().mockResolvedValue(""),
     );
 
     const resolvedLibraries = { byName: new Map([["zod", zodInfo]]) };
@@ -218,7 +218,7 @@ describe("fetchDocContextForFile", () => {
       resolvedLibraries,
       provider,
       createMockLogger(),
-      10000
+      10000,
     );
 
     expect(result).toBe("");
@@ -234,7 +234,7 @@ describe("fetchDocContextForFile", () => {
 
     const { provider } = buildDocProvider(
       vi.fn().mockResolvedValue(null),
-      vi.fn().mockRejectedValue(new Error("API error"))
+      vi.fn().mockRejectedValue(new Error("API error")),
     );
 
     const resolvedLibraries = { byName: new Map([["zod", zodInfo]]) };
@@ -244,7 +244,7 @@ describe("fetchDocContextForFile", () => {
       resolvedLibraries,
       provider,
       createMockLogger(),
-      10000
+      10000,
     );
 
     expect(result).toBe("");

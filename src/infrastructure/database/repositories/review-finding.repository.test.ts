@@ -39,7 +39,7 @@ async function createTestRun(): Promise<ReviewRun> {
 
 function makeFindingInput(
   runId: string,
-  overrides: Partial<CreateReviewFindingInput> = {}
+  overrides: Partial<CreateReviewFindingInput> = {},
 ): CreateReviewFindingInput {
   return {
     category: "bug",
@@ -124,7 +124,7 @@ describe("ReviewFindingRepository", () => {
       finding!.id,
       "dismissed",
       "alice",
-      "False positive"
+      "False positive",
     );
     const found = await findingRepo.findByRunId(run.id);
     expect(found[0]?.resolution).toBe("dismissed");

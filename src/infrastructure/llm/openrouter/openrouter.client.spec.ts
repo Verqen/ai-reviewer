@@ -204,7 +204,7 @@ describe("OpenRouterClient", () => {
         },
       ],
       () => Promise.resolve("tool result"),
-      { maxToolRounds: 3 }
+      { maxToolRounds: 3 },
     );
     expect(actualResult.content).toBeNull();
     expect(actualResult.toolCalls).toEqual([]);
@@ -220,7 +220,7 @@ describe("OpenRouterClient", () => {
         maxRounds: 3,
         toolRounds: [["read_file"], ["read_file"], ["read_file"]],
       }),
-      "Tool loop exhausted before final assistant response"
+      "Tool loop exhausted before final assistant response",
     );
   });
 

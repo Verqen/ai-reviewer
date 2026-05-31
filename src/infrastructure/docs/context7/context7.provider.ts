@@ -41,12 +41,12 @@ class Context7Provider implements IDocProvider {
   private readonly maxTokens: number;
   private readonly libraryCache = new MemoryCache<LibraryInfo>(
     MAX_CACHE_SIZE,
-    LIBRARY_CACHE_TTL_MS
+    LIBRARY_CACHE_TTL_MS,
   );
 
   constructor(
     config: IConfig<Context7ConfigSchema>,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {
     this.apiKey = config.envs.CONTEXT7_API_KEY;
     this.baseUrl = config.envs.CONTEXT7_BASE_URL;
@@ -55,7 +55,7 @@ class Context7Provider implements IDocProvider {
 
   async resolveLibrary(
     name: string,
-    query?: string
+    query?: string,
   ): Promise<LibraryInfo | null> {
     const cacheKey = `lib:${name}:${query ?? ""}`;
     const cached = this.libraryCache.get(cacheKey);
@@ -70,7 +70,7 @@ class Context7Provider implements IDocProvider {
     }
 
     const result = await this.fetchWithRetry<Context7SearchResponse>(
-      url.toString()
+      url.toString(),
     );
     if (result === null) {
       return null;
@@ -82,7 +82,7 @@ class Context7Provider implements IDocProvider {
     }
 
     const sorted = [...results].sort(
-      (a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0)
+      (a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0),
     );
     const best = sorted[0];
     if (!best) {
@@ -103,7 +103,7 @@ class Context7Provider implements IDocProvider {
   async queryDocs(
     libraryId: string,
     topic: string,
-    maxTokens?: number
+    maxTokens?: number,
   ): Promise<string> {
     const tokens = maxTokens ?? this.maxTokens;
     const url = new URL(`${this.baseUrl}/api/v2/context`);
@@ -121,7 +121,7 @@ class Context7Provider implements IDocProvider {
 
   private async fetchWithRetry<T>(
     url: string,
-    asText = false
+    asText = false,
   ): Promise<T | null> {
     const headers = buildHeaders(this.apiKey);
 
@@ -151,7 +151,7 @@ class Context7Provider implements IDocProvider {
       } catch (err) {
         this.logger.warn(
           { err, url },
-          "Context7 network error on retry, skipping docs"
+          "Context7 network error on retry, skipping docs",
         );
         return null;
       }
@@ -159,7 +159,7 @@ class Context7Provider implements IDocProvider {
       if (!retryResponse.ok) {
         this.logger.warn(
           { status: retryResponse.status, url },
-          "Context7 retry failed, skipping docs"
+          "Context7 retry failed, skipping docs",
         );
         return null;
       }
@@ -172,7 +172,7 @@ class Context7Provider implements IDocProvider {
     if (!response.ok) {
       this.logger.warn(
         { status: response.status, url },
-        "Context7 request failed, skipping docs"
+        "Context7 request failed, skipping docs",
       );
       return null;
     }

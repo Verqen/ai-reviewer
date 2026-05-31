@@ -88,51 +88,51 @@ class ReviewModule {
           pipelineConfig.envs.FILE_REVIEW_MAX_DIFF_CHARACTERS,
           docProvider,
           rateLimiter,
-          pipelineMetrics
-        )
+          pipelineMetrics,
+        ),
       )
       .provideValue(
         ReviewTokens.ReviewConfigLoader,
-        new ReviewConfigLoader(codeHost, logger)
+        new ReviewConfigLoader(codeHost, logger),
       )
       .provideValue(
         ReviewTokens.ReviewHistoryService,
-        new ReviewHistoryService(infraRepoPorts.reviewFindingRepo)
+        new ReviewHistoryService(infraRepoPorts.reviewFindingRepo),
       )
       .provideValue(
         ReviewTokens.CommentResolutionService,
         new CommentResolutionService(
           infraRepoPorts.reviewFindingRepo,
           codeHost,
-          logger
-        )
+          logger,
+        ),
       )
       .provideClass(
         ReviewTokens.ReviewRunLifecycleService,
-        ReviewRunLifecycleService
+        ReviewRunLifecycleService,
       )
       .provideClass(
         ReviewTokens.ReviewContextBuilderService,
-        ReviewContextBuilderService
+        ReviewContextBuilderService,
       )
       .provideClass(
         ReviewTokens.ReviewFindingPublisherService,
-        ReviewFindingPublisherService
+        ReviewFindingPublisherService,
       )
       .provideClass(
         ReviewTokens.ReviewRunCompletionService,
-        ReviewRunCompletionService
+        ReviewRunCompletionService,
       )
       .provideClass(ReviewTokens.PipelineOrchestrator, PipelineOrchestrator)
       .provideClass(ReviewTokens.ReviewService, ReviewService)
       .provideClass(
         ReviewTokens.ForcePushCorrelationService,
-        ForcePushCorrelationService
+        ForcePushCorrelationService,
       )
       .provideClass(
         ReviewTokens.IncrementalReviewService,
-        IncrementalReviewService
-      )
+        IncrementalReviewService,
+      ),
   ) {}
 
   get reviewService(): ReviewService {
@@ -159,7 +159,7 @@ function buildPasses(
   fileReviewMaxDiffCharacters: number,
   docProvider?: IDocProvider,
   rateLimiter?: TokenBucket,
-  pipelineMetrics?: PipelineMetrics
+  pipelineMetrics?: PipelineMetrics,
 ): IReviewPass[] {
   return [
     new TriagePass(llm, logger, promptHardLimits.triage, pipelineMetrics),
@@ -169,7 +169,7 @@ function buildPasses(
       docProvider,
       rateLimiter,
       promptHardLimits.fileReview,
-      fileReviewMaxDiffCharacters
+      fileReviewMaxDiffCharacters,
     ),
     new CrossFilePass(llm, logger, promptHardLimits.crossFile),
     new AggregationPass(dismissedPatternRepo, logger, lineShiftDedupTolerance),

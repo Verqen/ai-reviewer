@@ -71,7 +71,7 @@ class ReviewFindingRepository implements IReviewFindingRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
   async createMany(
-    findings: CreateReviewFindingInput[]
+    findings: CreateReviewFindingInput[],
   ): Promise<ReviewFinding[]> {
     if (findings.length === 0) {
       return [];
@@ -99,7 +99,7 @@ class ReviewFindingRepository implements IReviewFindingRepository {
           review_run_id: f.reviewRunId,
           severity: f.severity,
           suggestion: f.suggestion ?? null,
-        }))
+        })),
       )
       .returningAll()
       .execute();
@@ -119,7 +119,7 @@ class ReviewFindingRepository implements IReviewFindingRepository {
 
   async findByProjectAndMr(
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<ReviewFinding[]> {
     const rows = await this.db
       .selectFrom("review_finding")
@@ -136,7 +136,7 @@ class ReviewFindingRepository implements IReviewFindingRepository {
     id: string,
     resolution: CommentResolution,
     resolvedBy?: string,
-    dismissReason?: string
+    dismissReason?: string,
   ): Promise<void> {
     await this.db
       .updateTable("review_finding")
@@ -154,7 +154,7 @@ class ReviewFindingRepository implements IReviewFindingRepository {
     ids: readonly string[],
     resolution: CommentResolution,
     resolvedBy?: string,
-    dismissReason?: string
+    dismissReason?: string,
   ): Promise<void> {
     if (ids.length === 0) {
       return;

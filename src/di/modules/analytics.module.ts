@@ -39,17 +39,17 @@ class AnalyticsModule {
       .provideValue(ReviewTokens.ReviewService, reviewService)
       .provideValue(
         AnalyticsTokens.DismissedPatternRepository,
-        infraRepoPorts.dismissedPatternRepo
+        infraRepoPorts.dismissedPatternRepo,
       )
       .provideValue(
         AnalyticsTokens.ReviewFindingRepository,
-        infraRepoPorts.reviewFindingRepo
+        infraRepoPorts.reviewFindingRepo,
       )
       .provideClass(
         AnalyticsTokens.ReviewLearningService,
-        ReviewLearningService
+        ReviewLearningService,
       )
-      .provideClass(AnalyticsTokens.ThreadManagerService, ThreadManagerService)
+      .provideClass(AnalyticsTokens.ThreadManagerService, ThreadManagerService),
   ) {}
 
   get threadManagerService(): ThreadManagerService {

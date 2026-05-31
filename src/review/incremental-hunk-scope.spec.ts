@@ -25,8 +25,8 @@ describe("scopeDeltaDiffsToMrHunks", () => {
     const parsed = parseDiff(scoped[0]!);
     const allReferencedLines = parsed.lines.flatMap((line) =>
       [line.newLine, line.oldLine].filter(
-        (value): value is number => value !== undefined
-      )
+        (value): value is number => value !== undefined,
+      ),
     );
     expect(allReferencedLines.every((line) => line >= 100)).toBe(true);
   });

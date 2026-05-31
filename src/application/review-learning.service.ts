@@ -56,12 +56,12 @@ class ReviewLearningService {
     private readonly dismissedPatternRepo: IDismissedPatternRepository,
     private readonly reviewFindingRepo: IReviewFindingRepository,
     private readonly llm: ILlmClient,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async classifyIntent(
     botComment: string,
-    devReply: string
+    devReply: string,
   ): Promise<ClassifiedIntent> {
     const systemPrompt = [
       "You classify one developer reply to an automated code-review comment into exactly ONE intent.",
@@ -130,18 +130,18 @@ class ReviewLearningService {
       typeof rawUnknown === "object" &&
       rawUnknown !== null &&
       "intent" in rawUnknown
-        ? (rawUnknown).intent
+        ? rawUnknown.intent
         : undefined;
     this.logger.info(
       { intent, rawIntent, reason },
-      "Thread reply intent classified"
+      "Thread reply intent classified",
     );
     return { intent, reason };
   }
 
   async answerClarification(
     finding: ReviewFinding,
-    devReply: string
+    devReply: string,
   ): Promise<string> {
     return runNarrowFindingClarification(this.llm, finding, devReply);
   }
@@ -164,19 +164,19 @@ class ReviewLearningService {
     const existing = await this.dismissedPatternRepo.findSimilar(
       projectId,
       finding.category,
-      finding.comment
+      finding.comment,
     );
 
     if (existing) {
       await this.dismissedPatternRepo.incrementOccurrence(existing.id);
       this.logger.info(
         { patternId: existing.id, projectId },
-        "Incremented dismissed pattern occurrence"
+        "Incremented dismissed pattern occurrence",
       );
     } else {
       const patternDescription = await this.generatePatternDescription(
         finding.comment,
-        devReply
+        devReply,
       );
       await this.dismissedPatternRepo.create({
         category: finding.category,
@@ -189,7 +189,7 @@ class ReviewLearningService {
       });
       this.logger.info(
         { category: finding.category, projectId },
-        "Created new dismissed pattern"
+        "Created new dismissed pattern",
       );
     }
 
@@ -197,13 +197,13 @@ class ReviewLearningService {
       finding.id,
       classified.intent === "false_positive" ? "dismissed" : "wont_fix",
       authorUsername,
-      classified.reason
+      classified.reason,
     );
   }
 
   private async generatePatternDescription(
     botComment: string,
-    devReply: string
+    devReply: string,
   ): Promise<string> {
     const messages: ChatMessage[] = [
       {

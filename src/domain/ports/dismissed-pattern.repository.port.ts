@@ -32,7 +32,7 @@ interface IDismissedPatternRepository {
   findSimilar(
     projectId: number,
     category: FindingCategory,
-    comment: string
+    comment: string,
   ): Promise<DismissedPattern | undefined>;
   incrementOccurrence(id: string): Promise<void>;
 }

@@ -57,7 +57,7 @@ class ReviewContextBuilderService {
     private readonly pipelineConfig: PipelineConfig,
     private readonly llmConfig: LlmConfig,
     private readonly openRouterConfig: OpenRouterConfig,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async build(params: BuildReviewContextParams): Promise<ReviewContext> {
@@ -131,7 +131,7 @@ class ReviewContextBuilderService {
           maxSearchResults: this.pipelineConfig.envs.OVERLAY_MAX_SEARCH_RESULTS,
           maxToolResponseChars:
             this.pipelineConfig.envs.OVERLAY_MAX_TOOL_RESPONSE_CHARS,
-        }
+        },
       );
       if (this.pipelineConfig.envs.ARCHITECTURE_SNAPSHOT_ENABLED) {
         architectureSnapshot = await buildArchitectureSnapshot({
@@ -151,13 +151,13 @@ class ReviewContextBuilderService {
       } else {
         this.logger.info(
           { projectId },
-          "Architecture snapshot disabled by config; review proceeds without it"
+          "Architecture snapshot disabled by config; review proceeds without it",
         );
       }
     } else {
       this.logger.warn(
         { projectId, status: baseline?.status },
-        "Baseline not ready; review proceeds without codebase exploration"
+        "Baseline not ready; review proceeds without codebase exploration",
       );
     }
     const context: ReviewContext = {

@@ -40,7 +40,7 @@ class IncrementalReviewService {
     private readonly orchestrator: PipelineOrchestrator,
     private readonly logger: FastifyBaseLogger,
     private readonly forcePushCorrelationService: ForcePushCorrelationService,
-    private readonly metrics: PipelineMetrics
+    private readonly metrics: PipelineMetrics,
   ) {}
 
   async run(job: IncrementalJob): Promise<void> {
@@ -50,7 +50,7 @@ class IncrementalReviewService {
         projectId,
         mrIid,
         undefined,
-        { includeFailedForBaseline: true }
+        { includeFailedForBaseline: true },
       );
     if (triggerType === "push") {
       await this.runNormalPush(
@@ -58,7 +58,7 @@ class IncrementalReviewService {
         mrIid,
         previousSha,
         newHeadSha,
-        previousRun?.id
+        previousRun?.id,
       );
     } else {
       await this.runForcePush(
@@ -67,7 +67,7 @@ class IncrementalReviewService {
         previousSha,
         newHeadSha,
         previousRun?.id,
-        triggerType
+        triggerType,
       );
     }
   }
@@ -81,7 +81,7 @@ class IncrementalReviewService {
     const { changedFiles, mrIid, previousRunId, projectId } = params;
     this.logger.info(
       { mrIid, projectId },
-      "Running main-push scoped incremental review"
+      "Running main-push scoped incremental review",
     );
     const allowlist = new Set(changedFiles);
     const [mrDiffs, versions] = await Promise.all([
@@ -91,13 +91,13 @@ class IncrementalReviewService {
     const scopedRaw = mrDiffs.filter(
       (d) =>
         allowlist.has(d.newPath) ||
-        (d.oldPath.length > 0 && allowlist.has(d.oldPath))
+        (d.oldPath.length > 0 && allowlist.has(d.oldPath)),
     );
     const reviewable = this.applySkipFilter(scopedRaw);
     if (reviewable.length === 0) {
       this.logger.info(
         { mrIid, projectId },
-        "No reviewable scoped changes after main push; skipping"
+        "No reviewable scoped changes after main push; skipping",
       );
       return;
     }
@@ -141,17 +141,17 @@ class IncrementalReviewService {
 
   private applyMrFileAllowlist(
     deltaDiffs: readonly DiffFile[],
-    allowlist: ReadonlySet<string>
+    allowlist: ReadonlySet<string>,
   ): DiffFile[] {
     return deltaDiffs.filter(
       (deltaDiff) =>
         (deltaDiff.newPath.length > 0 && allowlist.has(deltaDiff.newPath)) ||
-        (deltaDiff.oldPath.length > 0 && allowlist.has(deltaDiff.oldPath))
+        (deltaDiff.oldPath.length > 0 && allowlist.has(deltaDiff.oldPath)),
     );
   }
 
   private buildContextChangedPathsFromMrDiff(
-    mrDiffs: readonly DiffFile[]
+    mrDiffs: readonly DiffFile[],
   ): string[] {
     const contextPaths = new Set<string>();
     for (const mrDiff of mrDiffs) {
@@ -170,11 +170,11 @@ class IncrementalReviewService {
     mrIid: number,
     previousSha: string,
     newHeadSha: string,
-    previousRunId: string | undefined
+    previousRunId: string | undefined,
   ): Promise<void> {
     this.logger.info(
       { from: previousSha, mrIid, projectId, to: newHeadSha },
-      "Running incremental review (normal push)"
+      "Running incremental review (normal push)",
     );
     const [deltaDiffs, mrDiffs, versions] = await Promise.all([
       this.codeHost.getCommitRangeDiff(projectId, previousSha, newHeadSha, {
@@ -186,22 +186,22 @@ class IncrementalReviewService {
     const mrPathAllowlist = this.buildMrPathAllowlist(mrDiffs);
     const allowlistedDeltaDiffs = this.applyMrFileAllowlist(
       deltaDiffs,
-      mrPathAllowlist
+      mrPathAllowlist,
     );
     const scopedDeltaDiffs = scopeDeltaDiffsToMrHunks(
       allowlistedDeltaDiffs,
-      mrDiffs
+      mrDiffs,
     );
     const reviewable = this.applySkipFilter(scopedDeltaDiffs);
     if (reviewable.length === 0) {
       this.logger.info(
         { mrIid, projectId },
-        "No reviewable changes in delta; skipping"
+        "No reviewable changes in delta; skipping",
       );
       await this.codeHost.postNote(
         projectId,
         mrIid,
-        "No new reviewable changes to review."
+        "No new reviewable changes to review.",
       );
       return;
     }
@@ -226,17 +226,17 @@ class IncrementalReviewService {
     _previousSha: string,
     newHeadSha: string,
     previousRunId: string | undefined,
-    triggerType: ForcePushLikeTriggerType
+    triggerType: ForcePushLikeTriggerType,
   ): Promise<void> {
     this.logger.info(
       { mrIid, newHeadSha, projectId, triggerType },
-      "Running force-push review scoped to current MR diff"
+      "Running force-push review scoped to current MR diff",
     );
     await this.runForcePushFromFullMrDiff(
       projectId,
       mrIid,
       previousRunId,
-      triggerType
+      triggerType,
     );
   }
 
@@ -244,7 +244,7 @@ class IncrementalReviewService {
     projectId: number,
     mrIid: number,
     previousRunId: string | undefined,
-    triggerType: ForcePushLikeTriggerType
+    triggerType: ForcePushLikeTriggerType,
   ): Promise<void> {
     const [fullDiffs, versions] = await Promise.all([
       this.codeHost.getMergeRequestDiff(projectId, mrIid),
@@ -258,14 +258,14 @@ class IncrementalReviewService {
       const previousFindings =
         await this.infraRepoPorts.reviewFindingRepo.findByRunId(previousRunId);
       const pendingFindings = previousFindings.filter(
-        (f) => f.resolution === "pending"
+        (f) => f.resolution === "pending",
       );
       const forcePushCorrelation =
         await this.forcePushCorrelationService.execute(
           pendingFindings,
           parsedDiffs,
           projectId,
-          mrIid
+          mrIid,
         );
       await this.orchestrator.run({
         contextChangedPaths,

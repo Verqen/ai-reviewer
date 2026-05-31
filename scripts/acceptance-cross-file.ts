@@ -55,7 +55,7 @@ const FILES: Record<string, string> = {
 
 function buildBulkDepLines(
   filePath: string,
-  count: number
+  count: number,
 ): ParsedFileDiff["lines"] {
   const header = `@@ -1,${count.toString()} +1,${count.toString()} @@`;
   const lines: ParsedFileDiff["lines"] = [
@@ -119,7 +119,7 @@ function buildInlineOverlayView(): IOverlayView {
             return Promise.resolve(FILES[path]);
           }
           return Promise.resolve(
-            `File not found: ${String(call.arguments["path"])}`
+            `File not found: ${String(call.arguments["path"])}`,
           );
         }
         if (call.name === "search_content") {
@@ -128,7 +128,7 @@ function buildInlineOverlayView(): IOverlayView {
             return Promise.resolve(
               [DEP_A, DEP_B, DEP_C]
                 .map((f) => `${f}:1: import { add } from "./utils/calc";`)
-                .join("\n")
+                .join("\n"),
             );
           }
           return Promise.resolve("");
@@ -152,7 +152,7 @@ function buildInlineOverlayView(): IOverlayView {
         return Promise.resolve(
           [DEP_A, DEP_B, DEP_C]
             .map((f) => `${f}:1: import { add } from "./utils/calc";`)
-            .join("\n")
+            .join("\n"),
         );
       }
       return Promise.resolve(`No matches found for: ${pattern}`);
@@ -162,7 +162,7 @@ function buildInlineOverlayView(): IOverlayView {
 
 function buildContext(
   diffs: ParsedFileDiff[],
-  models: { review: string; triage: string }
+  models: { review: string; triage: string },
 ): ReviewContext {
   return {
     diffs,
@@ -215,10 +215,10 @@ async function main(): Promise<void> {
   });
 
   process.stderr.write(
-    `\n[ACCEPTANCE] Provider=${llmConfig.envs.LLM_PROVIDER} review=${reviewModel} triage=${triageModel}\n`
+    `\n[ACCEPTANCE] Provider=${llmConfig.envs.LLM_PROVIDER} review=${reviewModel} triage=${triageModel}\n`,
   );
   process.stderr.write(
-    `[ACCEPTANCE] Running CrossFilePass with ${diffs.length.toString()} files (1 core + 3 dependents)...\n`
+    `[ACCEPTANCE] Running CrossFilePass with ${diffs.length.toString()} files (1 core + 3 dependents)...\n`,
   );
 
   const priorResults = new Map<
@@ -257,18 +257,18 @@ async function main(): Promise<void> {
   const depPaths = [DEP_A, DEP_B, DEP_C];
   const catchesDependents =
     result.findings.some((f) =>
-      depPaths.some((p) => f.comment.includes(p) || f.filePath === p)
+      depPaths.some((p) => f.comment.includes(p) || f.filePath === p),
     ) || depPaths.some((p) => allText.includes(p));
 
   process.stderr.write(`[ACCEPTANCE] Pass ran: ${String(passActuallyRan)}\n`);
   if (!passActuallyRan) {
     process.stderr.write(
-      `[ACCEPTANCE] Pass early-exited with metadata.skipped=${String(skipped)}\n`
+      `[ACCEPTANCE] Pass early-exited with metadata.skipped=${String(skipped)}\n`,
     );
   }
   process.stderr.write(`[ACCEPTANCE] Finding count: ${findingCount}\n`);
   process.stderr.write(
-    `[ACCEPTANCE] Caught dependency chain: ${String(catchesDependents)}\n`
+    `[ACCEPTANCE] Caught dependency chain: ${String(catchesDependents)}\n`,
   );
 
   if (findingCount > 0) {
@@ -276,22 +276,22 @@ async function main(): Promise<void> {
       `[ACCEPTANCE] Findings:\n${result.findings
         .map(
           (f) =>
-            `  [${f.severity}] ${f.filePath}:${f.lineNumber} — ${f.comment.slice(0, 120)}`
+            `  [${f.severity}] ${f.filePath}:${f.lineNumber} — ${f.comment.slice(0, 120)}`,
         )
-        .join("\n")}\n`
+        .join("\n")}\n`,
     );
   }
 
   if (!passActuallyRan) {
     process.stderr.write(
-      `[ACCEPTANCE] FAIL: Cross-file pass did not even run (early exit).\n`
+      `[ACCEPTANCE] FAIL: Cross-file pass did not even run (early exit).\n`,
     );
     process.exit(1);
   }
 
   if (!catchesDependents) {
     process.stderr.write(
-      `[ACCEPTANCE] FAIL: Cross-file pass did not mention dependent files (${depPaths.join(", ")})\n`
+      `[ACCEPTANCE] FAIL: Cross-file pass did not mention dependent files (${depPaths.join(", ")})\n`,
     );
     process.exit(1);
   }

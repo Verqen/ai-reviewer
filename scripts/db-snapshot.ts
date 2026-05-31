@@ -41,7 +41,7 @@ const DATABASE_URL =
 
 if (DATABASE_URL === undefined || DATABASE_URL.length === 0) {
   process.stderr.write(
-    "ERROR: DATABASE_URL_PROD (preferred) or DATABASE_URL must be set.\n"
+    "ERROR: DATABASE_URL_PROD (preferred) or DATABASE_URL must be set.\n",
   );
   process.exit(1);
 }
@@ -144,10 +144,10 @@ async function main(): Promise<void> {
   const dsnLabel =
     process.env["DATABASE_URL_PROD"] !== undefined ? "PROD" : "DATABASE_URL";
   process.stdout.write(
-    `${COLOR.bold}ai-reviewer db:snapshot${COLOR.reset} ${COLOR.dim}(${dsnLabel})${COLOR.reset}\n`
+    `${COLOR.bold}ai-reviewer db:snapshot${COLOR.reset} ${COLOR.dim}(${dsnLabel})${COLOR.reset}\n`,
   );
   process.stdout.write(
-    `${COLOR.dim}filter: mr=${String(mrIid ?? "*")} project=${String(projectId ?? "*")} trigger=${triggerType ?? "*"} limit=${limit}${COLOR.reset}\n\n`
+    `${COLOR.dim}filter: mr=${String(mrIid ?? "*")} project=${String(projectId ?? "*")} trigger=${triggerType ?? "*"} limit=${limit}${COLOR.reset}\n\n`,
   );
 
   const client = new pg.Client({ connectionString: DATABASE_URL });
@@ -184,12 +184,12 @@ async function main(): Promise<void> {
        ${runWhereSql}
        ORDER BY queued_at DESC
        LIMIT ${limitParam}`,
-      runParams
+      runParams,
     );
 
     if (runsResult.rows.length === 0) {
       process.stdout.write(
-        `${COLOR.yellow}No runs found matching filter.${COLOR.reset}\n`
+        `${COLOR.yellow}No runs found matching filter.${COLOR.reset}\n`,
       );
       return;
     }
@@ -208,7 +208,7 @@ async function main(): Promise<void> {
       const duration = fmtDuration(run.started_at, run.completed_at);
 
       process.stdout.write(
-        `${COLOR.bold}═══ run ${id} ${COLOR.reset}${COLOR.magenta}MR#${mr}${COLOR.reset} ${COLOR.dim}proj=${proj}${COLOR.reset} ${COLOR.cyan}${trigger}${COLOR.reset}${incremental}  ${status}  ${COLOR.dim}duration=${duration}${COLOR.reset}\n`
+        `${COLOR.bold}═══ run ${id} ${COLOR.reset}${COLOR.magenta}MR#${mr}${COLOR.reset} ${COLOR.dim}proj=${proj}${COLOR.reset} ${COLOR.cyan}${trigger}${COLOR.reset}${incremental}  ${status}  ${COLOR.dim}duration=${duration}${COLOR.reset}\n`,
       );
 
       const promptTok = run.prompt_tokens ?? 0;
@@ -224,20 +224,20 @@ async function main(): Promise<void> {
       totalCostUsd += Number.isFinite(costNum) ? costNum : 0;
 
       process.stdout.write(
-        `  tokens:    prompt=${fmtNum(promptTok)}  completion=${fmtNum(complTok)}  total=${fmtNum(promptTok + complTok)}  cost=${fmtCost(run.total_cost)}\n`
+        `  tokens:    prompt=${fmtNum(promptTok)}  completion=${fmtNum(complTok)}  total=${fmtNum(promptTok + complTok)}  cost=${fmtCost(run.total_cost)}\n`,
       );
       process.stdout.write(
-        `  models:    review=${run.review_model ?? "-"}  triage=${run.triage_model ?? "-"}\n`
+        `  models:    review=${run.review_model ?? "-"}  triage=${run.triage_model ?? "-"}\n`,
       );
       process.stdout.write(
-        `  findings:  total=${fmtNum(run.total_findings)}  critical=${fmtNum(run.critical_count)}  warning=${fmtNum(run.warning_count)}  files=${fmtNum(run.files_reviewed)}\n`
+        `  findings:  total=${fmtNum(run.total_findings)}  critical=${fmtNum(run.critical_count)}  warning=${fmtNum(run.warning_count)}  files=${fmtNum(run.files_reviewed)}\n`,
       );
       process.stdout.write(
-        `  shas:      base=${run.base_commit_sha.slice(0, 8)}  head=${run.head_commit_sha.slice(0, 8)}\n`
+        `  shas:      base=${run.base_commit_sha.slice(0, 8)}  head=${run.head_commit_sha.slice(0, 8)}\n`,
       );
       if (run.error_message !== null) {
         process.stdout.write(
-          `  ${COLOR.red}error:     ${run.error_message}${COLOR.reset}\n`
+          `  ${COLOR.red}error:     ${run.error_message}${COLOR.reset}\n`,
         );
       }
 
@@ -247,16 +247,16 @@ async function main(): Promise<void> {
          WHERE review_run_id = $1
          GROUP BY pass_name, severity, model
          ORDER BY pass_name, severity`,
-        [run.id]
+        [run.id],
       );
 
       if (findingsResult.rows.length > 0) {
         process.stdout.write(
-          `  ${COLOR.dim}findings breakdown:${COLOR.reset}\n`
+          `  ${COLOR.dim}findings breakdown:${COLOR.reset}\n`,
         );
         for (const f of findingsResult.rows) {
           process.stdout.write(
-            `    - ${f.pass_name.padEnd(14)} ${f.severity.padEnd(10)} ${f.model.padEnd(40)} ${f.count}\n`
+            `    - ${f.pass_name.padEnd(14)} ${f.severity.padEnd(10)} ${f.model.padEnd(40)} ${f.count}\n`,
           );
         }
       }
@@ -264,20 +264,20 @@ async function main(): Promise<void> {
     }
 
     process.stdout.write(
-      `${COLOR.bold}═══ aggregate (${runsResult.rows.length} runs) ═══${COLOR.reset}\n`
+      `${COLOR.bold}═══ aggregate (${runsResult.rows.length} runs) ═══${COLOR.reset}\n`,
     );
     process.stdout.write(`  total prompt tokens:     ${fmtNum(totalPrompt)}\n`);
     process.stdout.write(
-      `  total completion tokens: ${fmtNum(totalCompletion)}\n`
+      `  total completion tokens: ${fmtNum(totalCompletion)}\n`,
     );
     process.stdout.write(
-      `  total cost:              $${totalCostUsd.toFixed(4)}\n`
+      `  total cost:              $${totalCostUsd.toFixed(4)}\n`,
     );
     process.stdout.write(
-      `  avg cost per run:        $${(totalCostUsd / runsResult.rows.length).toFixed(4)}\n`
+      `  avg cost per run:        $${(totalCostUsd / runsResult.rows.length).toFixed(4)}\n`,
     );
     process.stdout.write(
-      `  avg prompt per run:      ${fmtNum(Math.round(totalPrompt / runsResult.rows.length))}\n`
+      `  avg prompt per run:      ${fmtNum(Math.round(totalPrompt / runsResult.rows.length))}\n`,
     );
   } finally {
     await client.end();
@@ -286,7 +286,7 @@ async function main(): Promise<void> {
 
 main().catch((err: unknown) => {
   process.stderr.write(
-    `${COLOR.red}db:snapshot failed:${COLOR.reset} ${err instanceof Error ? err.message : String(err)}\n`
+    `${COLOR.red}db:snapshot failed:${COLOR.reset} ${err instanceof Error ? err.message : String(err)}\n`,
   );
   process.exit(1);
 });

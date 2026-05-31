@@ -105,7 +105,7 @@ type FormatAllowableAnchorsOptions = {
 
 function formatAllowableAnchorsForPrompt(
   lines: readonly DiffLine[],
-  options?: FormatAllowableAnchorsOptions
+  options?: FormatAllowableAnchorsOptions,
 ): string {
   const threshold =
     options?.groupByHunkAboveLineCount ??
@@ -163,7 +163,7 @@ type DiffPromptPayload = {
 
 function formatParsedDiffForPromptWithBudget(
   parsed: ParsedFileDiff,
-  options?: DiffPromptBudgetOptions
+  options?: DiffPromptBudgetOptions,
 ): DiffPromptPayload {
   const maxLines = options?.maxLines ?? DEFAULT_MAX_DIFF_LINES;
   const maxCharacters = options?.maxCharacters ?? DEFAULT_MAX_DIFF_CHARACTERS;
@@ -211,7 +211,7 @@ function formatParsedDiffForPromptWithBudget(
     ? `\n... diff truncated: included ${bodyLines.length}/${parsed.lines.length} lines`
     : "";
   const allowableAnchorsText = formatAllowableAnchorsForPrompt(
-    includedDiffLinesForPrompt
+    includedDiffLinesForPrompt,
   );
   return {
     allowableAnchorsText,

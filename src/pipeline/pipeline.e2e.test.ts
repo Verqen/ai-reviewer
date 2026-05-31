@@ -46,7 +46,7 @@ function createSerialFileReviewConfigLoader(): ReviewConfigLoader {
       Promise.resolve(
         createMockReviewConfig({
           concurrency: { maxParallelFiles: 1 },
-        })
+        }),
       ),
   } as unknown as ReviewConfigLoader;
 }
@@ -126,18 +126,18 @@ function createE2eOrchestrator(options: {
       pipelineConfig,
       llmConfig,
       openRouterConfig,
-      logger
+      logger,
     ),
     new ReviewFindingPublisherService(
       infraRepoPorts,
       codeHost,
       createMockCommentResolutionService(),
-      logger
+      logger,
     ),
     new ReviewRunCompletionService(infraRepoPorts, codeHost, cache, logger),
     passes,
     createMockPipelineMetrics(),
-    logger
+    logger,
   );
 }
 
@@ -256,7 +256,7 @@ describe("PipelineOrchestrator E2E (Ollama + fake GitLab + real Postgres)", asyn
       new AggregationPass(
         dismissedPatternRepo,
         logger,
-        pipelineConfig.envs.LINE_SHIFT_DEDUP_TOLERANCE
+        pipelineConfig.envs.LINE_SHIFT_DEDUP_TOLERANCE,
       ),
     ];
 

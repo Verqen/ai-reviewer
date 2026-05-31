@@ -39,11 +39,11 @@ class ReviewRunLifecycleService {
   constructor(
     private readonly infraRepoPorts: ReviewInfraRepoPorts,
     private readonly logger: FastifyBaseLogger,
-    private readonly pipelineConfig: PipelineConfig
+    private readonly pipelineConfig: PipelineConfig,
   ) {}
 
   async startRun(
-    params: StartPipelineRunParams
+    params: StartPipelineRunParams,
   ): Promise<StartPipelineRunResult> {
     const {
       isIncremental,
@@ -60,12 +60,12 @@ class ReviewRunLifecycleService {
           mrIid,
           versions.headSha,
           versions.baseSha,
-          triggerType
+          triggerType,
         );
       if (existingRun?.status === "completed") {
         this.logger.info(
           { mrIid, projectId, runId: existingRun.id },
-          "Skipping duplicate review (DB dedup)"
+          "Skipping duplicate review (DB dedup)",
         );
         return { outcome: "skipped", reason: "completed_duplicate" };
       }
@@ -73,7 +73,7 @@ class ReviewRunLifecycleService {
         const stuckResult = await this.handleInProgressRun(
           existingRun,
           mrIid,
-          projectId
+          projectId,
         );
         if (stuckResult.outcome === "skipped") {
           return stuckResult;
@@ -99,7 +99,7 @@ class ReviewRunLifecycleService {
       if (isUniqueViolation) {
         this.logger.info(
           { mrIid, projectId },
-          "Skipping duplicate review (unique constraint)"
+          "Skipping duplicate review (unique constraint)",
         );
         return { outcome: "skipped", reason: "unique_violation" };
       }
@@ -108,7 +108,7 @@ class ReviewRunLifecycleService {
     await this.infraRepoPorts.reviewRunRepo.updateStatus(
       reviewRun.id,
       "in_progress",
-      new Date()
+      new Date(),
     );
     return { outcome: "started", reviewRun };
   }
@@ -124,7 +124,7 @@ class ReviewRunLifecycleService {
   private async handleInProgressRun(
     existingRun: ReviewRun,
     mrIid: number,
-    projectId: number
+    projectId: number,
   ): Promise<{ outcome: "proceeded" } | StartPipelineRunResult> {
     const stuckAfterMs = this.pipelineConfig.envs.RUN_STUCK_AFTER_MS;
     const aliveSinceMs = (
@@ -135,19 +135,19 @@ class ReviewRunLifecycleService {
     if (ageMs < stuckAfterMs) {
       this.logger.info(
         { ageMs, mrIid, projectId, runId: existingRun.id, stuckAfterMs },
-        "Skipping duplicate review (already in progress)"
+        "Skipping duplicate review (already in progress)",
       );
       return { outcome: "skipped", reason: "already_in_progress" };
     }
 
     this.logger.warn(
       { ageMs, mrIid, projectId, runId: existingRun.id, stuckAfterMs },
-      "Reclaiming stuck review run — marking failed before starting new attempt"
+      "Reclaiming stuck review run — marking failed before starting new attempt",
     );
     await this.infraRepoPorts.reviewRunRepo.updateStatus(
       existingRun.id,
       "failed",
-      new Date()
+      new Date(),
     );
     await this.infraRepoPorts.reviewRunRepo.updateStats(existingRun.id, {
       errorMessage: `reclaimed: stuck in_progress for ${String(ageMs)}ms (threshold ${String(stuckAfterMs)}ms)`,
@@ -160,7 +160,7 @@ class ReviewRunLifecycleService {
     await this.infraRepoPorts.reviewRunRepo.updateStatus(
       reviewRunId,
       "failed",
-      new Date()
+      new Date(),
     );
     await this.infraRepoPorts.reviewRunRepo.updateStats(reviewRunId, {
       errorMessage,

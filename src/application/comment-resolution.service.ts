@@ -15,14 +15,14 @@ class CommentResolutionService {
   constructor(
     private readonly reviewFindingRepo: IReviewFindingRepository,
     private readonly codeHost: ICodeHost,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async resolveStaleFindings(
     previousFindings: ReviewFinding[],
     newDiffs: ParsedFileDiff[],
     projectId: number,
-    mrIid: number
+    mrIid: number,
   ): Promise<ResolutionResult> {
     const addressed: string[] = [];
     const pending: string[] = [];
@@ -46,13 +46,13 @@ class CommentResolutionService {
             await this.codeHost.resolveDiscussion(
               projectId,
               mrIid,
-              finding.hostDiscussionId
+              finding.hostDiscussionId,
             );
             isDiscussionResolved = true;
           } catch (err) {
             this.logger.warn(
               { discussionId: finding.hostDiscussionId, err },
-              "Failed to resolve GitLab discussion for addressed finding"
+              "Failed to resolve GitLab discussion for addressed finding",
             );
             pending.push(finding.id);
             continue;
@@ -61,7 +61,7 @@ class CommentResolutionService {
         try {
           await this.reviewFindingRepo.updateResolution(
             finding.id,
-            "addressed"
+            "addressed",
           );
           addressed.push(finding.id);
         } catch (err) {
@@ -78,12 +78,12 @@ class CommentResolutionService {
                   discussionId: finding.hostDiscussionId,
                   findingId: finding.id,
                 },
-              ]
+              ],
             );
           }
           this.logger.warn(
             { err, findingId: finding.id },
-            "Failed to update finding resolution to addressed"
+            "Failed to update finding resolution to addressed",
           );
           pending.push(finding.id);
         }
@@ -97,10 +97,10 @@ class CommentResolutionService {
 
   private lineWasModified(
     finding: ReviewFinding,
-    diff: ParsedFileDiff
+    diff: ParsedFileDiff,
   ): boolean {
     const relevantLines = diff.lines.filter(
-      (line) => line.type === "added" || line.type === "removed"
+      (line) => line.type === "added" || line.type === "removed",
     );
 
     return relevantLines.some((line) => {

@@ -12,7 +12,7 @@ import {
 function makeDiffFile(
   diff: string,
   newPath = "src/foo.ts",
-  oldPath = "src/foo.ts"
+  oldPath = "src/foo.ts",
 ): DiffFile {
   return { diff, newPath, oldPath };
 }
@@ -63,7 +63,7 @@ describe("parseDiff", () => {
   it("preserves oldPath and newPath for renamed file", () => {
     const diff = "@@ -1 +1 @@\n line";
     const result = parseDiff(
-      makeDiffFile(diff, "src/new-name.ts", "src/old-name.ts")
+      makeDiffFile(diff, "src/new-name.ts", "src/old-name.ts"),
     );
 
     expect(result.oldPath).toBe("src/old-name.ts");
@@ -176,7 +176,7 @@ describe("formatParsedDiffForPrompt", () => {
   it("returns only header when no lines", () => {
     const diff = "";
     const parsed = parseDiff(
-      makeDiffFile(diff, "src/empty.ts", "src/empty.ts")
+      makeDiffFile(diff, "src/empty.ts", "src/empty.ts"),
     );
     const output = formatParsedDiffForPrompt(parsed);
 

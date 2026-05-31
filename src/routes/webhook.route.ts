@@ -44,7 +44,7 @@ function hashValue(value: string): Buffer {
 
 function verifySecret(
   header: string | string[] | undefined,
-  secret: string
+  secret: string,
 ): boolean {
   if (typeof header !== "string") {
     return false;
@@ -54,7 +54,7 @@ function verifySecret(
 
 function sendOrchestrationResult(
   reply: FastifyReply,
-  result: WebhookOrchestrationResult
+  result: WebhookOrchestrationResult,
 ): FastifyReply {
   if (result.kind === "accepted") {
     return reply.status(202).send({ status: "accepted" });
@@ -84,7 +84,7 @@ function webhookRoute(
     snapshotRepo,
     threadManagerService,
     webhookConfig,
-  }: WebhookRouteOptions
+  }: WebhookRouteOptions,
 ): void {
   const jobHandler = createJobHandler(reviewer, app.log, {
     baselineService,

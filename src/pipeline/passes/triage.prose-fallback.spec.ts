@@ -146,7 +146,7 @@ describe("parseProseTriageResponse", () => {
       "Some prose without any hunk headers describing two unrelated changes mixed together.";
 
     expect(
-      parseProseTriageResponse(raw, { expectedHunkIds: [0, 1] })
+      parseProseTriageResponse(raw, { expectedHunkIds: [0, 1] }),
     ).toBeNull();
   });
 });

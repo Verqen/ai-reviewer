@@ -29,23 +29,23 @@ class OverlayViewService implements IOverlayView {
     changedFilePaths: string[],
     deletedFilePaths: string[] = [],
     overlayDeclaredResolutionPrefixes: OverlayDeclaredResolutionPathPrefixes,
-    limits: OverlayViewLimits = OVERLAY_VIEW_DEFAULTS
+    limits: OverlayViewLimits = OVERLAY_VIEW_DEFAULTS,
   ) {
     this.limits = limits;
     this.mrChangedPaths = new Set(
       changedFilePaths
         .map((filePath) => this.normalizeRepoPath(filePath))
-        .filter((filePath) => filePath.length > 0)
+        .filter((filePath) => filePath.length > 0),
     );
     this.mrDeletedPaths = new Set(
       deletedFilePaths
         .map((filePath) => this.normalizeRepoPath(filePath))
-        .filter((filePath) => filePath.length > 0)
+        .filter((filePath) => filePath.length > 0),
     );
     this.mrRelativePathPrefixesForResolution =
       overlayDeclaredResolutionPrefixes.prefixes;
     this.mrRelativePathSubtreeUsingSrcPrefixes = new Set(
-      overlayDeclaredResolutionPrefixes.prefixesUsingSrcSubtree
+      overlayDeclaredResolutionPrefixes.prefixesUsingSrcSubtree,
     );
   }
 
@@ -54,7 +54,7 @@ class OverlayViewService implements IOverlayView {
     startLine?: number,
     endLine?: number,
     maxChars?: number,
-    lineRangeExplicitFromTool?: boolean
+    lineRangeExplicitFromTool?: boolean,
   ): Promise<string> {
     const hasExplicitLineRange =
       lineRangeExplicitFromTool !== undefined
@@ -77,7 +77,7 @@ class OverlayViewService implements IOverlayView {
           startLine,
           endLine,
           maxChars,
-          hasExplicitLineRange
+          hasExplicitLineRange,
         );
       }
 
@@ -85,7 +85,7 @@ class OverlayViewService implements IOverlayView {
         const content = await this.codeHost.getFileContent(
           this.projectId,
           this.mrHeadSha,
-          resolution.path
+          resolution.path,
         );
         this.mrFileCache.set(resolution.path, content);
         return this.sliceAndLimitContent(
@@ -93,7 +93,7 @@ class OverlayViewService implements IOverlayView {
           startLine,
           endLine,
           maxChars,
-          hasExplicitLineRange
+          hasExplicitLineRange,
         );
       } catch {
         return `File not found: ${path}`;
@@ -104,7 +104,7 @@ class OverlayViewService implements IOverlayView {
         const fromMr = await this.codeHost.getFileContent(
           this.projectId,
           this.mrHeadSha,
-          baselineCandidate
+          baselineCandidate,
         );
         this.mrFileCache.set(baselineCandidate, fromMr);
         return this.sliceAndLimitContent(
@@ -112,7 +112,7 @@ class OverlayViewService implements IOverlayView {
           startLine,
           endLine,
           maxChars,
-          hasExplicitLineRange
+          hasExplicitLineRange,
         );
       } catch {
         /* fall through to snapshot */
@@ -120,7 +120,7 @@ class OverlayViewService implements IOverlayView {
       const content = await this.snapshotRepo.getFileContent(
         this.projectId,
         this.baselineCommitSha,
-        baselineCandidate
+        baselineCandidate,
       );
       if (content !== null) {
         return this.sliceAndLimitContent(
@@ -128,7 +128,7 @@ class OverlayViewService implements IOverlayView {
           startLine,
           endLine,
           maxChars,
-          hasExplicitLineRange
+          hasExplicitLineRange,
         );
       }
     }
@@ -140,7 +140,7 @@ class OverlayViewService implements IOverlayView {
     startLine?: number,
     endLine?: number,
     maxChars?: number,
-    lineRangeExplicitFromTool?: boolean
+    lineRangeExplicitFromTool?: boolean,
   ): Promise<string> {
     const hasExplicitLineRange =
       lineRangeExplicitFromTool !== undefined
@@ -161,14 +161,14 @@ class OverlayViewService implements IOverlayView {
       let content: string | null = await this.snapshotRepo.getFileContent(
         this.projectId,
         this.baselineCommitSha,
-        candidatePath
+        candidatePath,
       );
       if (content === null) {
         try {
           content = await this.codeHost.getFileContent(
             this.projectId,
             this.baselineCommitSha,
-            candidatePath
+            candidatePath,
           );
         } catch {
           content = null;
@@ -180,13 +180,12 @@ class OverlayViewService implements IOverlayView {
           startLine,
           endLine,
           maxChars,
-          hasExplicitLineRange
+          hasExplicitLineRange,
         );
       }
     }
     return `File not found at baseline ref: ${path}`;
   }
-
 
   async listFiles(pattern?: string): Promise<string> {
     const normalizedPattern = this.normalizeListFilesPattern(pattern);
@@ -195,7 +194,7 @@ class OverlayViewService implements IOverlayView {
       this.baselineCommitSha,
       normalizedPattern === LIST_ALL_FILES_PATTERN
         ? undefined
-        : normalizedPattern
+        : normalizedPattern,
     );
 
     const fileSet = new Set(baselineFiles);
@@ -228,7 +227,7 @@ class OverlayViewService implements IOverlayView {
       this.projectId,
       this.baselineCommitSha,
       pattern,
-      glob
+      glob,
     );
 
     const resultMap = new Map<string, string[]>();
@@ -240,7 +239,7 @@ class OverlayViewService implements IOverlayView {
       ) {
         resultMap.set(
           result.filePath,
-          result.matches.slice(0, this.limits.maxMatchesPerFile)
+          result.matches.slice(0, this.limits.maxMatchesPerFile),
         );
       }
     }
@@ -261,7 +260,7 @@ class OverlayViewService implements IOverlayView {
       if (matches.length > 0) {
         resultMap.set(
           changedPath,
-          matches.slice(0, this.limits.maxMatchesPerFile)
+          matches.slice(0, this.limits.maxMatchesPerFile),
         );
       }
     }
@@ -269,7 +268,7 @@ class OverlayViewService implements IOverlayView {
     const entries = [...resultMap.entries()]
       .slice(0, this.limits.maxSearchResults)
       .map(
-        ([filePath, matches]) => `--- ${filePath} ---\n${matches.join("\n")}`
+        ([filePath, matches]) => `--- ${filePath} ---\n${matches.join("\n")}`,
       );
 
     if (entries.length === 0) {
@@ -292,7 +291,7 @@ class OverlayViewService implements IOverlayView {
       if (argumentsRecord === null) {
         return this.buildInvalidArgumentsError(
           call.name,
-          "Arguments payload must be an object."
+          "Arguments payload must be an object.",
         );
       }
       switch (call.name) {
@@ -312,51 +311,51 @@ class OverlayViewService implements IOverlayView {
   }
 
   private executeReadFile(
-    argumentsRecord: Record<string, unknown>
+    argumentsRecord: Record<string, unknown>,
   ): Promise<string> {
     const path = this.getRequiredStringArgument(argumentsRecord, "path");
     if (path === null) {
       return Promise.resolve(
         this.buildInvalidArgumentsError(
           "read_file",
-          'Field "path" must be a non-empty string.'
-        )
+          'Field "path" must be a non-empty string.',
+        ),
       );
     }
     const startLine = this.getOptionalPositiveIntegerArgument(
       argumentsRecord,
-      "start_line"
+      "start_line",
     );
     if (startLine === null && Object.hasOwn(argumentsRecord, "start_line")) {
       return Promise.resolve(
         this.buildInvalidArgumentsError(
           "read_file",
-          'Field "start_line" must be a positive integer when provided.'
-        )
+          'Field "start_line" must be a positive integer when provided.',
+        ),
       );
     }
     const endLine = this.getOptionalPositiveIntegerArgument(
       argumentsRecord,
-      "end_line"
+      "end_line",
     );
     if (endLine === null && Object.hasOwn(argumentsRecord, "end_line")) {
       return Promise.resolve(
         this.buildInvalidArgumentsError(
           "read_file",
-          'Field "end_line" must be a positive integer when provided.'
-        )
+          'Field "end_line" must be a positive integer when provided.',
+        ),
       );
     }
     const maxChars = this.getOptionalPositiveIntegerArgument(
       argumentsRecord,
-      "max_chars"
+      "max_chars",
     );
     if (maxChars === null && Object.hasOwn(argumentsRecord, "max_chars")) {
       return Promise.resolve(
         this.buildInvalidArgumentsError(
           "read_file",
-          'Field "max_chars" must be a positive integer when provided.'
-        )
+          'Field "max_chars" must be a positive integer when provided.',
+        ),
       );
     }
     const hasExplicitLineRange =
@@ -367,35 +366,35 @@ class OverlayViewService implements IOverlayView {
       startLine ?? undefined,
       endLine ?? undefined,
       maxChars ?? undefined,
-      hasExplicitLineRange
+      hasExplicitLineRange,
     ).then((body) => this.applyReadFileToolResponseLimit(body));
   }
 
   private executeListFiles(
-    argumentsRecord: Record<string, unknown>
+    argumentsRecord: Record<string, unknown>,
   ): Promise<string> {
     const pattern = this.getOptionalStringArgument(argumentsRecord, "pattern");
     if (pattern === null && Object.hasOwn(argumentsRecord, "pattern")) {
       return Promise.resolve(
         this.buildInvalidArgumentsError(
           "list_files",
-          'Field "pattern" must be a string when provided.'
-        )
+          'Field "pattern" must be a string when provided.',
+        ),
       );
     }
     return this.listFiles(pattern ?? undefined);
   }
 
   private executeSearchContent(
-    argumentsRecord: Record<string, unknown>
+    argumentsRecord: Record<string, unknown>,
   ): Promise<string> {
     const pattern = this.getRequiredStringArgument(argumentsRecord, "pattern");
     if (pattern === null) {
       return Promise.resolve(
         this.buildInvalidArgumentsError(
           "search_content",
-          'Field "pattern" must be a non-empty string.'
-        )
+          'Field "pattern" must be a non-empty string.',
+        ),
       );
     }
     const glob = this.getOptionalStringArgument(argumentsRecord, "glob");
@@ -403,8 +402,8 @@ class OverlayViewService implements IOverlayView {
       return Promise.resolve(
         this.buildInvalidArgumentsError(
           "search_content",
-          'Field "glob" must be a string when provided.'
-        )
+          'Field "glob" must be a string when provided.',
+        ),
       );
     }
     return this.searchContent(pattern, glob ?? undefined);
@@ -419,7 +418,7 @@ class OverlayViewService implements IOverlayView {
 
   private getRequiredStringArgument(
     argumentsRecord: Record<string, unknown>,
-    key: string
+    key: string,
   ): string | null {
     const value = argumentsRecord[key];
     if (typeof value !== "string") {
@@ -431,7 +430,7 @@ class OverlayViewService implements IOverlayView {
 
   private getOptionalStringArgument(
     argumentsRecord: Record<string, unknown>,
-    key: string
+    key: string,
   ): string | null | undefined {
     const value = argumentsRecord[key];
     if (value === undefined) {
@@ -445,7 +444,7 @@ class OverlayViewService implements IOverlayView {
 
   private getOptionalPositiveIntegerArgument(
     argumentsRecord: Record<string, unknown>,
-    key: string
+    key: string,
   ): number | null | undefined {
     const value = argumentsRecord[key];
     if (value === undefined) {
@@ -501,7 +500,7 @@ class OverlayViewService implements IOverlayView {
 
   private collectSuffixMatches(
     normalizedPath: string,
-    source: ReadonlySet<string>
+    source: ReadonlySet<string>,
   ): string[] {
     const suffix = `/${normalizedPath}`;
     const matches: string[] = [];
@@ -514,7 +513,7 @@ class OverlayViewService implements IOverlayView {
   }
 
   private resolveRequestedPath(
-    normalizedPath: string
+    normalizedPath: string,
   ):
     | { kind: "ambiguous"; candidates: string[] }
     | { kind: "changed"; path: string }
@@ -529,7 +528,7 @@ class OverlayViewService implements IOverlayView {
     }
     for (const candidate of this.collectSuffixMatches(
       normalizedPath,
-      this.mrChangedPaths
+      this.mrChangedPaths,
     )) {
       changedCandidates.add(candidate);
     }
@@ -548,7 +547,7 @@ class OverlayViewService implements IOverlayView {
     }
     for (const candidate of this.collectSuffixMatches(
       normalizedPath,
-      this.mrDeletedPaths
+      this.mrDeletedPaths,
     )) {
       deletedCandidates.add(candidate);
     }
@@ -595,7 +594,7 @@ class OverlayViewService implements IOverlayView {
     startLine: number | undefined,
     endLine: number | undefined,
     maxChars: number | undefined,
-    hasExplicitLineRange: boolean
+    hasExplicitLineRange: boolean,
   ): string {
     const lines = content.split("\n");
     const totalFileLines = lines.length;
@@ -612,7 +611,7 @@ class OverlayViewService implements IOverlayView {
     const selectedJoined = linesWithinLimit.join("\n");
     const effectiveLimit = Math.min(
       maxChars ?? this.limits.maxReadFileChars,
-      this.limits.maxReadFileChars
+      this.limits.maxReadFileChars,
     );
     const wasTruncatedByChars = selectedJoined.length > effectiveLimit;
     const contentWithinLimit = wasTruncatedByChars
@@ -630,12 +629,12 @@ class OverlayViewService implements IOverlayView {
       ];
       if (hasExplicitLineRange) {
         meta.push(
-          `requested_line_range=${String(requestedRangeStart)}-${String(requestedRangeEnd)}`
+          `requested_line_range=${String(requestedRangeStart)}-${String(requestedRangeEnd)}`,
         );
       }
       if (visibleStartLine > 0) {
         meta.push(
-          `visible_line_range=${String(visibleStartLine)}-${String(visibleEndLine)}`
+          `visible_line_range=${String(visibleStartLine)}-${String(visibleEndLine)}`,
         );
       } else {
         meta.push("visible_line_range=none");
@@ -645,12 +644,12 @@ class OverlayViewService implements IOverlayView {
     const truncationNotices: string[] = [];
     if (wasTruncatedByLines) {
       truncationNotices.push(
-        `[truncation:read_file_lines] limit=${String(this.limits.maxReadFileLines)} lines_in_window=${String(selectedLines.length)} visible_line_range=${String(visibleStartLine)}-${String(visibleEndLine)}`
+        `[truncation:read_file_lines] limit=${String(this.limits.maxReadFileLines)} lines_in_window=${String(selectedLines.length)} visible_line_range=${String(visibleStartLine)}-${String(visibleEndLine)}`,
       );
     }
     if (wasTruncatedByChars) {
       truncationNotices.push(
-        `[truncation:read_file_chars] effective_limit=${String(effectiveLimit)} size_before_truncation=${String(selectedJoined.length)}`
+        `[truncation:read_file_chars] effective_limit=${String(effectiveLimit)} size_before_truncation=${String(selectedJoined.length)}`,
       );
     }
     const bodyChunks: string[] = [];

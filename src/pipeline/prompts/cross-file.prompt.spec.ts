@@ -11,7 +11,7 @@ describe("buildCrossFileSystemPrompt", () => {
     expect(prompt).toContain("DDD bounded-context leaks");
     expect(prompt).toContain("Hexagonal dependency direction breaks");
     expect(prompt).toContain(
-      "Domain modules should depend on abstractions, never on infrastructure adapters"
+      "Domain modules should depend on abstractions, never on infrastructure adapters",
     );
   });
 
@@ -53,7 +53,7 @@ describe("buildCrossFileUserPrompt", () => {
       [{ findingCount: 0, path: "src/a.ts", topSeverity: null }],
       "",
       "## MR diffs (compact)\n\n### src/a.ts\n\ndiff body",
-      "ctx"
+      "ctx",
     );
     expect(text).toContain("## MR diffs (compact)");
     expect(text).toContain("diff body");

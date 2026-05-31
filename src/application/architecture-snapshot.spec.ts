@@ -30,7 +30,7 @@ function createMockLogger(): FastifyBaseLogger {
 }
 
 function createMockSnapshotRepo(
-  overrides: Partial<ISnapshotRepository> = {}
+  overrides: Partial<ISnapshotRepository> = {},
 ): ISnapshotRepository {
   return {
     copySnapshotEntries: vi.fn(),
@@ -71,7 +71,7 @@ describe("buildArchitectureSnapshot", () => {
           if (path === "package.json") return Promise.resolve('{"name":"x"}');
           if (path === "CLAUDE.md") return Promise.resolve("# Project");
           return Promise.resolve(null);
-        }
+        },
       ),
       listFiles: vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]),
     });
@@ -107,7 +107,7 @@ describe("buildArchitectureSnapshot", () => {
     expect(result).not.toContain("s/3");
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ truncatedList: true }),
-      expect.any(String)
+      expect.any(String),
     );
   });
 
@@ -116,7 +116,7 @@ describe("buildArchitectureSnapshot", () => {
     const repo = createMockSnapshotRepo({
       getFileContent: vi.fn(
         (_projectId: number, _commitSha: string, path: string) =>
-          Promise.resolve(path === "package.json" ? big : null)
+          Promise.resolve(path === "package.json" ? big : null),
       ),
     });
     const result = await buildArchitectureSnapshot({
@@ -127,7 +127,7 @@ describe("buildArchitectureSnapshot", () => {
       snapshotRepo: repo,
     });
     const match = /<package_json>\n([\s\S]*?)\n<\/package_json>/.exec(
-      result ?? ""
+      result ?? "",
     );
     expect(match?.[1]).toHaveLength(50);
   });
@@ -136,7 +136,7 @@ describe("buildArchitectureSnapshot", () => {
     const repo = createMockSnapshotRepo({
       getFileContent: vi.fn(
         (_projectId: number, _commitSha: string, path: string) =>
-          Promise.resolve(path === "CLAUDE.md" ? "y".repeat(500) : null)
+          Promise.resolve(path === "CLAUDE.md" ? "y".repeat(500) : null),
       ),
     });
     const result = await buildArchitectureSnapshot({
@@ -148,7 +148,7 @@ describe("buildArchitectureSnapshot", () => {
     });
     expect(result?.endsWith("<!-- truncated -->")).toBe(true);
     expect(result?.length).toBeLessThanOrEqual(
-      80 + "\n<!-- truncated -->".length
+      80 + "\n<!-- truncated -->".length,
     );
   });
 
@@ -167,7 +167,7 @@ describe("buildArchitectureSnapshot", () => {
     expect(result).toBeUndefined();
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ err: expect.any(Error) as Error }),
-      expect.stringContaining("Failed to build architecture snapshot")
+      expect.stringContaining("Failed to build architecture snapshot"),
     );
   });
 });

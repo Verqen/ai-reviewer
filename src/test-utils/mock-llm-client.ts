@@ -43,7 +43,7 @@ function createMockLlmClient(options: MockLlmClientOptions = {}): ILlmClient & {
 
     chatCompletion(
       messages: ChatMessage[],
-      opts?: LlmOptions
+      opts?: LlmOptions,
     ): Promise<LlmResponse> {
       calls.chatCompletion.push([messages, opts]);
       return Promise.resolve(nextResponse());
@@ -53,7 +53,7 @@ function createMockLlmClient(options: MockLlmClientOptions = {}): ILlmClient & {
       messages: ChatMessage[],
       tools: ToolDefinition[],
       _toolExecutor: (call: ToolCall) => Promise<string>,
-      opts?: LlmOptions
+      opts?: LlmOptions,
     ): Promise<LlmResponse> {
       calls.chatCompletionWithTools.push([messages, tools, opts]);
       return Promise.resolve(nextResponse());

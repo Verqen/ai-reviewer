@@ -36,7 +36,7 @@ function buildParams(overrides: Partial<SummaryParams> = {}): SummaryParams {
 describe("buildSummaryNote", () => {
   it("includes overall assessment", () => {
     const note = buildSummaryNote(
-      buildParams({ overview: "No issues found." })
+      buildParams({ overview: "No issues found." }),
     );
     expect(note).toContain("**Overall:** No issues found.");
   });
@@ -48,7 +48,7 @@ describe("buildSummaryNote", () => {
       buildFinding({ lineNumber: 3, severity: "warning" }),
     ];
     const note = buildSummaryNote(
-      buildParams({ allFindings: findings, postableFindings: findings })
+      buildParams({ allFindings: findings, postableFindings: findings }),
     );
     expect(note).toContain("| Critical | 1 |");
     expect(note).toContain("| Attention | 1 |");
@@ -102,7 +102,7 @@ describe("buildSummaryNote", () => {
         comment: `Issue ${String(i)}`,
         lineNumber: i + 1,
         severity: "warning",
-      })
+      }),
     );
     const note = buildSummaryNote(buildParams({ allFindings: findings }));
     const matches = note.match(/\[WARNING\]/g);
@@ -116,7 +116,7 @@ describe("buildSummaryNote", () => {
         allFindings: [
           buildFinding({ comment: longComment, severity: "critical" }),
         ],
-      })
+      }),
     );
     expect(note).toContain(longComment);
     expect(note).not.toContain("…");
@@ -131,11 +131,10 @@ describe("buildSummaryNote", () => {
             severity: "warning",
           }),
         ],
-      })
+      }),
     );
     expect(note).toContain("`src/a.ts:1` - First line. Second line. Third.");
   });
-
 
   it("displays per-model token breakdown in footer", () => {
     const note = buildSummaryNote(
@@ -144,7 +143,7 @@ describe("buildSummaryNote", () => {
           "review-model": { completionTokens: 200, promptTokens: 800 },
           "triage-model": { completionTokens: 100, promptTokens: 400 },
         },
-      })
+      }),
     );
     expect(note).not.toMatch(/Cost:/i);
     expect(note).toContain("review-model");
@@ -173,7 +172,7 @@ describe("buildSummaryNote", () => {
         lineNumber: i + 1,
         passName: "file-review",
         severity: "critical",
-      })
+      }),
     );
     const crossFindings: Finding[] = Array.from({ length: 6 }, (_, i) =>
       buildFinding({
@@ -182,10 +181,10 @@ describe("buildSummaryNote", () => {
         lineNumber: i + 1,
         passName: "cross-file",
         severity: "critical",
-      })
+      }),
     );
     const note = buildSummaryNote(
-      buildParams({ allFindings: [...fileFindings, ...crossFindings] })
+      buildParams({ allFindings: [...fileFindings, ...crossFindings] }),
     );
     expect(note).toContain("### File Findings");
     expect(note).toContain("### Architecture Findings");

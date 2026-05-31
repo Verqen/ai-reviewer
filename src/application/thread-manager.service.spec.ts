@@ -11,7 +11,7 @@ import type { ReviewLearningService } from "./review-learning.service";
 import { ThreadManagerService } from "./thread-manager.service";
 
 function buildMockFinding(
-  overrides: Partial<ReviewFinding> = {}
+  overrides: Partial<ReviewFinding> = {},
 ): ReviewFinding {
   return {
     category: "best_practice",
@@ -80,7 +80,7 @@ describe("ThreadManagerService", () => {
       codeHost,
       reviewLearningService,
       reviewService,
-      createMockLogger()
+      createMockLogger(),
     );
   }
 
@@ -105,7 +105,7 @@ describe("ThreadManagerService", () => {
         devReply: "This is intentional design",
         mrIid: 1,
         projectId: 1,
-      })
+      }),
     );
   });
 
@@ -151,7 +151,7 @@ describe("ThreadManagerService", () => {
       1,
       1,
       "disc-1",
-      expect.stringMatching(/Acknowledged/i)
+      expect.stringMatching(/Acknowledged/i),
     );
     expect(resolveDiscussionSpy).toHaveBeenCalledWith(1, 1, "disc-1");
     expect(learnFromReplyFn).not.toHaveBeenCalled();
@@ -181,13 +181,13 @@ describe("ThreadManagerService", () => {
       1,
       1,
       expect.objectContaining({ id: "finding-1" }),
-      "What do you mean by this?"
+      "What do you mean by this?",
     );
     expect(replyToDiscussionSpy).toHaveBeenCalledWith(
       1,
       1,
       "disc-1",
-      "Narrow thread reply"
+      "Narrow thread reply",
     );
     expect(resolveDiscussionSpy).not.toHaveBeenCalled();
   });
@@ -198,7 +198,7 @@ describe("ThreadManagerService", () => {
       reason: "question asked",
     });
     respondToFindingThreadClarificationFn.mockRejectedValue(
-      new Error("llm down")
+      new Error("llm down"),
     );
 
     const replyToDiscussionSpy = vi.spyOn(codeHost, "replyToDiscussion");
@@ -211,7 +211,7 @@ describe("ThreadManagerService", () => {
         mrIid: 1,
         noteBody: "?",
         projectId: 1,
-      })
+      }),
     ).resolves.toBeUndefined();
 
     expect(replyToDiscussionSpy).not.toHaveBeenCalled();
@@ -258,7 +258,7 @@ describe("ThreadManagerService", () => {
           intent: "dispute",
           reason: "valid counter-argument",
         },
-      })
+      }),
     );
   });
 
@@ -279,7 +279,7 @@ describe("ThreadManagerService", () => {
   it("does not throw when rollback also fails", async () => {
     learnFromReplyFn.mockRejectedValue(new Error("learning failed"));
     vi.spyOn(codeHost, "unresolveDiscussion").mockRejectedValue(
-      new Error("rollback failed")
+      new Error("rollback failed"),
     );
     const service = buildService();
     await expect(
@@ -289,7 +289,7 @@ describe("ThreadManagerService", () => {
         mrIid: 1,
         noteBody: "This is intentional design",
         projectId: 1,
-      })
+      }),
     ).resolves.toBeUndefined();
   });
 });

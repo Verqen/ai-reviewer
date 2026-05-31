@@ -49,7 +49,7 @@ function buildToolCallCacheKey(call: ToolCall): string {
 }
 
 function mapToOllamaMessages(
-  messages: ChatMessage[]
+  messages: ChatMessage[],
 ): Array<{ role: string; content: string }> {
   return messages.map((msg) => {
     if (msg.role === "tool") {
@@ -79,7 +79,7 @@ class OllamaClient implements ILlmClient {
 
   constructor(
     config: IConfig<LlmConfigSchema>,
-    private readonly logger: FastifyBaseLogger
+    private readonly logger: FastifyBaseLogger,
   ) {
     this.baseUrl = config.envs.OLLAMA_BASE_URL;
     this.defaultModel = config.envs.OLLAMA_MODEL;
@@ -88,13 +88,13 @@ class OllamaClient implements ILlmClient {
 
   async chatCompletion(
     messages: ChatMessage[],
-    options?: LlmOptions
+    options?: LlmOptions,
   ): Promise<LlmResponse> {
     const model = options?.model ?? this.defaultModel;
     assertPromptTokenBudget(
       messages,
       options?.tools,
-      options?.maxPromptTokensHard
+      options?.maxPromptTokensHard,
     );
     const body: Record<string, unknown> = {
       messages: mapToOllamaMessages(messages),
@@ -143,7 +143,7 @@ class OllamaClient implements ILlmClient {
         this.isToolsUnsupportedError(error)
       ) {
         this.logger.warn(
-          "Ollama does not support tool calls, falling back to plain completion"
+          "Ollama does not support tool calls, falling back to plain completion",
         );
         this.toolsSupported = false;
         delete body["tools"];
@@ -170,11 +170,11 @@ class OllamaClient implements ILlmClient {
     messages: ChatMessage[],
     tools: ToolDefinition[],
     toolExecutor: (call: ToolCall) => Promise<string>,
-    options?: LlmOptions
+    options?: LlmOptions,
   ): Promise<LlmResponse> {
     if (this.toolsSupported === false) {
       this.logger.warn(
-        "Ollama tool calls not supported, running single completion without tools"
+        "Ollama tool calls not supported, running single completion without tools",
       );
       return this.chatCompletion(messages, { ...options, tools: undefined });
     }
@@ -226,7 +226,7 @@ class OllamaClient implements ILlmClient {
           round,
           toolNames: roundToolNames,
         },
-        "Ollama tool loop round"
+        "Ollama tool loop round",
       );
 
       if (totalPromptTokens >= MAX_CUMULATIVE_PROMPT_TOKENS) {
@@ -238,7 +238,7 @@ class OllamaClient implements ILlmClient {
             toolRounds,
             totalPromptTokens,
           },
-          "Ollama tool-loop cumulative token budget exceeded, early exit"
+          "Ollama tool-loop cumulative token budget exceeded, early exit",
         );
         return {
           content: response.content,
@@ -277,7 +277,7 @@ class OllamaClient implements ILlmClient {
 
     this.logger.warn(
       { maxRounds, model: options?.model, toolRounds },
-      "Tool loop exhausted before final assistant response"
+      "Tool loop exhausted before final assistant response",
     );
     return {
       content: null,
@@ -314,7 +314,7 @@ class OllamaClient implements ILlmClient {
   }
 
   private async fetchWithRetry(
-    body: Record<string, unknown>
+    body: Record<string, unknown>,
   ): Promise<OllamaResponse> {
     let lastError: Error | null = null;
     const payloadSize = JSON.stringify(body).length;
@@ -352,7 +352,7 @@ class OllamaClient implements ILlmClient {
         if (!response.ok) {
           const errorText = await response.text();
           lastError = new Error(
-            `Ollama API error: ${response.status} ${errorText}`
+            `Ollama API error: ${response.status} ${errorText}`,
           );
 
           if (
@@ -386,7 +386,7 @@ class OllamaClient implements ILlmClient {
   }
 
   private buildRetryBody(
-    body: Record<string, unknown>
+    body: Record<string, unknown>,
   ): Record<string, unknown> {
     const options =
       typeof body["options"] === "object" && body["options"] !== null

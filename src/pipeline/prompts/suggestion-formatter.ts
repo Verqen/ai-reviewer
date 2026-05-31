@@ -7,7 +7,7 @@ function hasSuggestionPayload(suggestion?: string): suggestion is string {
 function buildSuggestionBlock(
   suggestion: string,
   lineNumber: number,
-  endLineNumber: number | undefined
+  endLineNumber: number | undefined,
 ): string {
   const extraLines =
     endLineNumber !== undefined ? endLineNumber - lineNumber : 0;
@@ -22,7 +22,7 @@ function formatCommentWithSuggestion(
   originalSnippet?: string,
   lineType?: LineType,
   lineNumber?: number,
-  endLineNumber?: number
+  endLineNumber?: number,
 ): string {
   const header = `[${severity.toUpperCase()}] ${comment}`;
 
@@ -41,7 +41,7 @@ function formatCommentWithSuggestion(
   const suggestionBlock = buildSuggestionBlock(
     suggestion,
     lineNumber,
-    endLineNumber
+    endLineNumber,
   );
 
   return `${header}\n\n${suggestionBlock}`;

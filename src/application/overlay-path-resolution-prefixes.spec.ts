@@ -12,7 +12,7 @@ describe("filterPackageRootsUsingWorkspaceDeclaredGlobs", () => {
       filterPackageRootsUsingWorkspaceDeclaredGlobs(
         ["apps/web", "orphan/root", "services/ai"],
         ["apps/*", "services/*"],
-        true
+        true,
       );
     expect(excludedOutsideWorkspace).toEqual(["apps/web", "services/ai"]);
   });
@@ -21,7 +21,7 @@ describe("filterPackageRootsUsingWorkspaceDeclaredGlobs", () => {
     const unfilteredRepeated = filterPackageRootsUsingWorkspaceDeclaredGlobs(
       ["a", "b"],
       ["packages/*"],
-      false
+      false,
     );
     expect(unfilteredRepeated).toEqual(["a", "b"]);
   });
@@ -31,7 +31,7 @@ describe("filterPackageRootsUsingWorkspaceDeclaredGlobs", () => {
       filterPackageRootsUsingWorkspaceDeclaredGlobs(
         ["orphan/x", "orphan/y"],
         ["packages/*"],
-        true
+        true,
       );
     expect(rootRowsBeforeFallbackHandling).toEqual(["orphan/x", "orphan/y"]);
   });
@@ -41,7 +41,7 @@ describe("buildOverlayPathResolutionPrefixes", () => {
   it("orders MR two-segment lead before alphabetical roots and caps prefixes", () => {
     const rootLabelsLong = Array.from(
       { length: DEFAULT_MAX_OVERLAY_PATH_PREFIXES + 5 },
-      (_ignored: unknown, ordinal: number) => `p${ordinal}`
+      (_ignored: unknown, ordinal: number) => `p${ordinal}`,
     );
     const actualOrderedCap = buildOverlayPathResolutionPrefixes({
       hasTopLevelSrcTree: false,
@@ -52,7 +52,7 @@ describe("buildOverlayPathResolutionPrefixes", () => {
     });
     expect(actualOrderedCap.prefixes[0]).toBe("svc/z");
     expect(actualOrderedCap.prefixes).toHaveLength(
-      DEFAULT_MAX_OVERLAY_PATH_PREFIXES
+      DEFAULT_MAX_OVERLAY_PATH_PREFIXES,
     );
   });
 

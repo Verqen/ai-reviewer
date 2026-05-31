@@ -98,7 +98,7 @@ function makeAggPass(findings: Finding[] = []): IReviewPass {
   return {
     execute: (
       _ctx: ReviewContext,
-      _prior: Map<string, PassResult>
+      _prior: Map<string, PassResult>,
     ): Promise<PassResult> => {
       const agg: AggregationResult = {
         allFindings: findings,
@@ -128,7 +128,7 @@ type TestOrchestratorOptions = {
 };
 
 function createTestOrchestrator(
-  options: TestOrchestratorOptions
+  options: TestOrchestratorOptions,
 ): PipelineOrchestrator {
   const {
     cache,
@@ -150,18 +150,18 @@ function createTestOrchestrator(
       config,
       llmConfig,
       createMockOpenRouterConfig(),
-      logger
+      logger,
     ),
     new ReviewFindingPublisherService(
       infraRepoPorts,
       codeHost,
       createMockCommentResolutionService(),
-      logger
+      logger,
     ),
     new ReviewRunCompletionService(infraRepoPorts, codeHost, cache, logger),
     passes,
     createMockPipelineMetrics(),
-    logger
+    logger,
   );
 }
 

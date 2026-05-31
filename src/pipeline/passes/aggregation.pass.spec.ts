@@ -409,7 +409,7 @@ describe("AggregationPass", () => {
           pending: [],
         },
       }),
-      priorResults
+      priorResults,
     );
     const agg = result.metadata as unknown as AggregationResult;
     expect(agg.allFindings).toHaveLength(1);
@@ -468,7 +468,7 @@ describe("AggregationPass", () => {
           pending: [],
         },
       }),
-      priorResults
+      priorResults,
     );
     const agg = result.metadata as unknown as AggregationResult;
     expect(agg.allFindings).toHaveLength(1);
@@ -487,7 +487,8 @@ describe("AggregationPass", () => {
     });
     const paraphrased = buildFinding({
       category: "security",
-      comment: "accessToken cookie is accessible to JavaScript — interception risk",
+      comment:
+        "accessToken cookie is accessible to JavaScript — interception risk",
       filePath: "src/cookies.ts",
       lineNumber: 11,
       severity: "critical",
@@ -532,7 +533,7 @@ describe("AggregationPass", () => {
           ]),
         },
       }),
-      priorResults
+      priorResults,
     );
     const agg = result.metadata as unknown as AggregationResult;
     expect(agg.allFindings).toHaveLength(1);
@@ -597,7 +598,7 @@ describe("AggregationPass", () => {
           ]),
         },
       }),
-      priorResults
+      priorResults,
     );
     const agg = result.metadata as unknown as AggregationResult;
     expect(agg.allFindings).toHaveLength(1);
@@ -661,7 +662,7 @@ describe("AggregationPass", () => {
           ]),
         },
       }),
-      priorResults
+      priorResults,
     );
     const agg = result.metadata as unknown as AggregationResult;
     expect(agg.allFindings).toHaveLength(1);
@@ -717,7 +718,7 @@ describe("AggregationPass", () => {
           ]),
         },
       }),
-      priorResults
+      priorResults,
     );
     const agg = result.metadata as unknown as AggregationResult;
     expect(agg.allFindings).toHaveLength(1);

@@ -149,7 +149,7 @@ function parseLlmJson(raw: string | null, fallback: string = "{}"): unknown {
   }
 
   const candidates = [content, fenced ?? "", braceContent ?? ""].filter(
-    (c) => c.length > 0
+    (c) => c.length > 0,
   );
   for (const candidate of candidates) {
     const recovered = recoverTruncatedArrayJson(candidate);

@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: ai-reviewer
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - ai-reviewer:3000
+        labels:
+          service: ai-reviewer
+          env: dev

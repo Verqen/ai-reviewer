@@ -1,0 +1,29 @@
+{
+  "object_kind": "note",
+  "project": {
+    "id": 42,
+    "name": "test-repo"
+  },
+  "user": {
+    "id": 5,
+    "username": "developer1",
+    "name": "Developer One"
+  },
+  "merge_request": {
+    "draft": false,
+    "iid": 7,
+    "title": "Add user authentication"
+  },
+  "object_attributes": {
+    "id": 200,
+    "note": "@ai can you explain why password hashing is missing here?",
+    "noteable_type": "MergeRequest",
+    "discussion_id": "disc-abc123",
+    "position": {
+      "new_path": "src/services/user.service.ts",
+      "new_line": 13,
+      "old_path": "src/services/user.service.ts",
+      "old_line": null
+    }
+  }
+}

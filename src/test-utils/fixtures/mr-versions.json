@@ -1,0 +1,10 @@
+[
+  {
+    "id": 1,
+    "head_commit_sha": "abc123def456abc123def456abc123def456abc1",
+    "base_commit_sha": "000111222333444555666777888999aaabbbccc0",
+    "start_commit_sha": "000111222333444555666777888999aaabbbccc0",
+    "created_at": "2026-04-15T12:00:00.000Z",
+    "merge_request_id": 100
+  }
+]

@@ -1,0 +1,12 @@
+[
+  { "path": "src", "type": "tree" },
+  { "path": "src/index.ts", "type": "blob" },
+  { "path": "src/services", "type": "tree" },
+  { "path": "src/services/user.service.ts", "type": "blob" },
+  { "path": "src/services/user.service.spec.ts", "type": "blob" },
+  { "path": "src/auth", "type": "tree" },
+  { "path": "src/auth/auth.service.ts", "type": "blob" },
+  { "path": "src/auth/auth.types.ts", "type": "blob" },
+  { "path": "package.json", "type": "blob" },
+  { "path": "tsconfig.json", "type": "blob" }
+]

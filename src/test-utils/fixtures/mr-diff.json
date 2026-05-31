@@ -1,0 +1,22 @@
+[
+  {
+    "diff": "@@ -0,0 +1,20 @@\n+import { z } from 'zod';\n+\n+const UserSchema = z.object({\n+  id: z.string().uuid(),\n+  email: z.string().email(),\n+  password: z.string().min(8),\n+});\n+\n+type User = z.infer<typeof UserSchema>;\n+\n+async function createUser(data: unknown): Promise<User> {\n+  const parsed = UserSchema.parse(data);\n+  const passwordHash = parsed.password;\n+  return { ...parsed, password: passwordHash };\n+}\n+\n+export { createUser, UserSchema };\n+export type { User };\n",
+    "new_path": "src/services/user.service.ts",
+    "old_path": "src/services/user.service.ts"
+  },
+  {
+    "diff": "@@ -0,0 +1,15 @@\n+import { describe, it, expect } from 'vitest';\n+import { createUser } from './user.service';\n+\n+describe('createUser', () => {\n+  it('creates a user with valid data', async () => {\n+    const result = await createUser({\n+      id: '00000000-0000-0000-0000-000000000001',\n+      email: 'test@example.com',\n+      password: 'password123',\n+    });\n+    expect(result.email).toBe('test@example.com');\n+  });\n+});\n",
+    "new_path": "src/services/user.service.spec.ts",
+    "old_path": "src/services/user.service.spec.ts"
+  },
+  {
+    "diff": "@@ -1,5 +1,7 @@\n {\n   \"name\": \"test-app\",\n+  \"dependencies\": {\n+    \"zod\": \"^4.0.0\"\n+  }\n }\n",
+    "new_path": "package.json",
+    "old_path": "package.json"
+  },
+  {
+    "diff": "@@ -0,0 +1,100 @@\n+# Generated lock file\n+zod@4.0.0:\n+  resolution: ...\n",
+    "new_path": "pnpm-lock.yaml",
+    "old_path": "pnpm-lock.yaml"
+  }
+]

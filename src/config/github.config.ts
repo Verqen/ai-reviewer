@@ -5,9 +5,12 @@ import { z } from "zod";
  * GitHub auth supports two modes:
  * - a personal/installation access token (`GITHUB_TOKEN`), simplest for local
  *   runs and CI;
- * - a GitHub App (`GITHUB_APP_ID` + `GITHUB_APP_PRIVATE_KEY` +
- *   `GITHUB_APP_INSTALLATION_ID`), the production path where the app is
- *   installed per-repository and mints short-lived installation tokens.
+ * - a GitHub App (`GITHUB_APP_ID` + `GITHUB_APP_INSTALLATION_ID` + the private
+ *   key), the production path where the app is installed per-repository and
+ *   mints short-lived installation tokens. The private key may be supplied
+ *   inline (`GITHUB_APP_PRIVATE_KEY`) or as a path to the downloaded `.pem`
+ *   (`GITHUB_APP_PRIVATE_KEY_PATH`) — the latter keeps the secret in a file
+ *   outside the repo, no multi-line env wrangling.
  */
 const GitHubConfigSchema = z
   .object({
@@ -15,6 +18,7 @@ const GitHubConfigSchema = z
     GITHUB_APP_ID: z.string().optional(),
     GITHUB_APP_INSTALLATION_ID: z.coerce.number().int().optional(),
     GITHUB_APP_PRIVATE_KEY: z.string().optional(),
+    GITHUB_APP_PRIVATE_KEY_PATH: z.string().optional(),
     GITHUB_BOT_USERNAME: z.string().default("ai"),
     GITHUB_TOKEN: z.string().optional(),
   })
@@ -22,11 +26,12 @@ const GitHubConfigSchema = z
     (c) =>
       Boolean(c.GITHUB_TOKEN) ||
       (Boolean(c.GITHUB_APP_ID) &&
-        Boolean(c.GITHUB_APP_PRIVATE_KEY) &&
+        (Boolean(c.GITHUB_APP_PRIVATE_KEY) ||
+          Boolean(c.GITHUB_APP_PRIVATE_KEY_PATH)) &&
         c.GITHUB_APP_INSTALLATION_ID !== undefined),
     {
       message:
-        "Provide GITHUB_TOKEN, or full GitHub App credentials (GITHUB_APP_ID + GITHUB_APP_PRIVATE_KEY + GITHUB_APP_INSTALLATION_ID).",
+        "Provide GITHUB_TOKEN, or GitHub App credentials (GITHUB_APP_ID + GITHUB_APP_INSTALLATION_ID + GITHUB_APP_PRIVATE_KEY or GITHUB_APP_PRIVATE_KEY_PATH).",
     },
   );
 

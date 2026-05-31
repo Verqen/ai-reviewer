@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Readable } from "node:stream";
 import { createGunzip } from "node:zlib";
 
@@ -67,11 +68,18 @@ function createGitHubOctokit(config: IConfig<GitHubConfigSchema>): Octokit {
   if (GITHUB_TOKEN) {
     return new Octokit({ auth: GITHUB_TOKEN, baseUrl: GITHUB_API_URL });
   }
+  const keyPath = config.envs.GITHUB_APP_PRIVATE_KEY_PATH;
+  const privateKey =
+    config.envs.GITHUB_APP_PRIVATE_KEY ??
+    (keyPath !== undefined ? readFileSync(keyPath, "utf8") : undefined);
+  if (privateKey === undefined) {
+    throw new Error("GitHub App private key is not configured");
+  }
   return new Octokit({
     auth: {
       appId: config.envs.GITHUB_APP_ID,
       installationId: config.envs.GITHUB_APP_INSTALLATION_ID,
-      privateKey: config.envs.GITHUB_APP_PRIVATE_KEY,
+      privateKey,
     },
     authStrategy: createAppAuth,
     baseUrl: GITHUB_API_URL,

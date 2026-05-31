@@ -65,6 +65,20 @@ export { CrossFilePass } from "~/pipeline/passes/cross-file.pass";
 export { AggregationPass } from "~/pipeline/passes/aggregation.pass";
 export { getPrimarySkipReason } from "~/pipeline/passes/skip-filter";
 
+// Production-readiness score & vibe-coding patterns
+export { computeProductionReadinessScore } from "~/review/scoring.service";
+export type {
+  CategoryBreakdown,
+  Grade,
+  ProductionReadinessScore,
+  ScoreCategory,
+} from "~/review/scoring.service";
+export {
+  buildVibeCodingPatternsInstruction,
+  escalateVibeCodingSeverity,
+  VIBE_CODING_PATTERNS,
+} from "~/pipeline/prompts/vibe-coding-patterns";
+
 // Review utilities
 export { parseDiff } from "~/review/diff-parser";
 export { buildPosition } from "~/review/finding-inline-position";

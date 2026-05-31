@@ -14,6 +14,7 @@ import type {
   Severity,
 } from "~/domain/types/review.types";
 import { matchFilePathGlob } from "~/glob/match-file-path-glob";
+import { escalateVibeCodingSeverity } from "~/pipeline/prompts/vibe-coding-patterns";
 
 const SEVERITY_ORDER: Record<Severity, number> = {
   attention: 3,
@@ -166,7 +167,9 @@ class AggregationPass implements IReviewPass {
       "Aggregation pass starting",
     );
 
-    const combined = dedup([...fileReviewFindings, ...crossFileFindings]);
+    const combined = escalateVibeCodingSeverity(
+      dedup([...fileReviewFindings, ...crossFileFindings]),
+    );
 
     const dedupedCount = combined.length;
 

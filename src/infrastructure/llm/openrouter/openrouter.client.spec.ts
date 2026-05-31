@@ -26,6 +26,7 @@ function createMockConfig(): IConfig<OpenRouterConfigSchema> {
   return {
     envs: {
       OPENROUTER_API_KEY: "test-key",
+      OPENROUTER_API_URL: "https://openrouter.ai/api/v1/chat/completions",
       OPENROUTER_MODEL: "anthropic/claude-sonnet-4-5",
       OPENROUTER_TRIAGE_MODEL: "minimax/minimax-m2.7",
     },

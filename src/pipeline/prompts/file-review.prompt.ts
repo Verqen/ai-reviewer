@@ -2,6 +2,7 @@ import { getReviewLanguage } from "~/config/review-language";
 import type { MergeRequestInfo } from "~/domain/types/code-host.types";
 import type { TextBlock } from "~/domain/types/llm.types";
 import { buildAnalysisDisciplineInstruction } from "~/pipeline/prompts/file-review-analysis-discipline";
+import { buildVibeCodingPatternsInstruction } from "~/pipeline/prompts/vibe-coding-patterns";
 import {
   buildJsonOutputInstructions,
   injectProjectRules,
@@ -36,6 +37,7 @@ function buildFileReviewAnalysisSystemBlocks(
     "Phase 1 (analysis only): output structured markdown or prose.",
     "Cover risks, open questions, and hypotheses tied to the diff; cite lines using L<number> markers from the diff when relevant.",
     "Focus on runtime-impacting issues: correctness, security, performance, architecture boundaries (DDD/hexagonal), and contract/type regressions.",
+    buildVibeCodingPatternsInstruction(),
     "Use tools only when needed to verify imports/contracts before stating a risk.",
     "Severity rubric (use exactly these 5 levels in the extraction phase): critical = data loss, security breach, crash, broken auth/permissions, or production outage; attention = high-confidence bug or contract break with concrete user-visible impact; warning = likely defect, incorrect handling of an edge case, or non-trivial maintainability/perf risk grounded in the diff; info = useful observation or minor risk that does not require action; nitpick = pure polish or style preference.",
     "Pick the lowest level that still describes the real risk. When uncertain between two levels, prefer the lower one.",

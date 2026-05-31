@@ -42,6 +42,7 @@ import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-patte
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
 import type { DiffFile } from "~/domain/types/code-host.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
+import type { Severity } from "~/domain/types/review.types";
 import type { ToolCall } from "~/domain/types/llm.types";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
 import type { Finding } from "~/domain/types/review.types";
@@ -60,6 +61,7 @@ import { formatCommentWithSuggestion } from "~/pipeline/prompts/suggestion-forma
 import { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 import { parseDiff } from "~/review/diff-parser";
 import { buildPosition } from "~/review/finding-inline-position";
+import { computeProductionReadinessScore } from "~/review/scoring.service";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
 
 const argv = process.argv.slice(2);
@@ -511,7 +513,7 @@ function printSummary(
           filePath: string;
           lineNumber: number;
           passName?: string;
-          severity: string;
+          severity: Severity;
         }[];
       }
     | undefined;
@@ -532,6 +534,18 @@ function printSummary(
     }
   } else {
     process.stderr.write(`\n  no findings produced\n`);
+  }
+
+  const scoreResult = computeProductionReadinessScore(allFindings);
+  process.stderr.write(
+    `\n═══ PRODUCTION-READINESS SCORE ═══\n` +
+      `  ${String(scoreResult.score)}/100   grade ${scoreResult.grade}\n`,
+  );
+  for (const entry of scoreResult.breakdown) {
+    process.stderr.write(
+      `  ${entry.category.padEnd(22)} ${String(entry.subscore).padStart(3)}/100  ` +
+        `weight ${String(Math.round(entry.weight * 100))}%  (${String(entry.findingCount)} finding(s))\n`,
+    );
   }
 
   const isVisible = (sev: string): boolean =>

@@ -79,6 +79,14 @@ export {
   VIBE_CODING_PATTERNS,
 } from "~/pipeline/prompts/vibe-coding-patterns";
 
+// High-level GitHub PR review (structured result; optional posting)
+export { reviewGitHubPullRequest } from "~/review/github-pr-review";
+export type {
+  GitHubPullRequestReviewOptions,
+  GitHubPullRequestReviewResult,
+  ReviewedFinding,
+} from "~/review/github-pr-review";
+
 // Review utilities
 export { parseDiff } from "~/review/diff-parser";
 export { buildPosition } from "~/review/finding-inline-position";

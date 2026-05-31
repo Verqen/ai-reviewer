@@ -7,11 +7,50 @@
  */
 
 // Domain types
-export type * from "~/domain/types/review.types";
-export type * from "~/domain/types/pipeline.types";
-export type * from "~/domain/types/code-host.types";
-export type * from "~/domain/types/diff.types";
-export type * from "~/domain/types/llm.types";
+export type {
+  CommentContext,
+  CommentResolution,
+  Finding,
+  FindingCategory,
+  ForcePushLikeTriggerType,
+  IncrementalTriggerType,
+  LineType,
+  PriorFindings,
+  PriorFindingsByFile,
+  ReviewFinding,
+  ReviewRun,
+  ReviewStatus,
+  Severity,
+  TriggerType,
+} from "~/domain/types/review.types";
+export { isForcePushLikeTriggerType } from "~/domain/types/review.types";
+export type {
+  AggregationResult,
+  IReviewPass,
+  PassResult,
+  ReviewContext,
+} from "~/domain/types/pipeline.types";
+export type {
+  ArchiveEntry,
+  DiffFile,
+  FileTreeEntry,
+  InlinePosition,
+  MergeRequestInfo,
+  Note,
+  VersionInfo,
+  WebhookEvent,
+} from "~/domain/types/code-host.types";
+export { CodeHostNotFoundError } from "~/domain/types/code-host.types";
+export type { DiffLine, ParsedFileDiff } from "~/domain/types/diff.types";
+export type {
+  CacheControl,
+  ChatMessage,
+  LlmOptions,
+  LlmResponse,
+  TextBlock,
+  ToolCall,
+  ToolDefinition,
+} from "~/domain/types/llm.types";
 
 // Ports (hexagonal boundaries)
 export type { ICodeHost } from "~/domain/ports/code-host.port";

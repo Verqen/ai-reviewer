@@ -5,8 +5,17 @@
   "license": "BUSL-1.1",
   "author": "German Kosach",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/public.d.ts",
+      "default": "./dist/public.js"
+    },
+    "./server": {
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "dist/public.js",
+  "types": "dist/public.d.ts",
   "files": [
     "dist",
     "README.md",
@@ -25,6 +34,7 @@
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",
     "monitor": "tsx scripts/monitor-review.ts",
+    "prepare": "pnpm run build",
     "replay": "dotenv -e .env -- tsx scripts/replay-mr.ts",
     "scan": "dotenv -e .env -- tsx scripts/replay-mr.ts",
     "smoke:llm": "dotenv -e .env tsx scripts/smoke-llm.ts",

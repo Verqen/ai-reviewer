@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import type { IConfig } from "~/shared/config";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -10,7 +10,6 @@ import type { MainPushReviewService } from "~/application/main-push-review.servi
 import type { ThreadManagerService } from "~/application/thread-manager.service";
 import type { WebhookOrchestrationResult } from "~/application/webhook/webhook-orchestration.types";
 import { createWebhookOrchestrator } from "~/application/webhook/webhook-orchestrator";
-import type { GitLabConfigSchema } from "~/config/gitlab.config";
 import type { WebhookConfigSchema } from "~/config/webhook.config";
 import type { ICache } from "~/domain/ports/cache.port";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
@@ -18,15 +17,20 @@ import type { IJobQueue } from "~/domain/ports/job-queue.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { IReviewRunRepository } from "~/domain/ports/review-run.repository.port";
 import type { ISnapshotRepository } from "~/domain/ports/snapshot.repository.port";
+import type { WebhookEvent } from "~/domain/types/code-host.types";
 import type { ReviewJob } from "~/domain/types/job.types";
+import { parseGitHubWebhook } from "~/infrastructure/code-host/github/github.webhook-adapter";
 import { parseGitLabWebhook } from "~/infrastructure/code-host/gitlab/gitlab.webhook-adapter";
 import type { IReviewService } from "~/review/review.types";
 
+type CodeHostProvider = "github" | "gitlab";
+
 interface WebhookRouteOptions {
   baselineService: BaselineService;
+  botUsername: string;
   cache: ICache<boolean>;
   codeHost: ICodeHost;
-  gitlabConfig: IConfig<GitLabConfigSchema>;
+  codeHostProvider: CodeHostProvider;
   incrementalReviewService: IncrementalReviewService;
   mainPushReviewService?: MainPushReviewService | undefined;
   queue: IJobQueue<ReviewJob>;
@@ -52,6 +56,30 @@ function verifySecret(
   return timingSafeEqual(hashValue(header), hashValue(secret));
 }
 
+/**
+ * GitHub signs the raw request body with an HMAC-SHA256 keyed by the webhook
+ * secret and sends it in `X-Hub-Signature-256: sha256=<hex>`. The comparison
+ * must run over the exact bytes GitHub signed, hence the raw-body capture.
+ */
+function verifyGitHubSignature(
+  rawBody: string,
+  header: string | string[] | undefined,
+  secret: string,
+): boolean {
+  if (typeof header !== "string") {
+    return false;
+  }
+  const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
+  const provided = Buffer.from(header);
+  const computed = Buffer.from(expected);
+  if (provided.length !== computed.length) {
+    return false;
+  }
+  return timingSafeEqual(provided, computed);
+}
+
+const rawBodyByRequest = new WeakMap<FastifyRequest, string>();
+
 function sendOrchestrationResult(
   reply: FastifyReply,
   result: WebhookOrchestrationResult,
@@ -72,9 +100,10 @@ function webhookRoute(
   app: FastifyInstance,
   {
     baselineService,
+    botUsername,
     cache,
     codeHost,
-    gitlabConfig,
+    codeHostProvider,
     incrementalReviewService,
     mainPushReviewService,
     queue,
@@ -94,9 +123,9 @@ function webhookRoute(
     threadManagerService,
   });
   const orchestrator = createWebhookOrchestrator({
+    botUsername,
     cache,
     codeHost,
-    gitlabConfig,
     jobHandler,
     log: app.log,
     queue,
@@ -104,28 +133,94 @@ function webhookRoute(
     reviewRunRepo,
     snapshotRepo,
   });
+
+  // GitHub HMAC is computed over the raw request bytes, so capture them before
+  // JSON parsing. Scoped to this encapsulated plugin — does not affect other routes.
+  if (codeHostProvider === "github") {
+    app.addContentTypeParser(
+      "application/json",
+      { parseAs: "string" },
+      (req, body, done) => {
+        const raw = typeof body === "string" ? body : body.toString("utf8");
+        rawBodyByRequest.set(req, raw);
+        try {
+          done(null, raw.length > 0 ? (JSON.parse(raw) as unknown) : {});
+        } catch (error) {
+          done(
+            error instanceof Error ? error : new Error("Invalid JSON"),
+            undefined,
+          );
+        }
+      },
+    );
+  }
+
   app.post("/webhook", async (req: FastifyRequest, reply: FastifyReply) => {
     const webhookSecret = webhookConfig.envs.WEBHOOK_SECRET;
-    if (webhookSecret) {
-      if (!verifySecret(req.headers["x-gitlab-token"], webhookSecret)) {
-        return reply.status(401).send({ error: "Unauthorized" });
-      }
+    const parsed =
+      codeHostProvider === "github"
+        ? authorizeAndParseGitHub(req, webhookSecret)
+        : authorizeAndParseGitLab(req, webhookSecret);
+
+    if (parsed.kind === "unauthorized") {
+      return reply.status(401).send({ error: "Unauthorized" });
     }
-    const parsed = parseGitLabWebhook(req.body);
     if (parsed.kind === "invalid") {
       return reply.status(400).send({ error: "Invalid payload" });
     }
     if (parsed.kind === "ignored") {
       return reply.status(200).send({ status: "ignored" });
     }
-    const event = parsed.event;
     const maxQueueSize = webhookConfig.envs.WEBHOOK_MAX_QUEUE_SIZE;
     if (queue.size >= maxQueueSize) {
       return reply.status(503).send({ error: "Queue is full" });
     }
-    const result = await orchestrator.handleEvent(event);
+    const result = await orchestrator.handleEvent(parsed.event);
     return sendOrchestrationResult(reply, result);
   });
+}
+
+type RouteParseResult =
+  | { kind: "event"; event: WebhookEvent }
+  | { kind: "ignored" }
+  | { kind: "invalid" }
+  | { kind: "unauthorized" };
+
+function authorizeAndParseGitLab(
+  req: FastifyRequest,
+  secret: string | undefined,
+): RouteParseResult {
+  if (secret && !verifySecret(req.headers["x-gitlab-token"], secret)) {
+    return { kind: "unauthorized" };
+  }
+  const parsed = parseGitLabWebhook(req.body);
+  if (parsed.kind === "event") {
+    return { event: parsed.event, kind: "event" };
+  }
+  return { kind: parsed.kind === "ignored" ? "ignored" : "invalid" };
+}
+
+function authorizeAndParseGitHub(
+  req: FastifyRequest,
+  secret: string | undefined,
+): RouteParseResult {
+  if (secret) {
+    const raw = rawBodyByRequest.get(req) ?? "";
+    if (
+      !verifyGitHubSignature(raw, req.headers["x-hub-signature-256"], secret)
+    ) {
+      return { kind: "unauthorized" };
+    }
+  }
+  const eventName = req.headers["x-github-event"];
+  const parsed = parseGitHubWebhook(
+    typeof eventName === "string" ? eventName : "",
+    req.body,
+  );
+  if (parsed.kind === "event") {
+    return { event: parsed.event, kind: "event" };
+  }
+  return { kind: parsed.kind === "ignored" ? "ignored" : "invalid" };
 }
 
 export { webhookRoute };

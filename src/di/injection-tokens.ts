@@ -5,7 +5,6 @@ export enum InjectionTokens {
   Database = "Database",
   DatabaseConfig = "DatabaseConfig",
   DocProvider = "DocProvider",
-  GitLabConfig = "GitLabConfig",
   InfraRepoPorts = "InfraRepoPorts",
   Llm = "Llm",
   LlmConfig = "LlmConfig",

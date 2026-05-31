@@ -1,7 +1,5 @@
-import type { IConfig } from "~/shared/config";
 import type { FastifyBaseLogger } from "fastify";
 
-import type { GitLabConfigSchema } from "~/config/gitlab.config";
 import type { ICache } from "~/domain/ports/cache.port";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { IJobQueue } from "~/domain/ports/job-queue.port";
@@ -21,9 +19,9 @@ type WebhookOrchestrationResult =
   | { kind: "ignored" };
 
 interface WebhookOrchestratorDeps {
+  botUsername: string;
   cache: ICache<boolean>;
   codeHost: ICodeHost;
-  gitlabConfig: IConfig<GitLabConfigSchema>;
   jobHandler: (job: ReviewJob) => Promise<void>;
   log: FastifyBaseLogger;
   queue: IJobQueue<ReviewJob>;

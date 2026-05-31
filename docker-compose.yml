@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17.4
+    environment:
+      POSTGRES_DB: ai_reviewer
+      POSTGRES_USER: ai_reviewer
+      POSTGRES_PASSWORD: ai_reviewer
+    ports:
+      - "5433:5432"
+    volumes:
+      - ai_reviewer_pgdata:/var/lib/postgresql/data
+
+volumes:
+  ai_reviewer_pgdata:

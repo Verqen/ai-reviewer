@@ -1,0 +1,15 @@
+export enum ReviewTokens {
+  CommentResolutionService = "CommentResolutionService",
+  ForcePushCorrelationService = "ForcePushCorrelationService",
+  IncrementalReviewService = "IncrementalReviewService",
+  InfraRepoPorts = "ReviewInfraRepoPorts",
+  PipelineOrchestrator = "PipelineOrchestrator",
+  ReviewConfigLoader = "ReviewConfigLoader",
+  ReviewContextBuilderService = "ReviewContextBuilderService",
+  ReviewFindingPublisherService = "ReviewFindingPublisherService",
+  ReviewHistoryService = "ReviewHistoryService",
+  ReviewPasses = "ReviewPasses",
+  ReviewRunCompletionService = "ReviewRunCompletionService",
+  ReviewRunLifecycleService = "ReviewRunLifecycleService",
+  ReviewService = "ReviewService",
+}

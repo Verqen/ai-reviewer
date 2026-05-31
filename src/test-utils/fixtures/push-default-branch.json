@@ -1,0 +1,27 @@
+{
+  "object_kind": "push",
+  "project": {
+    "id": 42,
+    "name": "test-repo",
+    "web_url": "https://gitlab.example.com/test/test-repo"
+  },
+  "ref": "refs/heads/main",
+  "before": "000111222333444555666777888999aaabbbccc0",
+  "after": "fff999eeedddcccbbbaaaa888777666555444333",
+  "commits": [
+    {
+      "id": "fff999eeedddcccbbbaaaa888777666555444333",
+      "message": "Fix authentication bug",
+      "added": ["src/auth/new-helper.ts"],
+      "modified": ["src/auth/auth.service.ts", "src/auth/auth.types.ts"],
+      "removed": []
+    },
+    {
+      "id": "eee888dddbbb777aaa666555444333222111000",
+      "message": "Add tests",
+      "added": ["src/auth/auth.service.spec.ts"],
+      "modified": [],
+      "removed": ["src/auth/old-auth.ts"]
+    }
+  ]
+}

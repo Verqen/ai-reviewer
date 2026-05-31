@@ -1,0 +1,22 @@
+{
+  "object_kind": "merge_request",
+  "project": {
+    "id": 42,
+    "name": "test-repo",
+    "web_url": "https://gitlab.example.com/test/test-repo"
+  },
+  "object_attributes": {
+    "id": 100,
+    "iid": 7,
+    "action": "open",
+    "title": "Add user authentication",
+    "description": "Implements JWT-based authentication",
+    "source_branch": "feature/auth",
+    "target_branch": "main",
+    "state": "opened",
+    "last_commit": {
+      "id": "abc123def456abc123def456abc123def456abc1"
+    }
+  },
+  "changes": {}
+}

@@ -1,7 +1,5 @@
-import type { IConfig } from "~/shared/config";
 import { describe, expect, it, vi } from "vitest";
 
-import type { GitLabConfigSchema } from "~/config/gitlab.config";
 import type { IJobQueue } from "~/domain/ports/job-queue.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { IReviewRunRepository } from "~/domain/ports/review-run.repository.port";
@@ -17,16 +15,6 @@ import { createMockLogger } from "~/test-utils/mock-logger";
 import type { WebhookOrchestratorDeps } from "./webhook-orchestration.types";
 import { createWebhookOrchestrator } from "./webhook-orchestrator";
 
-function buildGitlabConfig(botUsername = "ai"): IConfig<GitLabConfigSchema> {
-  return {
-    envs: {
-      GITLAB_API_URL: "https://gitlab.example.com",
-      GITLAB_BOT_USERNAME: botUsername,
-      GITLAB_TOKEN: "token",
-    },
-  };
-}
-
 function buildDeps(overrides: Partial<WebhookOrchestratorDeps> = {}): {
   deps: WebhookOrchestratorDeps;
   jobHandler: ReturnType<typeof vi.fn>;
@@ -35,9 +23,9 @@ function buildDeps(overrides: Partial<WebhookOrchestratorDeps> = {}): {
   const queue = overrides.queue ?? new JobQueue<ReviewJob>(5);
   const jobHandler = vi.fn().mockResolvedValue(undefined);
   const deps: WebhookOrchestratorDeps = {
+    botUsername: overrides.botUsername ?? "ai",
     cache: overrides.cache ?? new MemoryCache<boolean>(),
     codeHost: overrides.codeHost ?? createMockCodeHost(),
-    gitlabConfig: overrides.gitlabConfig ?? buildGitlabConfig(),
     jobHandler: overrides.jobHandler ?? jobHandler,
     log: overrides.log ?? createMockLogger(),
     queue,

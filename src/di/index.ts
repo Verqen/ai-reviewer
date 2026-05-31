@@ -4,6 +4,7 @@ import { createInjector } from "typed-inject";
 
 import { Context7Config } from "~/config/context7.config";
 import { DatabaseConfig } from "~/config/database.config";
+import { GitHubConfig } from "~/config/github.config";
 import { GitLabConfig } from "~/config/gitlab.config";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
@@ -15,9 +16,14 @@ import { AnalyticsModule } from "~/di/modules/analytics.module";
 import { ReviewModule } from "~/di/modules/review.module";
 import { ReviewTokens } from "~/di/review-tokens";
 import type { ICache } from "~/domain/ports/cache.port";
+import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { ReviewJob } from "~/domain/types/job.types";
 import type { CommentContext } from "~/domain/types/review.types";
 import { MemoryCache } from "~/infrastructure/cache/memory-cache";
+import {
+  createGitHubOctokit,
+  GitHubCodeHost,
+} from "~/infrastructure/code-host/github/github.code-host";
 import { GitLabCodeHost } from "~/infrastructure/code-host/gitlab/gitlab.code-host";
 import { createDatabase } from "~/infrastructure/database/database";
 import type { Database } from "~/infrastructure/database/types";
@@ -34,7 +40,6 @@ function createBootstrapInjector(fastifyLogger: FastifyBaseLogger) {
   return createInjector()
     .provideValue(InjectionTokens.Logger, fastifyLogger)
     .provideClass(InjectionTokens.DatabaseConfig, DatabaseConfig)
-    .provideClass(InjectionTokens.GitLabConfig, GitLabConfig)
     .provideClass(InjectionTokens.OpenRouterConfig, OpenRouterConfig)
     .provideClass(InjectionTokens.WebhookConfig, WebhookConfig)
     .provideClass(InjectionTokens.LlmConfig, LlmConfig)
@@ -46,14 +51,29 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
 
   const dbConfig = bootstrapInjector.resolve(InjectionTokens.DatabaseConfig);
   const llmConfig = bootstrapInjector.resolve(InjectionTokens.LlmConfig);
-  const gitlabConfig = bootstrapInjector.resolve(InjectionTokens.GitLabConfig);
   const openrouterConfig = bootstrapInjector.resolve(
     InjectionTokens.OpenRouterConfig,
   );
 
   const db: Kysely<Database> = createDatabase(dbConfig.envs.DATABASE_URL);
 
-  const codeHost = new GitLabCodeHost(gitlabConfig, fastifyLogger);
+  const codeHostProvider: "github" | "gitlab" =
+    process.env["CODE_HOST_PROVIDER"] === "github" ? "github" : "gitlab";
+  let codeHost: ICodeHost;
+  let botUsername: string;
+  if (codeHostProvider === "github") {
+    const githubConfig = new GitHubConfig();
+    codeHost = new GitHubCodeHost(
+      createGitHubOctokit(githubConfig),
+      githubConfig,
+      fastifyLogger,
+    );
+    botUsername = githubConfig.envs.GITHUB_BOT_USERNAME;
+  } else {
+    const gitlabConfig = new GitLabConfig();
+    codeHost = new GitLabCodeHost(gitlabConfig, fastifyLogger);
+    botUsername = gitlabConfig.envs.GITLAB_BOT_USERNAME;
+  }
 
   const llmProvider = llmConfig.envs.LLM_PROVIDER;
   const llm =
@@ -105,7 +125,14 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
     .provideValue(InjectionTokens.RespondToComment, respondToComment)
     .provideClass(InjectionTokens.AnalyticsModule, AnalyticsModule);
 
-  return { appInjector, db, metricsRegistry, queue };
+  return {
+    appInjector,
+    botUsername,
+    codeHostProvider,
+    db,
+    metricsRegistry,
+    queue,
+  };
 }
 
 export { buildDiContainer };

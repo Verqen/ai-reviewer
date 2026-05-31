@@ -13,7 +13,7 @@ async function handleNote(
   deps: WebhookOrchestratorDeps,
   event: Extract<WebhookEvent, { type: "note" }>,
 ): Promise<WebhookOrchestrationResult> {
-  const botUsername = deps.gitlabConfig.envs.GITLAB_BOT_USERNAME;
+  const botUsername = deps.botUsername;
   if (event.authorUsername === botUsername) {
     return { kind: "ignored" };
   }

@@ -49,16 +49,6 @@ const NOTE_PAYLOAD_REVIEW = {
   },
 };
 
-function buildMockGitLabConfig(botUsername = "ai") {
-  return {
-    envs: {
-      GITLAB_API_URL: "https://gitlab.example.com",
-      GITLAB_BOT_USERNAME: botUsername,
-      GITLAB_TOKEN: "token",
-    },
-  };
-}
-
 function buildMockWebhookConfig(secret?: string) {
   return {
     envs: {
@@ -158,9 +148,10 @@ function buildApp(options: {
 
   app.register(webhookRoute, {
     baselineService: baselineService as never,
+    botUsername: options.botUsername ?? "ai",
     cache,
     codeHost,
-    gitlabConfig: buildMockGitLabConfig(options.botUsername),
+    codeHostProvider: "gitlab",
     incrementalReviewService,
     queue,
     reviewer,

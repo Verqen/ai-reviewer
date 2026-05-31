@@ -18,17 +18,20 @@ const fastify = Fastify({
   logger: { level: appConfig.envs.LOG_LEVEL },
 });
 
-const { appInjector, db, metricsRegistry, queue } = buildDiContainer(
-  fastify.log,
-);
+const {
+  appInjector,
+  botUsername,
+  codeHostProvider,
+  db,
+  metricsRegistry,
+  queue,
+} = buildDiContainer(fastify.log);
 
 queue.onError((key, err, retriesLeft) => {
   fastify.log.error({ err, key, retriesLeft }, "Job failed");
 });
 
 const webhookConfig = appInjector.resolve(InjectionTokens.WebhookConfig);
-
-const gitlabConfig = appInjector.resolve(InjectionTokens.GitLabConfig);
 
 const cache = appInjector.resolve(InjectionTokens.Cache);
 
@@ -78,9 +81,10 @@ const mainPushReviewService = new MainPushReviewService(
 
 fastify.register(webhookRoute, {
   baselineService,
+  botUsername,
   cache,
   codeHost,
-  gitlabConfig,
+  codeHostProvider,
   incrementalReviewService: reviewModule.incrementalReviewService,
   mainPushReviewService,
   queue,

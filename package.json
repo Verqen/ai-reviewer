@@ -36,6 +36,7 @@
     "monitor": "tsx scripts/monitor-review.ts",
     "prepare": "pnpm run build",
     "replay": "dotenv -e .env -- tsx scripts/replay-mr.ts",
+    "review:github": "dotenv -e .env -- tsx scripts/review-github-pr.ts",
     "scan": "dotenv -e .env -- tsx scripts/replay-mr.ts",
     "smoke:llm": "dotenv -e .env tsx scripts/smoke-llm.ts",
     "smoke:llm:ollama": "LLM_PROVIDER=ollama dotenv -e .env tsx scripts/smoke-llm.ts",

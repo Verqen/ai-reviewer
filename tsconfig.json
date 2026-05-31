@@ -33,11 +33,6 @@
   "exclude": ["node_modules", "dist"],
   "include": ["src", "scripts", "*.ts"],
   "tsc-alias": {
-    "fileExtensions": {
-      "inputGlob": "{js,jsx,mjs}",
-      "outputCheck": ["js", "jsx", "mjs"]
-    },
-    "resolveFullPaths": true,
-    "verbose": true
+    "resolveFullPaths": true
   }
 }

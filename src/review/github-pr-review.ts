@@ -166,13 +166,39 @@ function buildOverlay(
   };
 }
 
+function defaultLogger(provided?: FastifyBaseLogger): FastifyBaseLogger {
+  return provided ?? (pino({ level: "warn" }) as unknown as FastifyBaseLogger);
+}
+
+export interface GitHubPullRequestHead {
+  repoId: number;
+  headSha: string;
+}
+
+export async function resolveGitHubPullRequestHead(options: {
+  owner: string;
+  repo: string;
+  pullRequestNumber: number;
+  logger?: FastifyBaseLogger;
+}): Promise<GitHubPullRequestHead> {
+  const { owner, repo, pullRequestNumber } = options;
+  const logger = defaultLogger(options.logger);
+  const githubConfig = new GitHubConfig();
+  const octokit = createGitHubOctokit(githubConfig);
+  const codeHost = new GitHubCodeHost(octokit, githubConfig, logger);
+  const repoMeta = await octokit.rest.repos.get({ owner, repo });
+  const versions = await codeHost.getMergeRequestVersions(
+    repoMeta.data.id,
+    pullRequestNumber,
+  );
+  return { repoId: repoMeta.data.id, headSha: versions.headSha };
+}
+
 export async function reviewGitHubPullRequest(
   options: GitHubPullRequestReviewOptions,
 ): Promise<GitHubPullRequestReviewResult> {
   const { owner, repo, pullRequestNumber, post = false } = options;
-  // pino is fastify's logger; the only structural gap is in optional overloads.
-  const logger =
-    options.logger ?? (pino({ level: "warn" }) as unknown as FastifyBaseLogger);
+  const logger = defaultLogger(options.logger);
 
   const githubConfig = new GitHubConfig();
   const octokit = createGitHubOctokit(githubConfig);

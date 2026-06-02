@@ -62,7 +62,7 @@ export interface GitHubPullRequestReviewOptions {
   /** Post inline threads + a summary note to the PR. Default: false (read-only). */
   post?: boolean;
   /** App installation to act as; falls back to the env installation when absent. */
-  installationId?: number;
+  installationId?: number | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -181,7 +181,7 @@ export async function resolveGitHubPullRequestHead(options: {
   owner: string;
   repo: string;
   pullRequestNumber: number;
-  installationId?: number;
+  installationId?: number | undefined;
   logger?: FastifyBaseLogger;
 }): Promise<GitHubPullRequestHead> {
   const { owner, repo, pullRequestNumber } = options;

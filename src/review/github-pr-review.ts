@@ -55,12 +55,21 @@ import { buildPosition } from "~/review/finding-inline-position";
 import { computeProductionReadinessScore } from "~/review/scoring.service";
 import type { Grade } from "~/review/scoring.service";
 
+/**
+ * How much to post back to the PR when `post` is true. `inline` posts inline
+ * threads plus a summary note (the full review); `summary` posts only the
+ * summary note, leaving the diff uncluttered.
+ */
+export type GitHubReviewPostMode = "inline" | "summary";
+
 export interface GitHubPullRequestReviewOptions {
   owner: string;
   repo: string;
   pullRequestNumber: number;
   /** Post inline threads + a summary note to the PR. Default: false (read-only). */
   post?: boolean;
+  /** Posting granularity when `post` is true. Default: `inline`. */
+  postMode?: GitHubReviewPostMode | undefined;
   /** App installation to act as; falls back to the env installation when absent. */
   installationId?: number | undefined;
   logger?: FastifyBaseLogger;
@@ -341,25 +350,28 @@ export async function reviewGitHubPullRequest(
 
   let postedCount = 0;
   if (post) {
-    for (const finding of postable) {
-      const positionResult = buildPosition(finding, versions, parsedDiffs);
-      if (!positionResult) continue;
-      const body = formatCommentWithSuggestion(
-        finding.comment,
-        finding.severity,
-        finding.suggestion,
-        finding.originalSnippet,
-        finding.lineType,
-        positionResult.position.newLine ?? finding.lineNumber,
-        finding.endLineNumber,
-      );
-      await codeHost.postInlineComment(
-        projectId,
-        pullRequestNumber,
-        body,
-        positionResult.position,
-      );
-      postedCount++;
+    const postMode = options.postMode ?? "inline";
+    if (postMode === "inline") {
+      for (const finding of postable) {
+        const positionResult = buildPosition(finding, versions, parsedDiffs);
+        if (!positionResult) continue;
+        const body = formatCommentWithSuggestion(
+          finding.comment,
+          finding.severity,
+          finding.suggestion,
+          finding.originalSnippet,
+          finding.lineType,
+          positionResult.position.newLine ?? finding.lineNumber,
+          finding.endLineNumber,
+        );
+        await codeHost.postInlineComment(
+          projectId,
+          pullRequestNumber,
+          body,
+          positionResult.position,
+        );
+        postedCount++;
+      }
     }
 
     const summaryNote = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})\n\n${buildSummaryNote(

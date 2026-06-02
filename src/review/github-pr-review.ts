@@ -61,6 +61,8 @@ export interface GitHubPullRequestReviewOptions {
   pullRequestNumber: number;
   /** Post inline threads + a summary note to the PR. Default: false (read-only). */
   post?: boolean;
+  /** App installation to act as; falls back to the env installation when absent. */
+  installationId?: number;
   logger?: FastifyBaseLogger;
 }
 
@@ -179,12 +181,13 @@ export async function resolveGitHubPullRequestHead(options: {
   owner: string;
   repo: string;
   pullRequestNumber: number;
+  installationId?: number;
   logger?: FastifyBaseLogger;
 }): Promise<GitHubPullRequestHead> {
   const { owner, repo, pullRequestNumber } = options;
   const logger = defaultLogger(options.logger);
   const githubConfig = new GitHubConfig();
-  const octokit = createGitHubOctokit(githubConfig);
+  const octokit = createGitHubOctokit(githubConfig, options.installationId);
   const codeHost = new GitHubCodeHost(octokit, githubConfig, logger);
   const repoMeta = await octokit.rest.repos.get({ owner, repo });
   const versions = await codeHost.getMergeRequestVersions(
@@ -201,7 +204,7 @@ export async function reviewGitHubPullRequest(
   const logger = defaultLogger(options.logger);
 
   const githubConfig = new GitHubConfig();
-  const octokit = createGitHubOctokit(githubConfig);
+  const octokit = createGitHubOctokit(githubConfig, options.installationId);
   const codeHost = new GitHubCodeHost(octokit, githubConfig, logger);
 
   const repoMeta = await octokit.rest.repos.get({ owner, repo });

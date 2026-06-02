@@ -244,6 +244,8 @@ export async function reviewGitHubPullRequest(
   const triage = new TriagePass(llm, logger);
   const triageResult = await triage.execute(context, passResults);
   passResults.set("triage", triageResult);
+  // PassResult.metadata is an untyped per-pass bag; the triage pass populates it
+  // with TriagePassMetadata (trivialKeys), so we narrow to read trivialKeys.
   const triageMeta = triageResult.metadata as unknown as TriagePassMetadata;
   context = {
     ...context,

@@ -11,9 +11,8 @@ TypeScript (strict, `@tsconfig/strictest`), Node 24, pnpm, Fastify, Kysely + Pos
 - No emojis, no unsolicited feedback, no opinions unless asked.
 - No deleting files not tracked by git.
 - Production code uses the injected pino logger, never `console.*`. Test files are exempt.
-- Strict TypeScript: no `any`, no `as unknown as T`, no `@ts-ignore`/`@ts-expect-error` without a one-line WHY comment.
-- Self-documenting code: no inline comments that restate what code does. Only WHY comments (hidden constraint, workaround for a known bug, non-obvious invariant).
-- English only in source and comments.
+- Strict TypeScript: no `any`, no `as unknown as T`, no `@ts-ignore`/`@ts-expect-error`.
+- **NO comments in code.** Zero `//`, `/* */`, or JSDoc/docblocks in shipped code (incl. tests). Self-documenting only: clear names, small functions, explicit types. If a cast/decision seems to need a comment, restructure to remove the need — never add the comment. English only.
 - Never disable ESLint or TypeScript rules to make a build pass.
 
 ## Architecture

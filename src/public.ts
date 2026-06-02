@@ -89,6 +89,7 @@ export type {
   GitHubPullRequestHead,
   GitHubPullRequestReviewOptions,
   GitHubPullRequestReviewResult,
+  GitHubReviewPostMode,
   InstallationRepository,
   ReviewedFinding,
 } from "~/review/github-pr-review";

@@ -197,6 +197,30 @@ export async function resolveGitHubPullRequestHead(options: {
   return { repoId: repoMeta.data.id, headSha: versions.headSha };
 }
 
+export interface InstallationRepository {
+  id: number;
+  fullName: string;
+  isPrivate: boolean;
+  defaultBranch: string;
+}
+
+export async function listGitHubInstallationRepositories(options: {
+  installationId: number;
+}): Promise<InstallationRepository[]> {
+  const githubConfig = new GitHubConfig();
+  const octokit = createGitHubOctokit(githubConfig, options.installationId);
+  const repositories = await octokit.paginate(
+    "GET /installation/repositories",
+    { per_page: 100 },
+  );
+  return repositories.map((repository) => ({
+    id: repository.id,
+    fullName: repository.full_name,
+    isPrivate: repository.private,
+    defaultBranch: repository.default_branch,
+  }));
+}
+
 export async function reviewGitHubPullRequest(
   options: GitHubPullRequestReviewOptions,
 ): Promise<GitHubPullRequestReviewResult> {

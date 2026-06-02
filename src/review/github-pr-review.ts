@@ -12,6 +12,7 @@
  * (`OPENROUTER_API_KEY` or Ollama).
  */
 
+import type { Octokit } from "@octokit/rest";
 import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
 
@@ -179,6 +180,42 @@ function buildOverlay(
 
 function defaultLogger(provided?: FastifyBaseLogger): FastifyBaseLogger {
   return provided ?? (pino({ level: "warn" }) as unknown as FastifyBaseLogger);
+}
+
+function locationKey(path: string, line: number): string {
+  return `${path}:${String(line)}`;
+}
+
+/**
+ * Locations (path:line) that already carry a comment from our bot on this PR.
+ * Used to suppress duplicate inline threads when the same PR is re-reviewed
+ * after a new push, so a finding on an unchanged line is never re-posted.
+ */
+async function existingBotCommentLocations(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  pullRequestNumber: number,
+  botUsername: string,
+): Promise<Set<string>> {
+  const comments = await octokit.paginate(
+    octokit.rest.pulls.listReviewComments,
+    { owner, repo, pull_number: pullRequestNumber, per_page: 100 },
+  );
+  const wanted = botUsername.trim().toLowerCase();
+  const locations = new Set<string>();
+  for (const comment of comments) {
+    const login = comment.user?.login?.toLowerCase() ?? "";
+    const isAppBot = comment.user?.type === "Bot" && login.endsWith("[bot]");
+    const isNamed = wanted !== "" && login.startsWith(wanted);
+    if (!isAppBot && !isNamed) continue;
+    for (const line of [comment.line, comment.original_line]) {
+      if (line !== null && line !== undefined) {
+        locations.add(locationKey(comment.path, line));
+      }
+    }
+  }
+  return locations;
 }
 
 export interface GitHubPullRequestHead {
@@ -352,9 +389,21 @@ export async function reviewGitHubPullRequest(
   if (post) {
     const postMode = options.postMode ?? "inline";
     if (postMode === "inline") {
+      const alreadyPosted = await existingBotCommentLocations(
+        octokit,
+        owner,
+        repo,
+        pullRequestNumber,
+        githubConfig.envs.GITHUB_BOT_USERNAME,
+      );
       for (const finding of postable) {
         const positionResult = buildPosition(finding, versions, parsedDiffs);
         if (!positionResult) continue;
+        const targetLine =
+          positionResult.position.newLine ?? finding.lineNumber;
+        if (alreadyPosted.has(locationKey(finding.filePath, targetLine))) {
+          continue;
+        }
         const body = formatCommentWithSuggestion(
           finding.comment,
           finding.severity,

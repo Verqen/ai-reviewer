@@ -63,7 +63,10 @@ function isNotFound(error: unknown): boolean {
   );
 }
 
-function createGitHubOctokit(config: IConfig<GitHubConfigSchema>): Octokit {
+function createGitHubOctokit(
+  config: IConfig<GitHubConfigSchema>,
+  installationId?: number,
+): Octokit {
   const { GITHUB_API_URL, GITHUB_TOKEN } = config.envs;
   if (GITHUB_TOKEN) {
     return new Octokit({ auth: GITHUB_TOKEN, baseUrl: GITHUB_API_URL });
@@ -78,7 +81,7 @@ function createGitHubOctokit(config: IConfig<GitHubConfigSchema>): Octokit {
   return new Octokit({
     auth: {
       appId: config.envs.GITHUB_APP_ID,
-      installationId: config.envs.GITHUB_APP_INSTALLATION_ID,
+      installationId: installationId ?? config.envs.GITHUB_APP_INSTALLATION_ID,
       privateKey,
     },
     authStrategy: createAppAuth,

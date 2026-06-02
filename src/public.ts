@@ -80,8 +80,12 @@ export {
 } from "~/pipeline/prompts/vibe-coding-patterns";
 
 // High-level GitHub PR review (structured result; optional posting)
-export { reviewGitHubPullRequest } from "~/review/github-pr-review";
+export {
+  resolveGitHubPullRequestHead,
+  reviewGitHubPullRequest,
+} from "~/review/github-pr-review";
 export type {
+  GitHubPullRequestHead,
   GitHubPullRequestReviewOptions,
   GitHubPullRequestReviewResult,
   ReviewedFinding,

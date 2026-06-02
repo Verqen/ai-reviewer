@@ -452,6 +452,8 @@ class GitHubCodeHost implements ICodeHost {
       ref,
       repo,
     });
+    // Octokit types the tarball body as `unknown`; the REST endpoint returns the
+    // raw archive bytes, so we narrow to ArrayBuffer to wrap it in a Buffer.
     const archive = Buffer.from(response.data as ArrayBuffer);
 
     const entries: ArchiveEntry[] = [];

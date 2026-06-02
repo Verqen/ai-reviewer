@@ -81,6 +81,7 @@ export {
 
 // High-level GitHub PR review (structured result; optional posting)
 export {
+  listGitHubInstallationRepositories,
   resolveGitHubPullRequestHead,
   reviewGitHubPullRequest,
 } from "~/review/github-pr-review";
@@ -88,6 +89,7 @@ export type {
   GitHubPullRequestHead,
   GitHubPullRequestReviewOptions,
   GitHubPullRequestReviewResult,
+  InstallationRepository,
   ReviewedFinding,
 } from "~/review/github-pr-review";
 

@@ -16,7 +16,12 @@ import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
 
 import { GitHubConfig } from "~/config/github.config";
+import { computeReviewRunCostUsd } from "~/config/llm-pricing";
 import { LlmConfig } from "~/config/llm.config";
+import {
+  OPENROUTER_REVIEW_MODEL,
+  OPENROUTER_TRIAGE_MODEL,
+} from "~/config/models";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
@@ -79,6 +84,8 @@ export interface GitHubPullRequestReviewResult {
   findings: ReviewedFinding[];
   /** Inline threads actually posted (0 unless `post` was true). */
   postedCount: number;
+  /** Estimated LLM cost of this run, in USD (0 for unpriced/self-hosted models). */
+  tokenCostUsd: number;
 }
 
 /** No-op recurring-pattern store: a stateless PR review keeps no history. */
@@ -123,7 +130,9 @@ function buildOverlay(
 
   async function readBounded(path: string): Promise<string> {
     const content = await read(path);
-    return content === null ? `File not found: ${path}` : content.slice(0, 6000);
+    return content === null
+      ? `File not found: ${path}`
+      : content.slice(0, 6000);
   }
 
   return {
@@ -163,8 +172,7 @@ export async function reviewGitHubPullRequest(
   const { owner, repo, pullRequestNumber, post = false } = options;
   // pino is fastify's logger; the only structural gap is in optional overloads.
   const logger =
-    options.logger ??
-    (pino({ level: "warn" }) as unknown as FastifyBaseLogger);
+    options.logger ?? (pino({ level: "warn" }) as unknown as FastifyBaseLogger);
 
   const githubConfig = new GitHubConfig();
   const octokit = createGitHubOctokit(githubConfig);
@@ -243,7 +251,10 @@ export async function reviewGitHubPullRequest(
   };
 
   const fileReview = new FileReviewPass(llm, logger);
-  passResults.set("file-review", await fileReview.execute(context, passResults));
+  passResults.set(
+    "file-review",
+    await fileReview.execute(context, passResults),
+  );
 
   const crossFile = new CrossFilePass(llm, logger);
   passResults.set("cross-file", await crossFile.execute(context, passResults));
@@ -311,11 +322,17 @@ export async function reviewGitHubPullRequest(
     await codeHost.postNote(projectId, pullRequestNumber, summaryNote);
   }
 
+  const tokenCostUsd = computeReviewRunCostUsd(passResults, {
+    review: OPENROUTER_REVIEW_MODEL,
+    triage: OPENROUTER_TRIAGE_MODEL,
+  });
+
   return {
     repoId: projectId,
     score: score.score,
     grade: score.grade,
     findings,
     postedCount,
+    tokenCostUsd,
   };
 }

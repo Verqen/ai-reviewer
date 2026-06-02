@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { computeCostUsd, getModelPricing, hasPricing } from "./llm-pricing";
+import {
+  computeCostUsd,
+  computeReviewRunCostUsd,
+  getModelPricing,
+  hasPricing,
+  type PassTokenUsage,
+} from "./llm-pricing";
+
+const MODELS = {
+  review: "anthropic/claude-sonnet-4.6",
+  triage: "minimax/minimax-m2.7",
+};
 
 describe("llm-pricing", () => {
   describe("hasPricing", () => {
@@ -70,6 +81,55 @@ describe("llm-pricing", () => {
         outputTokens: 0,
       });
       expect(cost).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("computeReviewRunCostUsd", () => {
+    it("prices each pass at its default model when no per-model breakdown", () => {
+      const passes = new Map<string, PassTokenUsage>([
+        [
+          "triage",
+          { tokenUsage: { completionTokens: 0, promptTokens: 1_000_000 } },
+        ],
+        [
+          "file-review",
+          {
+            tokenUsage: {
+              completionTokens: 1_000_000,
+              promptTokens: 1_000_000,
+            },
+          },
+        ],
+      ]);
+      // triage: 1M input @ 0.2 = 0.2; file-review: 1M in @3 + 1M out @15 = 18.
+      expect(computeReviewRunCostUsd(passes, MODELS)).toBeCloseTo(18.2);
+    });
+
+    it("uses the per-model breakdown when a pass records one", () => {
+      const passes = new Map<string, PassTokenUsage>([
+        [
+          "file-review",
+          {
+            tokenUsage: { completionTokens: 0, promptTokens: 0 },
+            tokenUsageByModel: {
+              "anthropic/claude-sonnet-4.6": {
+                completionTokens: 0,
+                promptTokens: 1_000_000,
+              },
+              "ollama/qwen3:8b": {
+                completionTokens: 5_000_000,
+                promptTokens: 5_000_000,
+              },
+            },
+          },
+        ],
+      ]);
+      // Only the known model is priced (3.0); the self-hosted one is free.
+      expect(computeReviewRunCostUsd(passes, MODELS)).toBeCloseTo(3);
+    });
+
+    it("is zero for an empty run", () => {
+      expect(computeReviewRunCostUsd(new Map(), MODELS)).toBe(0);
     });
   });
 });

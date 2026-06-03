@@ -1,4 +1,5 @@
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
+import type { CostBudget } from "~/pipeline/cost-budget";
 import type {
   MergeRequestInfo,
   VersionInfo,
@@ -10,6 +11,7 @@ import type { Finding, PriorFindingsByFile } from "~/domain/types/review.types";
 
 interface ReviewContext {
   architectureSnapshot?: string | undefined;
+  costBudget?: CostBudget | undefined;
   diffs: ParsedFileDiff[];
   forcePushCorrelation?: ForcePushCorrelationResult | undefined;
   isIncremental: boolean;

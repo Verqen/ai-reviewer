@@ -64,6 +64,15 @@ function isNotFound(error: unknown): boolean {
   );
 }
 
+function createGitHubOctokitFromToken(
+  config: IConfig<GitHubConfigSchema>,
+  token: string,
+): Octokit {
+  return installGitHubResilience(
+    new Octokit({ auth: token, baseUrl: config.envs.GITHUB_API_URL }),
+  );
+}
+
 function createGitHubOctokit(
   config: IConfig<GitHubConfigSchema>,
   installationId?: number,
@@ -553,4 +562,9 @@ class GitHubCodeHost implements ICodeHost {
   }
 }
 
-export { createGitHubOctokit, GitHubCodeHost, GitHubNotFoundError };
+export {
+  createGitHubOctokit,
+  createGitHubOctokitFromToken,
+  GitHubCodeHost,
+  GitHubNotFoundError,
+};

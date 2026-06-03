@@ -103,6 +103,13 @@ export interface GitHubPullRequestReviewOptions {
    * honest partial review. Model-invariant (dollars, not tokens).
    */
   maxCostUsd?: number | undefined;
+  /**
+   * Head SHA already reviewed by the previous scan of this PR. When set, only
+   * files changed since it are reviewed (incremental), prior findings on
+   * unchanged files are carried into the score, and auto-resolve is gated to the
+   * changed files. Bounds cost on big iterative PRs without re-burning tokens.
+   */
+  sinceSha?: string | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -133,6 +140,8 @@ export interface GitHubPullRequestReviewResult {
   postedCount: number;
   /** True when the per-scan cost ceiling halted the review before full coverage. */
   partial: boolean;
+  /** True when only files changed since `sinceSha` were reviewed (delta). */
+  incremental: boolean;
   /** Prior threads auto-resolved this run because the finding was fixed. */
   resolvedThreadIds: string[];
   /** Estimated LLM cost of this run, in USD (0 for unpriced/self-hosted models). */
@@ -385,15 +394,23 @@ export async function reviewGitHubPullRequest(
     projectId,
     pullRequestNumber,
   );
-  const diffFiles = await codeHost.getMergeRequestDiff(
-    projectId,
-    pullRequestNumber,
-  );
+  const incremental =
+    options.sinceSha !== undefined &&
+    options.sinceSha !== "" &&
+    options.sinceSha !== versions.headSha;
+  const diffFiles = incremental
+    ? await codeHost.getCommitRangeDiff(
+        projectId,
+        options.sinceSha ?? "",
+        versions.headSha,
+      )
+    : await codeHost.getMergeRequestDiff(projectId, pullRequestNumber);
 
   const reviewable = diffFiles.filter(
     (file) => getPrimarySkipReason(file.newPath) === null,
   );
   const parsedDiffs = reviewable.map(parseDiff);
+  const reviewedFilePaths = new Set(reviewable.map((file) => file.newPath));
 
   const llmConfig = new LlmConfig();
   let llm: OllamaClient | OpenRouterClient;
@@ -415,7 +432,7 @@ export async function reviewGitHubPullRequest(
   let context: ReviewContext = {
     costBudget,
     diffs: parsedDiffs,
-    isIncremental: false,
+    isIncremental: incremental,
     mrIid: pullRequestNumber,
     mrInfo: {
       description: mrInfo.description,
@@ -491,7 +508,18 @@ export async function reviewGitHubPullRequest(
   const allFindings: Finding[] = aggMeta?.allFindings ?? [];
   const postable: Finding[] = aggMeta?.postableFindings ?? [];
   const suppressedCount = aggMeta?.suppressedCount ?? 0;
-  const score = computeProductionReadinessScore(allFindings);
+  const carriedForScore = incremental
+    ? previousThreads
+        .filter((thread) => !reviewedFilePaths.has(thread.filePath))
+        .map((thread) => ({
+          category: thread.category,
+          severity: thread.severity,
+        }))
+    : [];
+  const score = computeProductionReadinessScore([
+    ...allFindings,
+    ...carriedForScore,
+  ]);
 
   const postableSet = new Set(postable);
   const postedThreadByFinding = new Map<
@@ -555,13 +583,19 @@ export async function reviewGitHubPullRequest(
     const partialNote = partial
       ? "\n\n> **Large change — partial review.** The per-scan cost ceiling was reached, so file-level findings are reported but cross-file analysis was skipped. Upgrade for full coverage."
       : "";
-    const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})${partialNote}\n\n${buildSummaryNote(
+    const incrementalNote = incremental
+      ? `\n\n> _Incremental review: only the ${String(reviewedFilePaths.size)} file(s) changed since the last review were re-analyzed; prior findings on unchanged files still stand._`
+      : "";
+    const overview =
+      allFindings.length === 0
+        ? incremental
+          ? "No new issues in the changed files."
+          : "No issues found."
+        : `${String(allFindings.length)} finding(s); ${String(postedCount)} posted inline.`;
+    const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})${partialNote}${incrementalNote}\n\n${buildSummaryNote(
       {
         allFindings,
-        overview:
-          allFindings.length === 0
-            ? "No issues found."
-            : `${String(allFindings.length)} finding(s); ${String(postedCount)} posted inline.`,
+        overview,
         postableFindings: postable,
         suppressedCount,
         tokenCostUsd,
@@ -579,9 +613,8 @@ export async function reviewGitHubPullRequest(
 
   const resolvedThreadIds: string[] = [];
   if (post && useContentDedup && !partial) {
-    const changedFiles = new Set(parsedDiffs.map((diff) => diff.newPath));
     for (const thread of previousThreads) {
-      if (!changedFiles.has(thread.filePath)) continue;
+      if (!reviewedFilePaths.has(thread.filePath)) continue;
       const stillPresent = allFindings.some((finding) =>
         findingsMatch(
           {
@@ -644,6 +677,7 @@ export async function reviewGitHubPullRequest(
     findings,
     postedCount,
     partial,
+    incremental,
     resolvedThreadIds,
     tokenCostUsd,
   };

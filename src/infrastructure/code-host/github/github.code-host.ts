@@ -9,6 +9,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { extract as tarExtract } from "tar-stream";
 import { z } from "zod";
 
+import { installGitHubResilience } from "~/infrastructure/code-host/github/github-resilience";
 import type { GitHubConfigSchema } from "~/config/github.config";
 import type {
   CommitRangeDiffOptions,
@@ -69,7 +70,9 @@ function createGitHubOctokit(
 ): Octokit {
   const { GITHUB_API_URL, GITHUB_TOKEN } = config.envs;
   if (GITHUB_TOKEN) {
-    return new Octokit({ auth: GITHUB_TOKEN, baseUrl: GITHUB_API_URL });
+    return installGitHubResilience(
+      new Octokit({ auth: GITHUB_TOKEN, baseUrl: GITHUB_API_URL }),
+    );
   }
   const keyPath = config.envs.GITHUB_APP_PRIVATE_KEY_PATH;
   const privateKey =
@@ -78,15 +81,18 @@ function createGitHubOctokit(
   if (privateKey === undefined) {
     throw new Error("GitHub App private key is not configured");
   }
-  return new Octokit({
-    auth: {
-      appId: config.envs.GITHUB_APP_ID,
-      installationId: installationId ?? config.envs.GITHUB_APP_INSTALLATION_ID,
-      privateKey,
-    },
-    authStrategy: createAppAuth,
-    baseUrl: GITHUB_API_URL,
-  });
+  return installGitHubResilience(
+    new Octokit({
+      auth: {
+        appId: config.envs.GITHUB_APP_ID,
+        installationId:
+          installationId ?? config.envs.GITHUB_APP_INSTALLATION_ID,
+        privateKey,
+      },
+      authStrategy: createAppAuth,
+      baseUrl: GITHUB_API_URL,
+    }),
+  );
 }
 
 class GitHubCodeHost implements ICodeHost {

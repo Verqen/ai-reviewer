@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  isRetryableStatus,
-  retryAfterMs,
-} from "./github-resilience";
+import { isRetryableStatus, retryAfterMs } from "./github-resilience";
 
 describe("isRetryableStatus", () => {
   it("retries on rate-limit and server errors", () => {

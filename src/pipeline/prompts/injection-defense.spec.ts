@@ -31,7 +31,9 @@ describe("injection-defense", () => {
 
   it("instructs the model to treat delimited content as data, not instructions", () => {
     expect(UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION).toMatch(/DATA/);
-    expect(UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION).toMatch(/never as instructions/i);
+    expect(UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION).toMatch(
+      /never as instructions/i,
+    );
     expect(UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION).toMatch(/prompt-injection/i);
   });
 });

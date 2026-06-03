@@ -61,7 +61,6 @@ describe("ReviewRunRepository", () => {
     const first = await repo.create({ ...BASE_INPUT, triggerType: "mr_open" });
     await repo.updateStatus(first.id, "completed", new Date());
 
-    // Slight delay so the second run has a strictly later created_at/queued_at if relying on DB timestamps
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     const second = await repo.create({ ...BASE_INPUT, triggerType: "push" });

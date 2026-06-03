@@ -1,17 +1,3 @@
-/**
- * Public entry point for reviewing a GitHub pull request end-to-end and getting
- * a STRUCTURED result back (score, grade, findings) — as opposed to the
- * server pipeline, which posts to the code host and returns void.
- *
- * This is the reusable form of the `review-github-pr` script: the SaaS control
- * plane (and any other consumer) calls this instead of re-implementing the
- * pipeline wiring. Posting to the PR is opt-in (`post: true`); by default it is
- * a read-only review.
- *
- * Required env: GitHub App credentials (`GITHUB_APP_*`) and an LLM provider
- * (`OPENROUTER_API_KEY` or Ollama).
- */
-
 import type { Octokit } from "@octokit/rest";
 import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
@@ -65,11 +51,6 @@ import { buildPosition } from "~/review/finding-inline-position";
 import { computeProductionReadinessScore } from "~/review/scoring.service";
 import type { Grade } from "~/review/scoring.service";
 
-/**
- * How much to post back to the PR when `post` is true. `inline` posts inline
- * threads plus a summary note (the full review); `summary` posts only the
- * summary note, leaving the diff uncluttered.
- */
 export type GitHubReviewPostMode = "inline" | "summary";
 
 export interface PriorThreadRef {
@@ -85,44 +66,16 @@ export interface GitHubPullRequestReviewOptions {
   owner: string;
   repo: string;
   pullRequestNumber: number;
-  /** Post inline threads + a summary note to the PR. Default: false (read-only). */
   post?: boolean;
-  /** Posting granularity when `post` is true. Default: `inline`. */
   postMode?: GitHubReviewPostMode | undefined;
-  /** App installation to act as; falls back to the env installation when absent. */
   installationId?: number | undefined;
-  /**
-   * Threads still open from a previous review of this PR. When provided, already
-   * reported findings are deduplicated by content (file/lineType/category within
-   * tolerance) instead of by scraping the host, and threads whose finding is no
-   * longer reproduced on a file changed by this push are auto-resolved.
-   */
   previousThreads?: PriorThreadRef[] | undefined;
-  /**
-   * Per-scan dollar ceiling. Once the live LLM cost crosses it, file review
-   * stops taking new files and the cross-file pass is skipped, finalizing an
-   * honest partial review. Model-invariant (dollars, not tokens).
-   */
   maxCostUsd?: number | undefined;
-  /**
-   * Head SHA already reviewed by the previous scan of this PR. When set, only
-   * files changed since it are reviewed (incremental), prior findings on
-   * unchanged files are carried into the score, and auto-resolve is gated to the
-   * changed files. Bounds cost on big iterative PRs without re-burning tokens.
-   */
   sinceSha?: string | undefined;
-  /**
-   * A GitHub user OAuth token used ONLY to resolve review threads. GitHub App
-   * installation tokens cannot resolve threads (`resolveReviewThread` →
-   * "Resource not accessible by integration"); a user token from the installer
-   * can. When absent, auto-resolve is attempted with the App token (best-effort,
-   * logged) and typically no-ops on GitHub.
-   */
   resolverToken?: string | undefined;
   logger?: FastifyBaseLogger;
 }
 
-/** A finding in a transport-neutral shape, ready to persist or render. */
 export interface ReviewedFinding {
   severity: Severity;
   category: string;
@@ -131,33 +84,23 @@ export interface ReviewedFinding {
   lineType: LineType;
   comment: string;
   suggestion: string | null;
-  /** Anchored to an exact diff position (postable inline). */
   anchored: boolean;
-  /** Host id of the inline thread opened for this finding this run, if any. */
   hostDiscussionId: string | null;
-  /** Host id of the inline note opened for this finding this run, if any. */
   hostNoteId: string | null;
 }
 
 export interface GitHubPullRequestReviewResult {
-  /** Provider-side repository id. */
   repoId: number;
   score: number;
   grade: Grade;
   findings: ReviewedFinding[];
-  /** Inline threads actually posted (0 unless `post` was true). */
   postedCount: number;
-  /** True when the per-scan cost ceiling halted the review before full coverage. */
   partial: boolean;
-  /** True when only files changed since `sinceSha` were reviewed (delta). */
   incremental: boolean;
-  /** Prior threads auto-resolved this run because the finding was fixed. */
   resolvedThreadIds: string[];
-  /** Estimated LLM cost of this run, in USD (0 for unpriced/self-hosted models). */
   tokenCostUsd: number;
 }
 
-/** No-op recurring-pattern store: a stateless PR review keeps no history. */
 const noopDismissedPatternRepo: IDismissedPatternRepository = {
   create: () => Promise.reject(new Error("not supported in stateless review")),
   findByProject: () => Promise.resolve([]),
@@ -300,11 +243,6 @@ function aggregateTokenUsageByModel(
   return totals;
 }
 
-/**
- * Locations (path:line) that already carry a comment from our bot on this PR.
- * Used to suppress duplicate inline threads when the same PR is re-reviewed
- * after a new push, so a finding on an unchanged line is never re-posted.
- */
 async function existingBotCommentLocations(
   octokit: Octokit,
   owner: string,
@@ -473,8 +411,6 @@ export async function reviewGitHubPullRequest(
   const triage = new TriagePass(llm, logger);
   const triageResult = await triage.execute(context, passResults);
   passResults.set("triage", triageResult);
-  // PassResult.metadata is an untyped per-pass bag; the triage pass populates it
-  // with TriagePassMetadata (trivialKeys), so we narrow to read trivialKeys.
   const triageMeta = triageResult.metadata as unknown as TriagePassMetadata;
   context = {
     ...context,

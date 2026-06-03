@@ -199,8 +199,6 @@ class OpenRouterClient implements ILlmClient {
       ? parseToolCalls(choice.message.tool_calls)
       : [];
 
-    // Reasoning models (e.g. minimax, deepseek-r1) usually put final text in content,
-    // but if content is null they may emit it via reasoning_content / reasoning.
     const rawContent =
       choice?.message.content ??
       choice?.message.reasoning_content ??

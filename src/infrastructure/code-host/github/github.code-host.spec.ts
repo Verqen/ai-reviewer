@@ -119,7 +119,6 @@ describe("GitHubCodeHost", () => {
       title: "My PR",
     });
     expect(second).toEqual(first);
-    // resolveRepo cached: /repositories/42 hit exactly once across both calls.
     expect(calls.filter((c) => c.path === "/repositories/42")).toHaveLength(1);
   });
 
@@ -151,7 +150,7 @@ describe("GitHubCodeHost", () => {
   it("throws CodeHostNotFoundError when a file is missing", async () => {
     const { host } = buildHost((_method, path) => {
       if (path === "/repositories/42") return repoResponse;
-      return undefined; // contents path 404s
+      return undefined;
     });
 
     await expect(
@@ -300,7 +299,6 @@ describe("GitHubCodeHost", () => {
 
     await host.resolveDiscussion(42, 7, "555");
     const graphqlCalls = calls.filter((c) => c.path === "/graphql");
-    // One query to locate the thread, one mutation to resolve it.
     expect(graphqlCalls).toHaveLength(2);
   });
 });

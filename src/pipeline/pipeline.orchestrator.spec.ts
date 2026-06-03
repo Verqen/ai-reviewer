@@ -182,9 +182,6 @@ describe("PipelineOrchestrator", () => {
     expect(infraRepoPorts.calls.createRun).toHaveLength(1);
     const statusCalls = infraRepoPorts.calls.updateStatus;
     expect(statusCalls.some(([, s]) => s === "in_progress")).toBe(true);
-    // Successful completion is recorded via the atomic `completeRun` call
-    // (baseCommitSha + stats + status="completed" in one transaction), not
-    // via a separate `updateStatus(_, "completed")`.
     expect(infraRepoPorts.calls.completeRun).toHaveLength(1);
   });
 
@@ -261,11 +258,6 @@ describe("PipelineOrchestrator", () => {
     const config = createPipelineConfig();
     const logger = createMockLogger();
 
-    // file-review: explicit tokenUsageByModel (review tier model).
-    // cross-file: omits tokenUsageByModel — simulates the early-return
-    //   parse-failure / null-content paths that still consume tokens.
-    // Without the orchestrator-level fallback the cross-file usage is silently
-    // dropped from the run summary.
     const passes: IReviewPass[] = [
       {
         execute: (): Promise<PassResult> =>
@@ -311,8 +303,6 @@ describe("PipelineOrchestrator", () => {
     const summaryNoteCall = codeHost.calls.postNote.at(-1);
     expect(summaryNoteCall).toBeDefined();
     const summaryText = summaryNoteCall?.[2] ?? "";
-    // Cross-file omitted tokenUsageByModel but consumed 400/50; orchestrator must
-    // attribute it to the review-tier model so the summary lists both passes.
     expect(summaryText).toContain("1,000 in / 200 out");
     expect(summaryText).toContain("400 in / 50 out");
   });

@@ -100,13 +100,8 @@ class OverlayViewService implements IOverlayView {
       }
     }
     for (const baselineCandidate of resolution.baselineCandidates) {
-      try {
-        const fromMr = await this.codeHost.getFileContent(
-          this.projectId,
-          this.mrHeadSha,
-          baselineCandidate,
-        );
-        this.mrFileCache.set(baselineCandidate, fromMr);
+      const fromMr = await this.tryGetMrFileContent(baselineCandidate);
+      if (fromMr !== null) {
         return this.sliceAndLimitContent(
           fromMr,
           startLine,
@@ -114,8 +109,6 @@ class OverlayViewService implements IOverlayView {
           maxChars,
           hasExplicitLineRange,
         );
-      } catch {
-        /* fall through to snapshot */
       }
       const content = await this.snapshotRepo.getFileContent(
         this.projectId,
@@ -133,6 +126,20 @@ class OverlayViewService implements IOverlayView {
       }
     }
     return `File not found: ${path}`;
+  }
+
+  private async tryGetMrFileContent(candidate: string): Promise<string | null> {
+    try {
+      const fromMr = await this.codeHost.getFileContent(
+        this.projectId,
+        this.mrHeadSha,
+        candidate,
+      );
+      this.mrFileCache.set(candidate, fromMr);
+      return fromMr;
+    } catch {
+      return null;
+    }
   }
 
   async readFileAtBaseline(

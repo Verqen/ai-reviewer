@@ -4,16 +4,10 @@ const FILE_PATH_GLOB_MINIMATCH_OPTIONS = {
   dot: true,
 } as const;
 
-/**
- * Normalizes path separators to `/` for consistent glob matching.
- */
 function normalizeFilePathForGlob(path: string): string {
   return path.replace(/\\/g, "/");
 }
 
-/**
- * Full-path glob match (pipeline rules, dismissed patterns).
- */
 function matchFilePathGlob(filePath: string, pattern: string): boolean {
   const normalizedPath = normalizeFilePathForGlob(filePath);
   const normalizedPattern = normalizeFilePathForGlob(pattern);
@@ -24,9 +18,6 @@ function matchFilePathGlob(filePath: string, pattern: string): boolean {
   );
 }
 
-/**
- * Overlay tools: literal patterns (no glob magic) match as string prefix; otherwise minimatch.
- */
 function matchFilePathGlobWithLiteralPrefix(
   filePath: string,
   pattern: string,
@@ -50,9 +41,6 @@ function matchFilePathGlobWithLiteralPrefix(
   );
 }
 
-/**
- * Whether the pattern uses glob metacharacters (for SQL branch selection).
- */
 function filePathGlobPatternHasMagic(pattern: string): boolean {
   const normalizedPattern = normalizeFilePathForGlob(pattern);
   return new Minimatch(
@@ -61,9 +49,6 @@ function filePathGlobPatternHasMagic(pattern: string): boolean {
   ).hasMagic();
 }
 
-/**
- * POSIX regex source for PostgreSQL `~`, or null if the pattern cannot be compiled.
- */
 function getFilePathGlobPosixRegexSource(pattern: string): string | null {
   const normalizedPattern = normalizeFilePathForGlob(pattern);
   const compiled = minimatch.makeRe(

@@ -70,9 +70,6 @@ function isPositionIncludedInDiffs(
   );
 }
 
-/**
- * Posts inline comments to the code host, persists findings, reposts after force-push correlation, and resolves stale incremental threads.
- */
 class ReviewFindingPublisherService {
   static inject = [
     ReviewTokens.InfraRepoPorts,

@@ -238,8 +238,6 @@ class AggregationPass implements IReviewPass {
 
     return {
       findings: sortedPostable,
-      // WHY: AggregationResult has no index signature, so it is not directly assignable
-      // to the untyped PassResult.metadata bag; the widening is structurally safe.
       metadata: aggregationResult as unknown as Record<string, unknown>,
       tokenUsage: { completionTokens: 0, promptTokens: 0 },
     };

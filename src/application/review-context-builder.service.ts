@@ -34,9 +34,6 @@ type BuildReviewContextParams = {
   versions: VersionInfo;
 };
 
-/**
- * Loads GitLab/MR, repo config, prior findings, optional overlay, and assembles `ReviewContext`.
- */
 class ReviewContextBuilderService {
   static inject = [
     ReviewTokens.InfraRepoPorts,

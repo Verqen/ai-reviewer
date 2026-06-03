@@ -101,7 +101,6 @@ describe("llm-pricing", () => {
           },
         ],
       ]);
-      // triage: 1M input @ 0.2 = 0.2; file-review: 1M in @3 + 1M out @15 = 18.
       expect(computeReviewRunCostUsd(passes, MODELS)).toBeCloseTo(18.2);
     });
 
@@ -124,7 +123,6 @@ describe("llm-pricing", () => {
           },
         ],
       ]);
-      // Only the known model is priced (3.0); the self-hosted one is free.
       expect(computeReviewRunCostUsd(passes, MODELS)).toBeCloseTo(3);
     });
 

@@ -1,12 +1,5 @@
 import type { Finding, Severity } from "~/domain/types/review.types";
 
-/**
- * Production-readiness score (0–100) + A–F grade, derived deterministically from
- * the findings of a scan. This is the headline product artifact: the same set
- * of findings always yields the same score. See architecture §5 for the frozen
- * weights and the critical-security cap.
- */
-
 type ScoreCategory =
   | "Architecture"
   | "Deployment readiness"
@@ -29,7 +22,6 @@ interface ProductionReadinessScore {
   score: number;
 }
 
-/** Weights sum to 1.0 (architecture §5). Order is the UI display order. */
 const SCORE_CATEGORIES: readonly ScoreCategory[] = [
   "Security",
   "Architecture",
@@ -46,7 +38,6 @@ const CATEGORY_WEIGHT: Record<ScoreCategory, number> = {
   "Type Safety": 0.15,
 };
 
-/** Points deducted from a category's 100 baseline per finding of each severity. */
 const SEVERITY_PENALTY: Record<Severity, number> = {
   attention: 20,
   critical: 40,
@@ -55,11 +46,6 @@ const SEVERITY_PENALTY: Record<Severity, number> = {
   warning: 10,
 };
 
-/**
- * Maps a finding's lowercase category token (the prompt's category vocabulary)
- * onto one of the five score categories. Anything unmapped (bug, validation,
- * observability, style, …) counts toward general production readiness.
- */
 const FINDING_CATEGORY_TO_SCORE: Record<string, ScoreCategory> = {
   architecture: "Architecture",
   concurrency: "Performance",
@@ -73,10 +59,6 @@ const DEFAULT_SCORE_CATEGORY: ScoreCategory = "Deployment readiness";
 
 const MAX_SUBSCORE = 100;
 
-/**
- * A single critical security finding caps the whole score (architecture §5):
- * a lone exposed key must never yield a passing grade.
- */
 const CRITICAL_SECURITY_SCORE_CAP = 40;
 
 const GRADE_THRESHOLDS: ReadonlyArray<{ grade: Grade; min: number }> = [

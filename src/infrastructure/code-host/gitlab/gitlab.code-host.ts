@@ -82,15 +82,6 @@ class GitLabCodeHost implements ICodeHost {
     };
   }
 
-  /**
-   * Fetch the MR diff via the legacy `/changes` endpoint, with an automatic
-   * fallback to `/repository/compare` when GitLab signals overflow.
-   *
-   * The legacy endpoint silently truncates large MRs (~200 files / 200K lines,
-   * limit configured per GitLab instance) and reports it via `overflow: true`.
-   * The compare endpoint is unbounded but requires explicit base/head SHAs,
-   * which we extract from the same response (`diff_refs`).
-   */
   async getMergeRequestDiff(
     projectId: number,
     mrIid: number,

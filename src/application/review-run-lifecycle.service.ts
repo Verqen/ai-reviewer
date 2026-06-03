@@ -26,9 +26,6 @@ export type StartPipelineRunResult =
     }
   | { outcome: "started"; reviewRun: ReviewRun };
 
-/**
- * Deduplication and `review_run` row lifecycle: create, in_progress, failed.
- */
 class ReviewRunLifecycleService {
   static inject = [
     ReviewTokens.InfraRepoPorts,
@@ -113,14 +110,6 @@ class ReviewRunLifecycleService {
     return { outcome: "started", reviewRun };
   }
 
-  /**
-   * Decide whether an existing in_progress run is still alive or stale.
-   *
-   * - Alive (started/queued within `RUN_STUCK_AFTER_MS`): skip the new attempt
-   *   so we don't pile up duplicate work.
-   * - Stale (older): mark it failed (the previous pod likely crashed before
-   *   reporting completion) and let the new attempt proceed.
-   */
   private async handleInProgressRun(
     existingRun: ReviewRun,
     mrIid: number,

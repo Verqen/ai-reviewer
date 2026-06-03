@@ -9,7 +9,6 @@ const SeverityEnum = z.enum([
   "nitpick",
 ]);
 
-/** Defaults for overlay codebase tools (list_files, search_content limits). */
 const OVERLAY_VIEW_DEFAULTS = {
   maxListFiles: 200,
   maxMatchesPerFile: 5,

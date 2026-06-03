@@ -376,7 +376,6 @@ describe("FileReviewPass", () => {
       readFileAtBaseline: () => Promise.resolve(""),
       searchContent: () => Promise.resolve(""),
     };
-    // Default buildContext provides a 1-line diff (well below the threshold)
     await pass.execute(buildContext({ overlayView }), new Map());
     const [firstCall] = llm.calls.chatCompletionWithTools;
     const tools = firstCall?.[1] ?? [];

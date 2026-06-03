@@ -121,31 +121,32 @@ function findObjectEnd(text: string, start: number): number {
   return -1;
 }
 
+const PARSE_FAILED: unique symbol = Symbol("parse-failed");
+
+function tryParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return PARSE_FAILED;
+  }
+}
+
 function parseLlmJson(raw: string | null, fallback: string = "{}"): unknown {
   const content = raw ?? fallback;
 
-  try {
-    return JSON.parse(content);
-  } catch {
-    // direct parse failed
-  }
+  const direct = tryParseJson(content);
+  if (direct !== PARSE_FAILED) return direct;
 
   const fenced = extractFencedJson(content);
   if (fenced) {
-    try {
-      return JSON.parse(fenced);
-    } catch {
-      // fenced extraction failed
-    }
+    const parsed = tryParseJson(fenced);
+    if (parsed !== PARSE_FAILED) return parsed;
   }
 
   const braceContent = extractOutermostBraces(content);
   if (braceContent) {
-    try {
-      return JSON.parse(braceContent);
-    } catch {
-      // brace extraction failed
-    }
+    const parsed = tryParseJson(braceContent);
+    if (parsed !== PARSE_FAILED) return parsed;
   }
 
   const candidates = [content, fenced ?? "", braceContent ?? ""].filter(
@@ -154,11 +155,8 @@ function parseLlmJson(raw: string | null, fallback: string = "{}"): unknown {
   for (const candidate of candidates) {
     const recovered = recoverTruncatedArrayJson(candidate);
     if (recovered !== null) {
-      try {
-        return JSON.parse(recovered);
-      } catch {
-        // recovery parse failed
-      }
+      const parsed = tryParseJson(recovered);
+      if (parsed !== PARSE_FAILED) return parsed;
     }
   }
 

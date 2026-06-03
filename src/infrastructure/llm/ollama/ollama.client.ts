@@ -106,8 +106,6 @@ class OllamaClient implements ILlmClient {
       stream: false,
     };
 
-    // JSON Schema object for structured output (e.g. file-review extraction).
-    // Compatible models follow Ollama structured outputs / format schema.
     if (options?.responseSchema) {
       body["format"] = options.responseSchema;
     } else if (options?.jsonMode) {

@@ -54,7 +54,6 @@ function hasPricing(model: string): boolean {
   return Object.prototype.hasOwnProperty.call(PRICING, model);
 }
 
-/** A pass's token usage, total and (optionally) broken down by model. */
 interface PassTokenUsage {
   tokenUsage: { completionTokens: number; promptTokens: number };
   tokenUsageByModel?: Record<
@@ -63,13 +62,6 @@ interface PassTokenUsage {
   >;
 }
 
-/**
- * Total estimated USD cost of a whole review run, summed across passes and
- * models. Per-model usage is canonical when a pass records it; otherwise the
- * pass's total usage is priced at its default model (triage vs review) so cost
- * is never silently dropped. Unknown models price at zero (self-hosted Ollama).
- * Mirrors the orchestrator's per-pass breakdown — one aggregation rule.
- */
 function computeReviewRunCostUsd(
   passResults: ReadonlyMap<string, PassTokenUsage>,
   models: { review: string; triage: string },

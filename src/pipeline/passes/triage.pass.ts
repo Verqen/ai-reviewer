@@ -36,7 +36,6 @@ const TriageResponseSchema = z.object({
   ),
 });
 
-// Fallback schema to handle different key naming conventions
 const TriageResponseSchemaMerged = z
   .object({
     results: z.array(
@@ -233,8 +232,6 @@ function applyConservativeCap(
 }
 
 function toPassMetadata(metadata: TriagePassMetadata): Record<string, unknown> {
-  // WHY: TriagePassMetadata has no index signature, so it is not directly assignable
-  // to the untyped PassResult.metadata bag; the conversion is structurally safe.
   return metadata as unknown as Record<string, unknown>;
 }
 

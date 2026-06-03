@@ -1,14 +1,5 @@
 import type { Finding, Severity } from "~/domain/types/review.types";
 
-/**
- * The vibe-coding pattern set — single source of truth in code (architecture
- * §4). Each pattern feeds BOTH the review prompt (so the model hunts for it)
- * and a deterministic severity floor applied after extraction: security
- * patterns escalate to their minimum severity regardless of model judgement,
- * so a model that under-rates an exposed key cannot let it through as a nitpick.
- *
- * To add a pattern: edit the architecture §4 table, then add an entry here.
- */
 interface VibePattern {
   readonly category: string;
   readonly description: string;
@@ -121,12 +112,6 @@ function matchVibePattern(finding: Finding): VibePattern | undefined {
   );
 }
 
-/**
- * Deterministic severity floor: when a finding's code/comment matches a
- * detectable vibe-coding pattern, raise its severity to the pattern minimum
- * (never lower) and pin its category, so the production-readiness score and the
- * critical-security cap reflect the real risk even if the model under-rated it.
- */
 function escalateVibeCodingSeverity(findings: Finding[]): Finding[] {
   return findings.map((finding) => {
     const pattern = matchVibePattern(finding);

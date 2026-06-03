@@ -578,7 +578,7 @@ export async function reviewGitHubPullRequest(
   }
 
   const resolvedThreadIds: string[] = [];
-  if (post && useContentDedup) {
+  if (post && useContentDedup && !partial) {
     const changedFiles = new Set(parsedDiffs.map((diff) => diff.newPath));
     for (const thread of previousThreads) {
       if (!changedFiles.has(thread.filePath)) continue;
@@ -600,12 +600,24 @@ export async function reviewGitHubPullRequest(
         ),
       );
       if (stillPresent) continue;
-      await codeHost.resolveDiscussion(
-        projectId,
-        pullRequestNumber,
-        thread.hostDiscussionId,
-      );
-      resolvedThreadIds.push(thread.hostDiscussionId);
+      try {
+        await codeHost.resolveDiscussion(
+          projectId,
+          pullRequestNumber,
+          thread.hostDiscussionId,
+        );
+        resolvedThreadIds.push(thread.hostDiscussionId);
+      } catch (error) {
+        logger.warn(
+          {
+            error: error instanceof Error ? error.message : String(error),
+            hostDiscussionId: thread.hostDiscussionId,
+            mrIid: pullRequestNumber,
+            projectId,
+          },
+          "Failed to auto-resolve thread (continuing; review is unaffected)",
+        );
+      }
     }
   }
 

@@ -10,7 +10,9 @@ interface HttpLikeError {
 }
 
 function isRetryableStatus(status: number | undefined): boolean {
-  return status === 403 || status === 429 || (status !== undefined && status >= 500);
+  return (
+    status === 403 || status === 429 || (status !== undefined && status >= 500)
+  );
 }
 
 function retryAfterMs(error: HttpLikeError, attempt: number): number {

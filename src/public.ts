@@ -91,6 +91,7 @@ export type {
   GitHubPullRequestReviewResult,
   GitHubReviewPostMode,
   InstallationRepository,
+  PriorThreadRef,
   ReviewedFinding,
 } from "~/review/github-pr-review";
 

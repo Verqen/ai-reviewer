@@ -199,4 +199,27 @@ describe("buildSummaryNote", () => {
     expect(fileSection).toContain("File issue 0");
     expect(archSection).toContain("Architecture issue 0");
   });
+
+  it("renders a suggested-fix block for findings that carry a suggestion", () => {
+    const finding = buildFinding({
+      comment: "Hardcoded key",
+      severity: "critical",
+      suggestion: "const key = process.env.API_KEY;",
+    });
+    const note = buildSummaryNote(
+      buildParams({ allFindings: [finding], postableFindings: [finding] }),
+    );
+    expect(note).toContain("_Suggested fix:_");
+    expect(note).toContain("const key = process.env.API_KEY;");
+  });
+
+  it("renders the estimated LLM cost when provided", () => {
+    const note = buildSummaryNote(buildParams({ tokenCostUsd: 0.0123 }));
+    expect(note).toContain("**Estimated LLM cost:** $0.0123");
+  });
+
+  it("omits the cost line when cost is zero", () => {
+    const note = buildSummaryNote(buildParams({ tokenCostUsd: 0 }));
+    expect(note).not.toContain("Estimated LLM cost");
+  });
 });

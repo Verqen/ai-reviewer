@@ -203,6 +203,67 @@ describe("GitHubCodeHost", () => {
     expect(result).toEqual({ noteId: "321" });
   });
 
+  it("creates a fresh note when no marked bot comment exists yet", async () => {
+    const { calls, host } = buildHost((method, path) => {
+      if (path === "/repositories/42") return repoResponse;
+      if (path === "/repos/owner/repo/issues/7/comments" && method === "GET") {
+        return { body: [] };
+      }
+      if (path === "/repos/owner/repo/issues/7/comments" && method === "POST") {
+        return { body: { id: 100 }, status: 201 };
+      }
+      return undefined;
+    });
+
+    const result = await host.upsertNote(42, 7, "body", "<!-- m -->");
+    expect(result).toEqual({ noteId: "100" });
+    expect(
+      calls.some(
+        (c) =>
+          c.method === "POST" &&
+          c.path === "/repos/owner/repo/issues/7/comments",
+      ),
+    ).toBe(true);
+  });
+
+  it("updates the existing marked bot comment instead of posting a duplicate", async () => {
+    const { calls, host } = buildHost((method, path) => {
+      if (path === "/repositories/42") return repoResponse;
+      if (path === "/repos/owner/repo/issues/7/comments" && method === "GET") {
+        return {
+          body: [
+            {
+              body: "old summary\n<!-- m -->",
+              id: 555,
+              user: { login: "ai", type: "User" },
+            },
+          ],
+        };
+      }
+      if (
+        path === "/repos/owner/repo/issues/comments/555" &&
+        method === "PATCH"
+      ) {
+        return { body: { id: 555 } };
+      }
+      return undefined;
+    });
+
+    const result = await host.upsertNote(42, 7, "new body", "<!-- m -->");
+    expect(result).toEqual({ noteId: "555" });
+    expect(
+      calls.some(
+        (c) =>
+          c.method === "POST" &&
+          c.path === "/repos/owner/repo/issues/7/comments",
+      ),
+    ).toBe(false);
+    const patch = calls.find(
+      (c) => c.path === "/repos/owner/repo/issues/comments/555",
+    );
+    expect(patch?.body).toMatchObject({ body: "new body" });
+  });
+
   it("resolves a review thread via GraphQL", async () => {
     const { calls, host } = buildHost((method, path) => {
       if (path === "/repositories/42") return repoResponse;

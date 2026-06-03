@@ -15,6 +15,7 @@ import type {
 } from "~/domain/types/review.types";
 import { matchFilePathGlob } from "~/glob/match-file-path-glob";
 import { escalateVibeCodingSeverity } from "~/pipeline/prompts/vibe-coding-patterns";
+import { findingsMatch } from "~/review/finding-match";
 
 const SEVERITY_ORDER: Record<Severity, number> = {
   attention: 3,
@@ -24,35 +25,12 @@ const SEVERITY_ORDER: Record<Severity, number> = {
   warning: 2,
 };
 
-function normalizeCategory(value: string): string {
-  return value.toLowerCase().trim();
-}
-
-/**
- * True when two findings target the same file/lineType/category and their
- * lineNumbers are within `tolerance` of each other. Tolerance ≥ 0 means an
- * exact match (diff = 0) is also considered equivalent, so callers do not need
- * to combine this with a separate exact-line check.
- *
- * Used to suppress duplicate threads when the same logical issue is reported
- * on a slightly different line across runs (LLM nondeterminism, code shift
- * after rebase / force-push).
- */
 function isFindingDuplicate(
   left: Finding | ReviewFinding,
   right: Finding | ReviewFinding,
   tolerance: number,
 ): boolean {
-  if (left.filePath !== right.filePath) {
-    return false;
-  }
-  if (left.lineType !== right.lineType) {
-    return false;
-  }
-  if (normalizeCategory(left.category) !== normalizeCategory(right.category)) {
-    return false;
-  }
-  return Math.abs(left.lineNumber - right.lineNumber) <= tolerance;
+  return findingsMatch(left, right, tolerance);
 }
 
 function normalizeFindingKey(f: Finding): string {

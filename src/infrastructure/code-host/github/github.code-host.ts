@@ -366,6 +366,37 @@ class GitHubCodeHost implements ICodeHost {
     return { noteId: String(response.data.id) };
   }
 
+  async upsertNote(
+    projectId: number,
+    mrIid: number,
+    body: string,
+    marker: string,
+  ): Promise<{ noteId: string }> {
+    const { owner, repo } = await this.resolveRepo(projectId);
+    const wantedLogin = this.botUsername.trim().toLowerCase();
+    const comments = await this.octokit.paginate(
+      this.octokit.rest.issues.listComments,
+      { issue_number: mrIid, owner, per_page: 100, repo },
+    );
+    const existing = comments.find((comment) => {
+      if (!comment.body?.includes(marker)) return false;
+      const login = comment.user?.login?.toLowerCase() ?? "";
+      const isAppBot = comment.user?.type === "Bot" && login.endsWith("[bot]");
+      const isNamed = wantedLogin !== "" && login.startsWith(wantedLogin);
+      return isAppBot || isNamed;
+    });
+    if (existing) {
+      const updated = await this.octokit.rest.issues.updateComment({
+        body,
+        comment_id: existing.id,
+        owner,
+        repo,
+      });
+      return { noteId: String(updated.data.id) };
+    }
+    return this.postNote(projectId, mrIid, body);
+  }
+
   async resolveDiscussion(
     projectId: number,
     mrIid: number,

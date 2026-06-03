@@ -226,7 +226,7 @@ describe("GitHubCodeHost", () => {
     ).toBe(true);
   });
 
-  it("updates the existing marked bot comment instead of posting a duplicate", async () => {
+  it("deletes every prior marked summary and reposts a fresh one at the bottom", async () => {
     const { calls, host } = buildHost((method, path) => {
       if (path === "/repositories/42") return repoResponse;
       if (path === "/repos/owner/repo/issues/7/comments" && method === "GET") {
@@ -237,31 +237,40 @@ describe("GitHubCodeHost", () => {
               id: 555,
               user: { login: "ai", type: "User" },
             },
+            {
+              body: "even older summary\n<!-- m -->",
+              id: 556,
+              user: { login: "ai", type: "User" },
+            },
           ],
         };
       }
+      if (path === "/repos/owner/repo/issues/7/comments" && method === "POST") {
+        return { body: { id: 700 }, status: 201 };
+      }
       if (
-        path === "/repos/owner/repo/issues/comments/555" &&
-        method === "PATCH"
+        (path === "/repos/owner/repo/issues/comments/555" ||
+          path === "/repos/owner/repo/issues/comments/556") &&
+        method === "DELETE"
       ) {
-        return { body: { id: 555 } };
+        return { body: {}, status: 200 };
       }
       return undefined;
     });
 
     const result = await host.upsertNote(42, 7, "new body", "<!-- m -->");
-    expect(result).toEqual({ noteId: "555" });
-    expect(
-      calls.some(
-        (c) =>
-          c.method === "POST" &&
-          c.path === "/repos/owner/repo/issues/7/comments",
-      ),
-    ).toBe(false);
-    const patch = calls.find(
-      (c) => c.path === "/repos/owner/repo/issues/comments/555",
+    expect(result).toEqual({ noteId: "700" });
+    const deletes = calls.filter((c) => c.method === "DELETE");
+    expect(deletes.map((c) => c.path).sort()).toEqual([
+      "/repos/owner/repo/issues/comments/555",
+      "/repos/owner/repo/issues/comments/556",
+    ]);
+    const post = calls.find(
+      (c) =>
+        c.method === "POST" &&
+        c.path === "/repos/owner/repo/issues/7/comments",
     );
-    expect(patch?.body).toMatchObject({ body: "new body" });
+    expect(post?.body).toMatchObject({ body: "new body" });
   });
 
   it("resolves a review thread via GraphQL", async () => {

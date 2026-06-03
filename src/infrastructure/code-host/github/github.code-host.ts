@@ -384,21 +384,19 @@ class GitHubCodeHost implements ICodeHost {
       this.octokit.rest.issues.listComments,
       { issue_number: mrIid, owner, per_page: 100, repo },
     );
-    const existing = comments.find((comment) => {
+    const stale = comments.filter((comment) => {
       if (!comment.body?.includes(marker)) return false;
       const login = comment.user?.login?.toLowerCase() ?? "";
       const isAppBot = comment.user?.type === "Bot" && login.endsWith("[bot]");
       const isNamed = wantedLogin !== "" && login.startsWith(wantedLogin);
       return isAppBot || isNamed;
     });
-    if (existing) {
-      const updated = await this.octokit.rest.issues.updateComment({
-        body,
-        comment_id: existing.id,
+    for (const comment of stale) {
+      await this.octokit.rest.issues.deleteComment({
+        comment_id: comment.id,
         owner,
         repo,
       });
-      return { noteId: String(updated.data.id) };
     }
     return this.postNote(projectId, mrIid, body);
   }

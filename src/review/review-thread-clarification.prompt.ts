@@ -1,6 +1,7 @@
 import { getReviewLanguage } from "~/config/review-language";
 import type { MergeRequestInfo } from "~/domain/types/code-host.types";
 import type { ReviewFinding } from "~/domain/types/review.types";
+import { UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION } from "~/pipeline/prompts/injection-defense";
 import {
   injectPathRules,
   injectProjectRules,
@@ -36,6 +37,8 @@ function buildFindingThreadClarificationSystemPrompt(
         "If inspecting current files is required, briefly say what you cannot see and infer only from diff and thread text.",
       ].join(" ");
   let prompt = [
+    UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+    "",
     "You continue a SINGLE inline review thread tied to ONE bot finding on THIS merge request.",
     "Respond to the developer's latest message.",
     "",

@@ -95,6 +95,14 @@ export type {
   ReviewedFinding,
 } from "~/review/github-pr-review";
 
+// Interactive review-thread replies
+export { answerReviewThread } from "~/review/github-thread-reply";
+export type {
+  AnswerReviewThreadOptions,
+  AnswerReviewThreadResult,
+  ReviewThreadFinding,
+} from "~/review/github-thread-reply";
+
 // Review utilities
 export { parseDiff } from "~/review/diff-parser";
 export { buildPosition } from "~/review/finding-inline-position";

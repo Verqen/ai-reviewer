@@ -33,7 +33,13 @@ import type {
   PassResult,
   ReviewContext,
 } from "~/domain/types/pipeline.types";
-import type { Finding, Severity } from "~/domain/types/review.types";
+import type {
+  Finding,
+  LineType,
+  PriorFindingsByFile,
+  ReviewFinding,
+  Severity,
+} from "~/domain/types/review.types";
 import {
   createGitHubOctokit,
   GitHubCodeHost,
@@ -52,6 +58,7 @@ import {
 import { formatCommentWithSuggestion } from "~/pipeline/prompts/suggestion-formatter";
 import { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 import { parseDiff } from "~/review/diff-parser";
+import { findingsMatch } from "~/review/finding-match";
 import { buildPosition } from "~/review/finding-inline-position";
 import { computeProductionReadinessScore } from "~/review/scoring.service";
 import type { Grade } from "~/review/scoring.service";
@@ -63,6 +70,15 @@ import type { Grade } from "~/review/scoring.service";
  */
 export type GitHubReviewPostMode = "inline" | "summary";
 
+export interface PriorThreadRef {
+  filePath: string;
+  line: number;
+  lineType: LineType;
+  category: string;
+  severity: Severity;
+  hostDiscussionId: string;
+}
+
 export interface GitHubPullRequestReviewOptions {
   owner: string;
   repo: string;
@@ -73,6 +89,13 @@ export interface GitHubPullRequestReviewOptions {
   postMode?: GitHubReviewPostMode | undefined;
   /** App installation to act as; falls back to the env installation when absent. */
   installationId?: number | undefined;
+  /**
+   * Threads still open from a previous review of this PR. When provided, already
+   * reported findings are deduplicated by content (file/lineType/category within
+   * tolerance) instead of by scraping the host, and threads whose finding is no
+   * longer reproduced on a file changed by this push are auto-resolved.
+   */
+  previousThreads?: PriorThreadRef[] | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -82,10 +105,15 @@ export interface ReviewedFinding {
   category: string;
   filePath: string;
   line: number;
+  lineType: LineType;
   comment: string;
   suggestion: string | null;
   /** Anchored to an exact diff position (postable inline). */
   anchored: boolean;
+  /** Host id of the inline thread opened for this finding this run, if any. */
+  hostDiscussionId: string | null;
+  /** Host id of the inline note opened for this finding this run, if any. */
+  hostNoteId: string | null;
 }
 
 export interface GitHubPullRequestReviewResult {
@@ -96,6 +124,8 @@ export interface GitHubPullRequestReviewResult {
   findings: ReviewedFinding[];
   /** Inline threads actually posted (0 unless `post` was true). */
   postedCount: number;
+  /** Prior threads auto-resolved this run because the finding was fixed. */
+  resolvedThreadIds: string[];
   /** Estimated LLM cost of this run, in USD (0 for unpriced/self-hosted models). */
   tokenCostUsd: number;
 }
@@ -186,6 +216,63 @@ function locationKey(path: string, line: number): string {
   return `${path}:${String(line)}`;
 }
 
+const SUMMARY_MARKER = "<!-- verqen-review:summary -->";
+
+const PRIOR_THREAD_LINE_TOLERANCE = 3;
+
+function priorThreadToReviewFinding(thread: PriorThreadRef): ReviewFinding {
+  return {
+    category: thread.category,
+    comment: "",
+    confidence: 1,
+    filePath: thread.filePath,
+    hostDiscussionId: thread.hostDiscussionId,
+    id: thread.hostDiscussionId,
+    lineNumber: thread.line,
+    lineType: thread.lineType,
+    model: "",
+    passName: "prior",
+    resolution: "pending",
+    reviewRunId: "prior",
+    severity: thread.severity,
+  };
+}
+
+function buildPriorFindingsByFile(
+  threads: readonly PriorThreadRef[],
+): PriorFindingsByFile {
+  const pending = new Map<string, ReviewFinding[]>();
+  for (const thread of threads) {
+    const list = pending.get(thread.filePath) ?? [];
+    list.push(priorThreadToReviewFinding(thread));
+    pending.set(thread.filePath, list);
+  }
+  return { addressed: new Map(), dismissed: new Map(), pending };
+}
+
+function aggregateTokenUsageByModel(
+  passResults: ReadonlyMap<string, PassResult>,
+  models: { review: string; triage: string },
+): Record<string, { completionTokens: number; promptTokens: number }> {
+  const totals: Record<
+    string,
+    { completionTokens: number; promptTokens: number }
+  > = {};
+  for (const [passName, result] of passResults) {
+    const byModel = result.tokenUsageByModel ?? {
+      [passName === "triage" ? models.triage : models.review]:
+        result.tokenUsage,
+    };
+    for (const [model, usage] of Object.entries(byModel)) {
+      const bucket = totals[model] ?? { completionTokens: 0, promptTokens: 0 };
+      bucket.completionTokens += usage.completionTokens;
+      bucket.promptTokens += usage.promptTokens;
+      totals[model] = bucket;
+    }
+  }
+  return totals;
+}
+
 /**
  * Locations (path:line) that already carry a comment from our bot on this PR.
  * Used to suppress duplicate inline threads when the same PR is re-reviewed
@@ -271,6 +358,7 @@ export async function reviewGitHubPullRequest(
   options: GitHubPullRequestReviewOptions,
 ): Promise<GitHubPullRequestReviewResult> {
   const { owner, repo, pullRequestNumber, post = false } = options;
+  const previousThreads = options.previousThreads ?? [];
   const logger = defaultLogger(options.logger);
 
   const githubConfig = new GitHubConfig();
@@ -327,6 +415,10 @@ export async function reviewGitHubPullRequest(
     },
     overlayView: buildOverlay(codeHost, projectId, versions.headSha),
     previousFindings: [],
+    priorFindingsByFile:
+      previousThreads.length > 0
+        ? buildPriorFindingsByFile(previousThreads)
+        : undefined,
     projectId,
     reviewConfig: ResolvedReviewPipelineConfigSchema.parse({
       severityThreshold: "info",
@@ -375,33 +467,42 @@ export async function reviewGitHubPullRequest(
   const score = computeProductionReadinessScore(allFindings);
 
   const postableSet = new Set(postable);
-  const findings: ReviewedFinding[] = allFindings.map((finding) => ({
-    severity: finding.severity,
-    category: finding.category,
-    filePath: finding.filePath,
-    line: finding.lineNumber,
-    comment: finding.comment,
-    suggestion: finding.suggestion ?? null,
-    anchored: postableSet.has(finding),
-  }));
+  const postedThreadByFinding = new Map<
+    Finding,
+    { discussionId: string; noteId: string }
+  >();
+
+  const models = {
+    review: OPENROUTER_REVIEW_MODEL,
+    triage: OPENROUTER_TRIAGE_MODEL,
+  };
+  const tokenCostUsd = computeReviewRunCostUsd(passResults, models);
+  const tokenUsageByModel = aggregateTokenUsageByModel(passResults, models);
+
+  const useContentDedup = previousThreads.length > 0;
 
   let postedCount = 0;
   if (post) {
     const postMode = options.postMode ?? "inline";
     if (postMode === "inline") {
-      const alreadyPosted = await existingBotCommentLocations(
-        octokit,
-        owner,
-        repo,
-        pullRequestNumber,
-        githubConfig.envs.GITHUB_BOT_USERNAME,
-      );
+      const alreadyPosted = useContentDedup
+        ? new Set<string>()
+        : await existingBotCommentLocations(
+            octokit,
+            owner,
+            repo,
+            pullRequestNumber,
+            githubConfig.envs.GITHUB_BOT_USERNAME,
+          );
       for (const finding of postable) {
         const positionResult = buildPosition(finding, versions, parsedDiffs);
         if (!positionResult) continue;
         const targetLine =
           positionResult.position.newLine ?? finding.lineNumber;
-        if (alreadyPosted.has(locationKey(finding.filePath, targetLine))) {
+        if (
+          !useContentDedup &&
+          alreadyPosted.has(locationKey(finding.filePath, targetLine))
+        ) {
           continue;
         }
         const body = formatCommentWithSuggestion(
@@ -413,17 +514,18 @@ export async function reviewGitHubPullRequest(
           positionResult.position.newLine ?? finding.lineNumber,
           finding.endLineNumber,
         );
-        await codeHost.postInlineComment(
+        const posted = await codeHost.postInlineComment(
           projectId,
           pullRequestNumber,
           body,
           positionResult.position,
         );
+        postedThreadByFinding.set(finding, posted);
         postedCount++;
       }
     }
 
-    const summaryNote = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})\n\n${buildSummaryNote(
+    const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})\n\n${buildSummaryNote(
       {
         allFindings,
         overview:
@@ -432,15 +534,65 @@ export async function reviewGitHubPullRequest(
             : `${String(allFindings.length)} finding(s); ${String(postedCount)} posted inline.`,
         postableFindings: postable,
         suppressedCount,
-        tokenUsageByModel: {},
+        tokenCostUsd,
+        tokenUsageByModel,
       },
     )}`;
-    await codeHost.postNote(projectId, pullRequestNumber, summaryNote);
+    const summaryNote = `${summaryBody}\n\n${SUMMARY_MARKER}`;
+    await codeHost.upsertNote(
+      projectId,
+      pullRequestNumber,
+      summaryNote,
+      SUMMARY_MARKER,
+    );
   }
 
-  const tokenCostUsd = computeReviewRunCostUsd(passResults, {
-    review: OPENROUTER_REVIEW_MODEL,
-    triage: OPENROUTER_TRIAGE_MODEL,
+  const resolvedThreadIds: string[] = [];
+  if (post && useContentDedup) {
+    const changedFiles = new Set(parsedDiffs.map((diff) => diff.newPath));
+    for (const thread of previousThreads) {
+      if (!changedFiles.has(thread.filePath)) continue;
+      const stillPresent = allFindings.some((finding) =>
+        findingsMatch(
+          {
+            category: finding.category,
+            filePath: finding.filePath,
+            lineNumber: finding.lineNumber,
+            lineType: finding.lineType,
+          },
+          {
+            category: thread.category,
+            filePath: thread.filePath,
+            lineNumber: thread.line,
+            lineType: thread.lineType,
+          },
+          PRIOR_THREAD_LINE_TOLERANCE,
+        ),
+      );
+      if (stillPresent) continue;
+      await codeHost.resolveDiscussion(
+        projectId,
+        pullRequestNumber,
+        thread.hostDiscussionId,
+      );
+      resolvedThreadIds.push(thread.hostDiscussionId);
+    }
+  }
+
+  const findings: ReviewedFinding[] = allFindings.map((finding) => {
+    const posted = postedThreadByFinding.get(finding) ?? null;
+    return {
+      severity: finding.severity,
+      category: finding.category,
+      filePath: finding.filePath,
+      line: finding.lineNumber,
+      lineType: finding.lineType,
+      comment: finding.comment,
+      suggestion: finding.suggestion ?? null,
+      anchored: postableSet.has(finding),
+      hostDiscussionId: posted?.discussionId ?? null,
+      hostNoteId: posted?.noteId ?? null,
+    };
   });
 
   return {
@@ -449,6 +601,7 @@ export async function reviewGitHubPullRequest(
     grade: score.grade,
     findings,
     postedCount,
+    resolvedThreadIds,
     tokenCostUsd,
   };
 }

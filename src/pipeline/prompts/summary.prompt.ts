@@ -10,6 +10,7 @@ interface SummaryParams {
   overview: string;
   postableFindings: Finding[];
   suppressedCount: number;
+  tokenCostUsd?: number;
   tokenUsageByModel: Record<string, ModelTokenUsage>;
 }
 
@@ -53,7 +54,13 @@ function buildSeverityTable(findings: Finding[]): string {
 }
 
 function buildSummaryNote(params: SummaryParams): string {
-  const { allFindings, overview, suppressedCount, tokenUsageByModel } = params;
+  const {
+    allFindings,
+    overview,
+    suppressedCount,
+    tokenCostUsd,
+    tokenUsageByModel,
+  } = params;
 
   const parts: string[] = [];
 
@@ -76,7 +83,12 @@ function buildSummaryNote(params: SummaryParams): string {
     f.severity === "warning";
   const formatItem = (f: Finding, i: number): string => {
     const text = normalizeCommentForSummaryLine(f.comment);
-    return `${i + 1}. **[${f.severity.toUpperCase()}]** \`${f.filePath}:${f.lineNumber}\` - ${text}`;
+    const head = `${i + 1}. **[${f.severity.toUpperCase()}]** \`${f.filePath}:${f.lineNumber}\` - ${text}`;
+    const fix =
+      f.suggestion !== undefined && f.suggestion.trim() !== ""
+        ? `\n\n   _Suggested fix:_\n\n   \`\`\`suggestion\n${f.suggestion}\n   \`\`\``
+        : "";
+    return `${head}${fix}`;
   };
 
   const fileFindings = allFindings.filter(
@@ -120,7 +132,12 @@ function buildSummaryNote(params: SummaryParams): string {
       ? `**Tokens by model:**\n${modelLines.join("\n")}`
       : "**Tokens by model:** none";
 
-  parts.push(`---\n${tokensSection}`);
+  const costSection =
+    tokenCostUsd !== undefined && tokenCostUsd > 0
+      ? `\n**Estimated LLM cost:** $${tokenCostUsd.toFixed(4)}`
+      : "";
+
+  parts.push(`---\n${tokensSection}${costSection}`);
 
   return parts.join("\n\n");
 }

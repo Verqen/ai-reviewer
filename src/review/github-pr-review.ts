@@ -42,6 +42,7 @@ import type {
 } from "~/domain/types/review.types";
 import {
   createGitHubOctokit,
+  createGitHubOctokitFromToken,
   GitHubCodeHost,
 } from "~/infrastructure/code-host/github/github.code-host";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
@@ -110,6 +111,14 @@ export interface GitHubPullRequestReviewOptions {
    * changed files. Bounds cost on big iterative PRs without re-burning tokens.
    */
   sinceSha?: string | undefined;
+  /**
+   * A GitHub user OAuth token used ONLY to resolve review threads. GitHub App
+   * installation tokens cannot resolve threads (`resolveReviewThread` →
+   * "Resource not accessible by integration"); a user token from the installer
+   * can. When absent, auto-resolve is attempted with the App token (best-effort,
+   * logged) and typically no-ops on GitHub.
+   */
+  resolverToken?: string | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -613,6 +622,14 @@ export async function reviewGitHubPullRequest(
 
   const resolvedThreadIds: string[] = [];
   if (post && useContentDedup && !partial) {
+    const resolverCodeHost =
+      options.resolverToken !== undefined && options.resolverToken !== ""
+        ? new GitHubCodeHost(
+            createGitHubOctokitFromToken(githubConfig, options.resolverToken),
+            githubConfig,
+            logger,
+          )
+        : codeHost;
     for (const thread of previousThreads) {
       if (!reviewedFilePaths.has(thread.filePath)) continue;
       const stillPresent = allFindings.some((finding) =>
@@ -634,7 +651,7 @@ export async function reviewGitHubPullRequest(
       );
       if (stillPresent) continue;
       try {
-        await codeHost.resolveDiscussion(
+        await resolverCodeHost.resolveDiscussion(
           projectId,
           pullRequestNumber,
           thread.hostDiscussionId,

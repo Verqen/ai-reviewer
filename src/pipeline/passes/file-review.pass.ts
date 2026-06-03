@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import PQueue from "p-queue";
 import { toJSONSchema, z } from "zod";
 
+import { computeCostUsd } from "~/config/llm-pricing";
 import { OVERLAY_VIEW_DEFAULTS } from "~/config/pipeline.config";
 import { parseLlmJson } from "~/domain/llm/parse-llm-json";
 import type { IDocProvider } from "~/domain/ports/doc-provider.port";
@@ -233,6 +234,7 @@ class FileReviewPass implements IReviewPass {
       filesErrored: 0,
       filesParseFailed: 0,
       filesSkippedBudget: 0,
+      filesSkippedCostCeiling: 0,
       filesSucceeded: 0,
       filesWithDocQueryTool: 0,
       filesWithEagerDocContext: 0,
@@ -256,9 +258,14 @@ class FileReviewPass implements IReviewPass {
     >();
 
     const overlayExecutor = context.overlayView?.createToolExecutor();
+    const budget = context.costBudget;
 
     const tasks = diffs.map((diff) =>
       queue.add(async () => {
+        if (budget?.isExhausted()) {
+          fileReviewCounters.filesSkippedCostCeiling++;
+          return;
+        }
         const model = reviewConfig.models.review;
 
         const { pathRules, projectRules } = resolveProjectAndPathRulesText({
@@ -411,6 +418,12 @@ class FileReviewPass implements IReviewPass {
             completionTokens: responsePhaseA.usage.completionTokens,
             promptTokens: responsePhaseA.usage.promptTokens,
           });
+          budget?.record(
+            computeCostUsd(modelForRequest, {
+              inputTokens: responsePhaseA.usage.promptTokens,
+              outputTokens: responsePhaseA.usage.completionTokens,
+            }),
+          );
           if (
             responsePhaseA.usage.cacheCreationInputTokens !== undefined ||
             responsePhaseA.usage.cacheReadInputTokens !== undefined
@@ -487,6 +500,12 @@ class FileReviewPass implements IReviewPass {
                 completionTokens: responsePhaseB.usage.completionTokens,
                 promptTokens: responsePhaseB.usage.promptTokens,
               });
+              budget?.record(
+                computeCostUsd(modelForRequest, {
+                  inputTokens: responsePhaseB.usage.promptTokens,
+                  outputTokens: responsePhaseB.usage.completionTokens,
+                }),
+              );
               if (
                 responsePhaseB.usage.cacheCreationInputTokens !== undefined ||
                 responsePhaseB.usage.cacheReadInputTokens !== undefined
@@ -665,6 +684,8 @@ class FileReviewPass implements IReviewPass {
           diffs.length > 0 ? totalRequestedToolRounds / diffs.length : 0,
         avgUserPromptChars:
           diffs.length > 0 ? totalUserPromptChars / diffs.length : 0,
+        costCeilingHit: fileReviewCounters.filesSkippedCostCeiling > 0,
+        filesSkippedCostCeiling: fileReviewCounters.filesSkippedCostCeiling,
         filesWithDocQueryTool: fileReviewCounters.filesWithDocQueryTool,
         filesWithEagerDocContext: fileReviewCounters.filesWithEagerDocContext,
         filesWithTools: fileReviewCounters.filesWithTools,

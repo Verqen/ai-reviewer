@@ -46,6 +46,7 @@ import {
 } from "~/infrastructure/code-host/github/github.code-host";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
 import { OpenRouterClient } from "~/infrastructure/llm/openrouter/openrouter.client";
+import { CostBudget } from "~/pipeline/cost-budget";
 import { AggregationPass } from "~/pipeline/passes/aggregation.pass";
 import { CrossFilePass } from "~/pipeline/passes/cross-file.pass";
 import { FileReviewPass } from "~/pipeline/passes/file-review.pass";
@@ -96,6 +97,12 @@ export interface GitHubPullRequestReviewOptions {
    * longer reproduced on a file changed by this push are auto-resolved.
    */
   previousThreads?: PriorThreadRef[] | undefined;
+  /**
+   * Per-scan dollar ceiling. Once the live LLM cost crosses it, file review
+   * stops taking new files and the cross-file pass is skipped, finalizing an
+   * honest partial review. Model-invariant (dollars, not tokens).
+   */
+  maxCostUsd?: number | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -124,6 +131,8 @@ export interface GitHubPullRequestReviewResult {
   findings: ReviewedFinding[];
   /** Inline threads actually posted (0 unless `post` was true). */
   postedCount: number;
+  /** True when the per-scan cost ceiling halted the review before full coverage. */
+  partial: boolean;
   /** Prior threads auto-resolved this run because the finding was fixed. */
   resolvedThreadIds: string[];
   /** Estimated LLM cost of this run, in USD (0 for unpriced/self-hosted models). */
@@ -401,7 +410,10 @@ export async function reviewGitHubPullRequest(
     triageModel = openRouterConfig.envs.OPENROUTER_TRIAGE_MODEL;
   }
 
+  const costBudget = new CostBudget(options.maxCostUsd);
+
   let context: ReviewContext = {
+    costBudget,
     diffs: parsedDiffs,
     isIncremental: false,
     mrIid: pullRequestNumber,
@@ -449,8 +461,23 @@ export async function reviewGitHubPullRequest(
     await fileReview.execute(context, passResults),
   );
 
-  const crossFile = new CrossFilePass(llm, logger);
-  passResults.set("cross-file", await crossFile.execute(context, passResults));
+  const partial = costBudget.isExhausted();
+  if (partial) {
+    logger.warn(
+      {
+        mrIid: pullRequestNumber,
+        projectId,
+        spentUsd: costBudget.spent,
+      },
+      "Per-scan cost ceiling reached: skipping cross-file pass, finalizing partial review",
+    );
+  } else {
+    const crossFile = new CrossFilePass(llm, logger);
+    passResults.set(
+      "cross-file",
+      await crossFile.execute(context, passResults),
+    );
+  }
 
   const aggregation = new AggregationPass(noopDismissedPatternRepo, logger, 3);
   passResults.set(
@@ -525,7 +552,10 @@ export async function reviewGitHubPullRequest(
       }
     }
 
-    const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})\n\n${buildSummaryNote(
+    const partialNote = partial
+      ? "\n\n> **Large change — partial review.** The per-scan cost ceiling was reached, so file-level findings are reported but cross-file analysis was skipped. Upgrade for full coverage."
+      : "";
+    const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})${partialNote}\n\n${buildSummaryNote(
       {
         allFindings,
         overview:
@@ -601,6 +631,7 @@ export async function reviewGitHubPullRequest(
     grade: score.grade,
     findings,
     postedCount,
+    partial,
     resolvedThreadIds,
     tokenCostUsd,
   };

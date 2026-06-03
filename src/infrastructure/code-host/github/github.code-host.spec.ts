@@ -267,8 +267,7 @@ describe("GitHubCodeHost", () => {
     ]);
     const post = calls.find(
       (c) =>
-        c.method === "POST" &&
-        c.path === "/repos/owner/repo/issues/7/comments",
+        c.method === "POST" && c.path === "/repos/owner/repo/issues/7/comments",
     );
     expect(post?.body).toMatchObject({ body: "new body" });
   });

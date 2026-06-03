@@ -64,16 +64,11 @@ const MAX_TOOL_ROUNDS = 5;
 const MAX_TOOL_ROUNDS_TRIAGE = 5;
 const BASE_TOOL_ROUNDS = 3;
 const HIGH_RISK_FILE_DIFF_LINES = 180;
-// Small diffs: no codebase grep needed, the diff itself fits in the user prompt.
-// Letting the model use codebaseTools on a 1-2 hunk change makes it burn tool
-// rounds on irrelevant searches and abort without producing the final JSON
-// (filesAbortedNoFinal). Below this threshold codebaseTools are disabled.
 const CODEBASE_TOOLS_MIN_DIFF_LINES = 10;
 const FILE_REVIEW_ANALYSIS_MAX_TOKENS = 2200;
 const FILE_REVIEW_ANALYSIS_TRIAGE_MAX_TOKENS = 1100;
 const FILE_REVIEW_EXTRACTION_MAX_TOKENS = 1200;
 const FILE_REVIEW_TEMPERATURE = 0.1;
-// Dual-language matchers: see import-path-existence-validator.ts.
 const MISSING_FILE_CLAIM_REGEX =
   /(does\s+not\s+exist|not\s+found|missing\s+file|не\s+существ|несуществующ|не\s+найден)/i;
 const IMPORT_MENTION_REGEX = /(import|импорт)/i;

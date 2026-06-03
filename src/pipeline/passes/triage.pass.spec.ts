@@ -387,7 +387,6 @@ describe("TriagePass", () => {
 
   it("splits into multiple batches for large input and merges results", async () => {
     const HEADER_TEMPLATE = (i: number): string => `@@ -${i},1 +${i},1 @@`;
-    // Each hunk body ~200 chars; 200 hunks = 40_000 chars ≈ 10_000 tokens, well above TRIAGE_BATCH_PROMPT_TOKEN_BUDGET=6000
     const manyLines = Array.from({ length: 200 }, (_, i) =>
       line(HEADER_TEMPLATE(i), `const x${i} = ${"a".repeat(200)};`),
     );
@@ -415,7 +414,6 @@ describe("TriagePass", () => {
   it("marks only the failing batch hunks as needs-review, others keep verdicts", async () => {
     const HEADER_1 = "@@ -1,1 +1,1 @@";
     const HEADER_2 = "@@ -2,1 +2,1 @@";
-    // Two hunks each ~12_000 chars so combined estimate (~6_200 tokens) exceeds TRIAGE_BATCH_PROMPT_TOKEN_BUDGET=6000
     const diffs = [
       makeDiff("src/a.ts", [
         line(HEADER_1, "a".repeat(12_000)),

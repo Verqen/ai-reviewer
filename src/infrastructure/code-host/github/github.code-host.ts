@@ -28,11 +28,6 @@ import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 
 const GitHubNotFoundError = CodeHostNotFoundError;
 
-/**
- * GitHub exposes repositories by `owner/repo`, but the review pipeline keys
- * everything by the numeric repository id (carried in `projectId`). The legacy
- * `GET /repositories/{id}` endpoint resolves the id back to its coordinates.
- */
 const RepoCoordinatesSchema = z.object({
   name: z.string(),
   owner: z.object({ login: z.string() }),
@@ -499,8 +494,6 @@ class GitHubCodeHost implements ICodeHost {
       ref,
       repo,
     });
-    // Octokit types the tarball body as `unknown`; the REST endpoint returns the
-    // raw archive bytes, so we narrow to ArrayBuffer to wrap it in a Buffer.
     const archive = Buffer.from(response.data as ArrayBuffer);
 
     const entries: ArchiveEntry[] = [];

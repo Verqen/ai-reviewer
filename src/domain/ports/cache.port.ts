@@ -1,6 +1,3 @@
-/**
- * In-memory TTL cache contract for review deduplication and similar use cases.
- */
 interface ICache<T> {
   clear(): void;
   delete(key: string): void;

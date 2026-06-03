@@ -53,7 +53,6 @@ const COMMENT_ASSISTANT_REPLY_MAX_TOKENS = 2000;
 const FINDING_THREAD_CLARIFICATION_BASELINE_UNAVAILABLE_LOG =
   "Finding thread clarification: baseline not ready or overlay unavailable; narrow-only reply";
 
-// gpt-oss-cloud hangs in tool-loop; disable tools for these models.
 const MODELS_WITHOUT_TOOLS = ["gpt-oss"];
 
 class ReviewService implements IReviewService {

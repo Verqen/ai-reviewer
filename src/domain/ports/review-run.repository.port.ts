@@ -52,10 +52,6 @@ interface IReviewRunRepository {
     triggerType: TriggerType,
   ): Promise<ReviewRun | undefined>;
   findByProjectAndMr(projectId: number, mrIid: number): Promise<ReviewRun[]>;
-  /**
-   * Latest terminal run ordered by `completed_at` desc.
-   * Default: `status = completed`. With `includeFailedForBaseline`, includes `failed` (incremental MR push baseline).
-   */
   findLatestByProjectAndMr(
     projectId: number,
     mrIid: number,

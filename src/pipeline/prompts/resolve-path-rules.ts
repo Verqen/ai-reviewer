@@ -31,10 +31,6 @@ type ProjectAndPathRulesText = {
   projectRules: string | null;
 };
 
-/**
- * Splits the `**` glob into projectRules and deduplicated merged path rules
- * across all given file paths (same semantics as per-file file-review).
- */
 function resolveProjectAndPathRulesText(
   params: ResolveProjectAndPathRulesTextParams,
 ): ProjectAndPathRulesText {

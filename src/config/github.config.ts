@@ -1,17 +1,6 @@
 import { Config } from "~/shared/config";
 import { z } from "zod";
 
-/**
- * GitHub auth supports two modes:
- * - a personal/installation access token (`GITHUB_TOKEN`), simplest for local
- *   runs and CI;
- * - a GitHub App (`GITHUB_APP_ID` + `GITHUB_APP_INSTALLATION_ID` + the private
- *   key), the production path where the app is installed per-repository and
- *   mints short-lived installation tokens. The private key may be supplied
- *   inline (`GITHUB_APP_PRIVATE_KEY`) or as a path to the downloaded `.pem`
- *   (`GITHUB_APP_PRIVATE_KEY_PATH`) — the latter keeps the secret in a file
- *   outside the repo, no multi-line env wrangling.
- */
 const GitHubConfigSchema = z
   .object({
     GITHUB_API_URL: z.url().default("https://api.github.com"),

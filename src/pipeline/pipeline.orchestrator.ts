@@ -58,14 +58,6 @@ interface PassModelUsageEntry {
   promptTokens: number;
 }
 
-/**
- * Per-pass token usage broken down by model. When a pass populates
- * `tokenUsageByModel`, that value is canonical. Otherwise (older pass code
- * paths or early returns that omitted the field while still consuming tokens),
- * fall back to the pass's default model so the aggregate at the orchestrator
- * level does not silently drop usage. This is the single source of truth used
- * both for per-pass logging and for the run-level summary.
- */
 function resolvePassTokenUsageByModel(
   result: PassResult,
   passName: string,
@@ -383,8 +375,6 @@ export class PipelineOrchestrator {
     context: ReviewContext,
     result: PassResult,
   ): ReviewContext {
-    // WHY: the triage pass writes TriagePassMetadata into the untyped PassResult.metadata
-    // bag; reading it back as a Partial of that shape is structurally safe.
     const metadata = result.metadata as unknown as Partial<TriagePassMetadata>;
     const triageSkipRate = metadata.triageSkipRate ?? 0;
     const trivialHunkCount = metadata.trivialHunkCount ?? 0;

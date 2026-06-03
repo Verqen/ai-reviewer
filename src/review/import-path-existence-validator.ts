@@ -3,8 +3,6 @@ import { posix as pathPosix } from "node:path";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { Finding } from "~/domain/types/review.types";
 
-// Dual-language matchers: model output may be in English or Russian depending on REVIEW_LANGUAGE.
-// Keep both patterns so the validator catches "missing import" claims regardless of locale.
 const MISSING_FILE_CLAIM_REGEX =
   /(does\s+not\s+exist|not\s+found|missing\s+file|не\s+существ|несуществующ|не\s+найден)/i;
 const IMPORT_MENTION_REGEX = /(import|импорт)/i;

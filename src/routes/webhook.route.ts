@@ -56,11 +56,6 @@ function verifySecret(
   return timingSafeEqual(hashValue(header), hashValue(secret));
 }
 
-/**
- * GitHub signs the raw request body with an HMAC-SHA256 keyed by the webhook
- * secret and sends it in `X-Hub-Signature-256: sha256=<hex>`. The comparison
- * must run over the exact bytes GitHub signed, hence the raw-body capture.
- */
 function verifyGitHubSignature(
   rawBody: string,
   header: string | string[] | undefined,
@@ -134,8 +129,6 @@ function webhookRoute(
     snapshotRepo,
   });
 
-  // GitHub HMAC is computed over the raw request bytes, so capture them before
-  // JSON parsing. Scoped to this encapsulated plugin — does not affect other routes.
   if (codeHostProvider === "github") {
     app.addContentTypeParser(
       "application/json",

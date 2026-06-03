@@ -46,7 +46,6 @@ describe("computeProductionReadinessScore", () => {
     const result = computeProductionReadinessScore([
       finding("performance", "critical"),
     ]);
-    // Performance subscore 60 → 0.15*60 + 0.85*100 = 94, no security cap.
     expect(result.score).toBe(94);
     expect(result.grade).toBe("A");
   });
@@ -70,7 +69,7 @@ describe("computeProductionReadinessScore", () => {
       (b) => b.category === "Deployment readiness",
     );
     expect(deployment?.findingCount).toBe(2);
-    expect(deployment?.subscore).toBe(70); // 100 - 20 - 10
+    expect(deployment?.subscore).toBe(70);
   });
 
   it("floors a category subscore at 0 under heavy penalties", () => {

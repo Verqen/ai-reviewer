@@ -35,9 +35,7 @@ export interface AnswerReviewThreadOptions {
   owner: string;
   repo: string;
   pullRequestNumber: number;
-  /** Host id of the review comment (thread root) being replied to. */
   replyToCommentId: string;
-  /** The developer's latest message in the thread (untrusted). */
   developerNote: string;
   finding: ReviewThreadFinding;
   installationId?: number | undefined;

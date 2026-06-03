@@ -1,6 +1,3 @@
-/**
- * Contract for keyed job scheduling with concurrency limits, used for review work orchestration.
- */
 interface IJobQueue<T> {
   readonly activeCount: number;
   drain(): Promise<void>;

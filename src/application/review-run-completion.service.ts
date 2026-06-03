@@ -72,9 +72,6 @@ function buildOverviewText(input: BuildOverviewTextInput): string {
   return `AI review complete: ${input.allFindingsCount} finding(s), ${input.postableFindingsCount} posted inline${repostedSuffix}.`;
 }
 
-/**
- * Summary note, completed status, stats, cache, and optional auto-approval after a successful pipeline.
- */
 class ReviewRunCompletionService {
   static inject = [
     ReviewTokens.InfraRepoPorts,
@@ -127,7 +124,6 @@ class ReviewRunCompletionService {
 
     const now = new Date();
 
-    // Atomically complete the run: update baseCommitSha, stats, and status in one transaction
     await this.infraRepoPorts.reviewRunRepo.completeRun(reviewRunId, {
       baseCommitSha: baseSha,
       stats: {
@@ -154,7 +150,6 @@ class ReviewRunCompletionService {
       timestamp: now,
     });
 
-    // Post summary note after DB is safe
     await this.codeHost.postNote(projectId, mrIid, summaryNote);
 
     await this.applyAutoApproval(

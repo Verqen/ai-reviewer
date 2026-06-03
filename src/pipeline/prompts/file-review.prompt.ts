@@ -2,6 +2,10 @@ import { getReviewLanguage } from "~/config/review-language";
 import type { MergeRequestInfo } from "~/domain/types/code-host.types";
 import type { TextBlock } from "~/domain/types/llm.types";
 import { buildAnalysisDisciplineInstruction } from "~/pipeline/prompts/file-review-analysis-discipline";
+import {
+  UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+  wrapUntrusted,
+} from "~/pipeline/prompts/injection-defense";
 import { buildVibeCodingPatternsInstruction } from "~/pipeline/prompts/vibe-coding-patterns";
 import {
   buildJsonOutputInstructions,
@@ -33,6 +37,7 @@ function buildFileReviewAnalysisSystemBlocks(
   language: string = getReviewLanguage(),
 ): TextBlock[] {
   let text = [
+    UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
     "You are reviewing one file diff.",
     "Phase 1 (analysis only): output structured markdown or prose.",
     "Cover risks, open questions, and hypotheses tied to the diff; cite lines using L<number> markers from the diff when relevant.",
@@ -102,21 +107,31 @@ function buildFileReviewAnalysisUserPrompt(
   docContext?: string,
 ): string {
   const parts = [
-    `MR: ${mrInfo.title}`,
+    `MR title: ${wrapUntrusted("pr_title", mrInfo.title)}`,
     `Branch: ${mrInfo.sourceBranch} -> ${mrInfo.targetBranch}`,
-    mrInfo.description ? `Description: ${mrInfo.description}` : "",
+    mrInfo.description
+      ? `Description: ${wrapUntrusted("pr_description", mrInfo.description)}`
+      : "",
     "",
     "File diff:",
-    diffText,
+    wrapUntrusted("diff", diffText),
   ].filter(Boolean);
   if (pathRules) {
     parts.push("", "Path rules:", `<path_rules>\n${pathRules}\n</path_rules>`);
   }
   if (codebaseContext) {
-    parts.push("", "Related codebase context:", codebaseContext);
+    parts.push(
+      "",
+      "Related codebase context:",
+      wrapUntrusted("codebase", codebaseContext),
+    );
   }
   if (docContext) {
-    parts.push("", "Library/API documentation context:", docContext);
+    parts.push(
+      "",
+      "Library/API documentation context:",
+      wrapUntrusted("docs", docContext),
+    );
   }
   return parts.join("\n");
 }

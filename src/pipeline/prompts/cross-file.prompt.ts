@@ -1,6 +1,10 @@
 import { getReviewLanguage } from "~/config/review-language";
 import type { MergeRequestInfo } from "~/domain/types/code-host.types";
 import {
+  UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+  wrapUntrusted,
+} from "~/pipeline/prompts/injection-defense";
+import {
   buildJsonOutputInstructions,
   injectPathRules,
   injectProjectRules,
@@ -36,6 +40,8 @@ function buildCrossFileSystemPrompt(
   );
 
   let prompt = [
+    UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+    "",
     "You are a senior architect reviewing a merge request for cross-file issues.",
     "",
     "Analyze for:",
@@ -111,9 +117,11 @@ function buildCrossFileUserPrompt(
     .join("\n");
 
   const parts: string[] = [
-    `MR: ${mrInfo.title}`,
+    `MR title: ${wrapUntrusted("pr_title", mrInfo.title)}`,
     `Branch: ${mrInfo.sourceBranch} -> ${mrInfo.targetBranch}`,
-    mrInfo.description ? `Description: ${mrInfo.description}` : "",
+    mrInfo.description
+      ? `Description: ${wrapUntrusted("pr_description", mrInfo.description)}`
+      : "",
     "",
     "Changed files:",
     fileList,
@@ -123,10 +131,14 @@ function buildCrossFileUserPrompt(
     parts.push("", "Per-file findings summary:", findingSummaries);
   }
 
-  parts.push("", mrDiffsCompactSection);
+  parts.push("", wrapUntrusted("diff", mrDiffsCompactSection));
 
   if (codebaseContext) {
-    parts.push("", "## Codebase context", codebaseContext);
+    parts.push(
+      "",
+      "## Codebase context",
+      wrapUntrusted("codebase", codebaseContext),
+    );
   }
 
   return parts.filter((line, i) => line !== "" || i !== 0).join("\n");

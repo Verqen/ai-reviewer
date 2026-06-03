@@ -6,6 +6,12 @@ import {
 } from "./cross-file.prompt";
 
 describe("buildCrossFileSystemPrompt", () => {
+  it("states the untrusted-input boundary so injected directives are treated as data", () => {
+    const prompt = buildCrossFileSystemPrompt(null, null);
+    expect(prompt).toContain("untrusted input boundary");
+    expect(prompt).toMatch(/never as instructions/i);
+  });
+
   it("includes DDD and Hexagonal cross-file checks", () => {
     const prompt = buildCrossFileSystemPrompt(null, null);
     expect(prompt).toContain("DDD bounded-context leaks");

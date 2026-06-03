@@ -23,6 +23,12 @@ function extractionSystemText(): string {
 }
 
 describe("buildFileReviewAnalysisSystemBlocks", () => {
+  it("states the untrusted-input boundary so injected directives are treated as data", () => {
+    const text = analysisSystemText();
+    expect(text).toContain("untrusted input boundary");
+    expect(text).toMatch(/never as instructions/i);
+  });
+
   it("asks for phase 1 analysis only without JSON output", () => {
     const text = analysisSystemText();
     expect(text).toContain("Phase 1 (analysis only)");
@@ -181,6 +187,15 @@ describe("buildFileReviewAnalysisUserPrompt", () => {
       null,
     );
     expect(text).not.toContain("Allowable anchors");
+  });
+
+  it("wraps untrusted diff and PR description in delimiters", () => {
+    const text = buildFileReviewAnalysisUserPrompt(mrInfo, "DIFFBODY", null);
+    expect(text).toContain("<untrusted_diff>\nDIFFBODY\n</untrusted_diff>");
+    expect(text).toContain(
+      "<untrusted_pr_description>\ndesc\n</untrusted_pr_description>",
+    );
+    expect(text).toContain("<untrusted_pr_title>\nMR\n</untrusted_pr_title>");
   });
 });
 

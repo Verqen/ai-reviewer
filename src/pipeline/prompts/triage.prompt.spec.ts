@@ -71,10 +71,10 @@ describe("triage prompt", () => {
       ];
       const prompt = buildTriageUserPrompt(hunks);
 
-      expect(prompt).toContain("Hunk 0: src/a.ts");
+      expect(prompt).toContain("Hunk 0 (src/a.ts):");
       expect(prompt).toContain("@@ -10,3 +10,3 @@");
       expect(prompt).toContain("+const foo = 1;");
-      expect(prompt).toContain("Hunk 1: src/b.ts");
+      expect(prompt).toContain("Hunk 1 (src/b.ts):");
       expect(prompt).toContain("-return bar;");
       expect(prompt).toContain("+return baz;");
     });
@@ -116,16 +116,20 @@ describe("triage prompt", () => {
 
         Each numbered block below is one hunk; use the file path together with added/removed lines.
 
-        Hunk 0: src/a.ts
+        Hunk 0 (src/a.ts):
+        <untrusted_diff_hunk>
         @@ -1,1 +1,1 @@
         +const foo = 1;
+        </untrusted_diff_hunk>
 
         ---
 
-        Hunk 1: src/b.ts
+        Hunk 1 (src/b.ts):
+        <untrusted_diff_hunk>
         @@ -5,1 +5,1 @@
         -return bar;
-        +return baz;"
+        +return baz;
+        </untrusted_diff_hunk>"
       `);
     });
   });

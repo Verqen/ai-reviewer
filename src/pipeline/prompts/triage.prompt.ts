@@ -1,3 +1,8 @@
+import {
+  UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+  wrapUntrusted,
+} from "~/pipeline/prompts/injection-defense";
+
 interface TriageHunkInput {
   body: string;
   filePath: string;
@@ -11,6 +16,8 @@ interface TriageVerdictItem {
 }
 
 const TRIAGE_SYSTEM_PROMPT = [
+  UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+  "",
   "Pre-review triage: classify each unified-diff hunk as trivial or needs-review.",
   "",
   "trivial (patterns, not exhaustive): whitespace or EOL-only; formatting-only (Prettier, quote style, wrapping); import reorder/sort without code changes; renaming a strictly local identifier when exports/public API and external names are unchanged; reordering object/JSON entries or props when semantics are unchanged; copy, translation, or UI string edits when i18n keys, route names, and identifiers stay the same; Tailwind/CSS class reorder or equivalent swap when layout and behaviour are unchanged; pure move or split of code with no behavioural change.",
@@ -26,9 +33,10 @@ const TRIAGE_SYSTEM_PROMPT = [
 
 function buildTriageUserPrompt(hunks: readonly TriageHunkInput[]): string {
   const sections = hunks.map((hunk) => {
-    return [`Hunk ${hunk.id}: ${hunk.filePath}`, hunk.header, hunk.body].join(
-      "\n",
-    );
+    return [
+      `Hunk ${hunk.id} (${hunk.filePath}):`,
+      wrapUntrusted("diff_hunk", [hunk.header, hunk.body].join("\n")),
+    ].join("\n");
   });
 
   return [

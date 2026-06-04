@@ -25,6 +25,8 @@ import type { IReviewService } from "~/review/review.types";
 
 type CodeHostProvider = "github" | "gitlab";
 
+const WEBHOOK_BODY_LIMIT_BYTES = 5_242_880;
+
 interface WebhookRouteOptions {
   baselineService: BaselineService;
   botUsername: string;
@@ -129,47 +131,58 @@ function webhookRoute(
     snapshotRepo,
   });
 
-  if (codeHostProvider === "github") {
-    app.addContentTypeParser(
-      "application/json",
-      { parseAs: "string" },
-      (req, body, done) => {
-        const raw = typeof body === "string" ? body : body.toString("utf8");
-        rawBodyByRequest.set(req, raw);
-        try {
-          done(null, raw.length > 0 ? (JSON.parse(raw) as unknown) : {});
-        } catch (error) {
-          done(
-            error instanceof Error ? error : new Error("Invalid JSON"),
-            undefined,
-          );
+  void app.register((instance, _opts, done) => {
+    if (codeHostProvider === "github") {
+      instance.addContentTypeParser(
+        "application/json",
+        { parseAs: "string" },
+        (req, body, parserDone) => {
+          const raw = typeof body === "string" ? body : body.toString("utf8");
+          rawBodyByRequest.set(req, raw);
+          try {
+            parserDone(
+              null,
+              raw.length > 0 ? (JSON.parse(raw) as unknown) : {},
+            );
+          } catch (error) {
+            parserDone(
+              error instanceof Error ? error : new Error("Invalid JSON"),
+              undefined,
+            );
+          }
+        },
+      );
+    }
+
+    instance.post(
+      "/webhook",
+      { bodyLimit: WEBHOOK_BODY_LIMIT_BYTES },
+      async (req: FastifyRequest, reply: FastifyReply) => {
+        const webhookSecret = webhookConfig.envs.WEBHOOK_SECRET;
+        const parsed =
+          codeHostProvider === "github"
+            ? authorizeAndParseGitHub(req, webhookSecret)
+            : authorizeAndParseGitLab(req, webhookSecret);
+
+        if (parsed.kind === "unauthorized") {
+          return reply.status(401).send({ error: "Unauthorized" });
         }
+        if (parsed.kind === "invalid") {
+          return reply.status(400).send({ error: "Invalid payload" });
+        }
+        if (parsed.kind === "ignored") {
+          return reply.status(200).send({ status: "ignored" });
+        }
+        const maxQueueSize = webhookConfig.envs.WEBHOOK_MAX_QUEUE_SIZE;
+        if (queue.size >= maxQueueSize) {
+          return reply.status(503).send({ error: "Queue is full" });
+        }
+        const result = await orchestrator.handleEvent(parsed.event);
+        return sendOrchestrationResult(reply, result);
       },
     );
-  }
 
-  app.post("/webhook", async (req: FastifyRequest, reply: FastifyReply) => {
-    const webhookSecret = webhookConfig.envs.WEBHOOK_SECRET;
-    const parsed =
-      codeHostProvider === "github"
-        ? authorizeAndParseGitHub(req, webhookSecret)
-        : authorizeAndParseGitLab(req, webhookSecret);
-
-    if (parsed.kind === "unauthorized") {
-      return reply.status(401).send({ error: "Unauthorized" });
-    }
-    if (parsed.kind === "invalid") {
-      return reply.status(400).send({ error: "Invalid payload" });
-    }
-    if (parsed.kind === "ignored") {
-      return reply.status(200).send({ status: "ignored" });
-    }
-    const maxQueueSize = webhookConfig.envs.WEBHOOK_MAX_QUEUE_SIZE;
-    if (queue.size >= maxQueueSize) {
-      return reply.status(503).send({ error: "Queue is full" });
-    }
-    const result = await orchestrator.handleEvent(parsed.event);
-    return sendOrchestrationResult(reply, result);
+    done();
   });
 }
 

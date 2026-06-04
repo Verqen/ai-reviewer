@@ -69,4 +69,17 @@ describe("buildCrossFileUserPrompt", () => {
     const ctxIdx = text.indexOf("## Codebase context");
     expect(compactIdx).toBeLessThan(ctxIdx);
   });
+
+  it("wraps the diff, codebase context and PR title in untrusted delimiters", () => {
+    const text = buildCrossFileUserPrompt(
+      mrInfo,
+      [{ findingCount: 0, path: "src/a.ts", topSeverity: null }],
+      "",
+      "## MR diffs (compact)\n\n### src/a.ts\n\ndiff body",
+      "ctx",
+    );
+    expect(text).toContain("<untrusted_diff>");
+    expect(text).toContain("<untrusted_codebase>");
+    expect(text).toContain("<untrusted_pr_title>");
+  });
 });

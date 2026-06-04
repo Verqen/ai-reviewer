@@ -1,5 +1,6 @@
 import type { IConfig } from "~/shared/config";
 import type { FastifyBaseLogger } from "fastify";
+import { z } from "zod";
 
 import type { LlmConfigSchema } from "~/config/llm.config";
 import type { ILlmClient } from "~/domain/ports/llm.port";
@@ -11,6 +12,7 @@ import type {
   ToolDefinition,
 } from "~/domain/types/llm.types";
 import { assertPromptTokenBudget } from "~/infrastructure/llm/estimate-prompt-tokens";
+import { buildToolCallCacheKey } from "~/infrastructure/llm/tool-call-cache-key";
 
 const TIMEOUT_MS = 120_000;
 const MAX_RETRIES = 2;
@@ -22,31 +24,29 @@ const MAX_NUM_PREDICT_ON_RETRY = 800;
 const LARGE_PAYLOAD_BYTES = 80_000;
 const MAX_CUMULATIVE_PROMPT_TOKENS = 30_000;
 
-interface OllamaMessage {
-  content: string;
-  role: string;
-  tool_calls?: Array<{
-    function: { name: string; arguments: Record<string, unknown> };
-  }>;
-}
+const OllamaMessageSchema = z.object({
+  content: z.string(),
+  role: z.string(),
+  tool_calls: z
+    .array(
+      z.object({
+        function: z.object({
+          arguments: z.record(z.string(), z.unknown()),
+          name: z.string(),
+        }),
+      }),
+    )
+    .optional(),
+});
 
-interface OllamaResponse {
-  eval_count?: number;
+const OllamaResponseSchema = z.object({
+  eval_count: z.number().optional(),
+  message: OllamaMessageSchema.optional(),
+  prompt_eval_count: z.number().optional(),
+});
 
-  message?: OllamaMessage | undefined;
-
-  prompt_eval_count?: number;
-}
-
-function buildToolCallCacheKey(call: ToolCall): string {
-  const sortedArgs = Object.keys(call.arguments)
-    .sort()
-    .reduce<Record<string, unknown>>((acc, key) => {
-      acc[key] = call.arguments[key];
-      return acc;
-    }, {});
-  return `${call.name}:${JSON.stringify(sortedArgs)}`;
-}
+type OllamaMessage = z.infer<typeof OllamaMessageSchema>;
+type OllamaResponse = z.infer<typeof OllamaResponseSchema>;
 
 function mapToOllamaMessages(
   messages: ChatMessage[],
@@ -363,7 +363,13 @@ class OllamaClient implements ILlmClient {
           throw lastError;
         }
 
-        return (await response.json()) as OllamaResponse;
+        const parsed = OllamaResponseSchema.safeParse(await response.json());
+        if (!parsed.success) {
+          throw new Error(
+            `Ollama response failed schema validation: ${parsed.error.message}`,
+          );
+        }
+        return parsed.data;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         const isNetworkError =

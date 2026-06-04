@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isRetryableStatus, retryAfterMs } from "./github-resilience";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("isRetryableStatus", () => {
   it("retries on rate-limit and server errors", () => {
@@ -25,13 +29,13 @@ describe("retryAfterMs", () => {
   });
 
   it("honors x-ratelimit-reset as an absolute epoch", () => {
-    const resetEpoch = Math.floor(Date.now() / 1000) + 4;
+    vi.useFakeTimers();
+    vi.setSystemTime(1_700_000_000_000);
+    const resetEpoch = 1_700_000_000 + 4;
     const error = {
       response: { headers: { "x-ratelimit-reset": String(resetEpoch) } },
     };
-    const ms = retryAfterMs(error, 0);
-    expect(ms).toBeGreaterThan(0);
-    expect(ms).toBeLessThanOrEqual(20000);
+    expect(retryAfterMs(error, 0)).toBe(4000);
   });
 
   it("falls back to exponential backoff with jitter within bounds", () => {

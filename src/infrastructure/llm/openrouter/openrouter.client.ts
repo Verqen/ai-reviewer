@@ -1,5 +1,6 @@
 import type { IConfig } from "~/shared/config";
 import type { FastifyBaseLogger } from "fastify";
+import { z } from "zod";
 
 import type { OpenRouterConfigSchema } from "~/config/openrouter.config";
 import type { ILlmClient } from "~/domain/ports/llm.port";
@@ -11,6 +12,7 @@ import type {
   ToolDefinition,
 } from "~/domain/types/llm.types";
 import { assertPromptTokenBudget } from "~/infrastructure/llm/estimate-prompt-tokens";
+import { buildToolCallCacheKey } from "~/infrastructure/llm/tool-call-cache-key";
 
 const TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 2;
@@ -21,32 +23,35 @@ const MAX_TOKENS_ON_RETRY = 800;
 const LARGE_PAYLOAD_BYTES = 80_000;
 const MAX_CUMULATIVE_PROMPT_TOKENS = 30_000;
 
-interface OpenRouterToolCall {
-  function: {
-    name: string;
-    arguments: string;
-  };
-  id: string;
-}
+const OpenRouterToolCallSchema = z.object({
+  function: z.object({
+    arguments: z.string(),
+    name: z.string(),
+  }),
+  id: z.string(),
+});
 
-interface OpenRouterMessage {
-  content: string | null;
-  reasoning?: string | null;
-  reasoning_content?: string | null;
-  tool_calls?: OpenRouterToolCall[];
-}
+const OpenRouterMessageSchema = z.object({
+  content: z.string().nullable(),
+  reasoning: z.string().nullable().optional(),
+  reasoning_content: z.string().nullable().optional(),
+  tool_calls: z.array(OpenRouterToolCallSchema).optional(),
+});
 
-interface OpenRouterUsage {
-  cache_creation_input_tokens?: number;
-  cache_read_input_tokens?: number;
-  completion_tokens: number;
-  prompt_tokens: number;
-}
+const OpenRouterResponseSchema = z.object({
+  choices: z.array(z.object({ message: OpenRouterMessageSchema })),
+  usage: z
+    .object({
+      cache_creation_input_tokens: z.number().optional(),
+      cache_read_input_tokens: z.number().optional(),
+      completion_tokens: z.number(),
+      prompt_tokens: z.number(),
+    })
+    .optional(),
+});
 
-interface OpenRouterResponse {
-  choices: Array<{ message: OpenRouterMessage }>;
-  usage?: OpenRouterUsage;
-}
+type OpenRouterToolCall = z.infer<typeof OpenRouterToolCallSchema>;
+type OpenRouterResponse = z.infer<typeof OpenRouterResponseSchema>;
 
 function mapToOpenRouterMessages(
   messages: ChatMessage[],
@@ -101,16 +106,6 @@ function mapToolDefinitions(
     },
     type: "function",
   }));
-}
-
-function buildToolCallCacheKey(call: ToolCall): string {
-  const sortedArgs = Object.keys(call.arguments)
-    .sort()
-    .reduce<Record<string, unknown>>((acc, key) => {
-      acc[key] = call.arguments[key];
-      return acc;
-    }, {});
-  return `${call.name}:${JSON.stringify(sortedArgs)}`;
 }
 
 function parseToolCalls(raw: OpenRouterToolCall[]): ToolCall[] {
@@ -409,7 +404,15 @@ class OpenRouterClient implements ILlmClient {
           throw lastError;
         }
 
-        return (await response.json()) as OpenRouterResponse;
+        const parsed = OpenRouterResponseSchema.safeParse(
+          await response.json(),
+        );
+        if (!parsed.success) {
+          throw new Error(
+            `OpenRouter response failed schema validation: ${parsed.error.message}`,
+          );
+        }
+        return parsed.data;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         const isNetworkError =

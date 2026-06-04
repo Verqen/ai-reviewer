@@ -9,6 +9,9 @@ const SeverityEnum = z.enum([
   "nitpick",
 ]);
 
+const MS_PER_MINUTE = 60_000;
+const DEFAULT_RUN_STUCK_AFTER_MS = 30 * MS_PER_MINUTE;
+
 const OVERLAY_VIEW_DEFAULTS = {
   maxListFiles: 200,
   maxMatchesPerFile: 5,
@@ -139,7 +142,7 @@ const PipelineConfigSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(30 * 60 * 1000),
+    .default(DEFAULT_RUN_STUCK_AFTER_MS),
   SEVERITY_THRESHOLD: SeverityEnum.default("info"),
   THREAD_PRIOR_FINDINGS_MAX_CHARS: z.coerce
     .number()

@@ -120,8 +120,8 @@ async function main(): Promise<void> {
   const durationMs = Date.now() - started;
 
   const metadata = result.metadata;
-  const triageSkipRate = (metadata["triageSkipRate"]) ?? 0;
-  const trivialHunkCount = (metadata["trivialHunkCount"]) ?? 0;
+  const triageSkipRate = metadata["triageSkipRate"] ?? 0;
+  const trivialHunkCount = metadata["trivialHunkCount"] ?? 0;
 
   metrics.observeTriageSkipRate(triageSkipRate);
   metrics.observeTriageTrivial(trivialHunkCount);

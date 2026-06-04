@@ -46,11 +46,11 @@
     "test": "vitest run --project unit --project integration",
     "test:e2e": "vitest run --project e2e",
     "test:integration": "vitest run --project integration",
+    "test:mutation": "stryker run",
     "test:unit": "vitest run --project unit",
     "trace": "tsx scripts/trace-review.ts",
     "types:check": "tsc --noEmit",
-    "uninstall:gitHooks": "git config --unset core.hooksPath || echo 'Not in a git repo'",
-    "test:mutation": "stryker run"
+    "uninstall:gitHooks": "git config --unset core.hooksPath || echo 'Not in a git repo'"
   },
   "dependencies": {
     "@octokit/auth-app": "^8.2.0",

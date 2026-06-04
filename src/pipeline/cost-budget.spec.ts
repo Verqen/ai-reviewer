@@ -26,6 +26,10 @@ describe("CostBudget", () => {
     expect(budget.isExhausted()).toBe(false);
   });
 
+  it("is exhausted at a zero limit before any spend", () => {
+    expect(new CostBudget(0).isExhausted()).toBe(true);
+  });
+
   it("exposes spent and limit", () => {
     const budget = new CostBudget(2);
     budget.record(0.75);

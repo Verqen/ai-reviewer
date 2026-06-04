@@ -1,0 +1,17 @@
+{
+  "ignorePatterns": ["dist", "*.test.ts", "*.e2e.test.ts"],
+  "ignoreStatic": true,
+  "incremental": false,
+  "logLevel": "info",
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/review/finding-match.ts",
+    "src/pipeline/cost-budget.ts",
+    "src/review/scoring.service.ts",
+    "src/pipeline/prompts/injection-defense.ts"
+  ],
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "tempDirName": "/tmp/.stryker-tmp",
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.stryker.config.ts", "related": false }
+}

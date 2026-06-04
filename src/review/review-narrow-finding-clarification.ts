@@ -2,6 +2,10 @@ import { getReviewLanguage } from "~/config/review-language";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { ChatMessage } from "~/domain/types/llm.types";
 import type { ReviewFinding } from "~/domain/types/review.types";
+import {
+  UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+  wrapUntrusted,
+} from "~/pipeline/prompts/injection-defense";
 
 const THREAD_REPLY_PROMPT_TOKEN_HARD_LIMIT = 6_000;
 const CLARIFICATION_REPLY_MAX_TOKENS = 400;
@@ -28,6 +32,8 @@ async function runNarrowFindingClarification(
     : "";
 
   const systemPrompt = [
+    UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+    "",
     "You answer a developer's follow-up question in a code-review thread.",
     "You have access ONLY to: the original reviewer comment, an optional code excerpt, an optional suggested fix, and the developer's reply.",
     "",
@@ -45,7 +51,7 @@ async function runNarrowFindingClarification(
     excerptBlock,
     suggestionBlock,
     `Developer reply:`,
-    `"${developerNote}"`,
+    wrapUntrusted("developer_message", developerNote),
   ].join("\n");
 
   const messages: ChatMessage[] = [

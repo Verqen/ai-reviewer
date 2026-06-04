@@ -1,6 +1,5 @@
 import type { Octokit } from "@octokit/rest";
 import type { FastifyBaseLogger } from "fastify";
-import { pino } from "pino";
 
 import { GitHubConfig } from "~/config/github.config";
 import { computeReviewRunCostUsd } from "~/config/llm-pricing";
@@ -31,6 +30,7 @@ import {
   createGitHubOctokitFromToken,
   GitHubCodeHost,
 } from "~/infrastructure/code-host/github/github.code-host";
+import { createSilentLogger } from "~/infrastructure/logging/silent-logger";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
 import { OpenRouterClient } from "~/infrastructure/llm/openrouter/openrouter.client";
 import { CostBudget } from "~/pipeline/cost-budget";
@@ -38,11 +38,7 @@ import { AggregationPass } from "~/pipeline/passes/aggregation.pass";
 import { CrossFilePass } from "~/pipeline/passes/cross-file.pass";
 import { FileReviewPass } from "~/pipeline/passes/file-review.pass";
 import { getPrimarySkipReason } from "~/pipeline/passes/skip-filter";
-import {
-  applyTriageFilter,
-  type TriagePassMetadata,
-  TriagePass,
-} from "~/pipeline/passes/triage.pass";
+import { applyTriageFilter, TriagePass } from "~/pipeline/passes/triage.pass";
 import { formatCommentWithSuggestion } from "~/pipeline/prompts/suggestion-formatter";
 import { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 import { parseDiff } from "~/review/diff-parser";
@@ -62,6 +58,12 @@ export interface PriorThreadRef {
   hostDiscussionId: string;
 }
 
+export interface ReviewPathRule {
+  path: string;
+  extraRules?: string | undefined;
+  focus?: string[] | undefined;
+}
+
 export interface GitHubPullRequestReviewOptions {
   owner: string;
   repo: string;
@@ -73,6 +75,7 @@ export interface GitHubPullRequestReviewOptions {
   maxCostUsd?: number | undefined;
   sinceSha?: string | undefined;
   resolverToken?: string | undefined;
+  pathRules?: ReviewPathRule[] | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -179,7 +182,7 @@ function buildOverlay(
 }
 
 function defaultLogger(provided?: FastifyBaseLogger): FastifyBaseLogger {
-  return provided ?? (pino({ level: "warn" }) as unknown as FastifyBaseLogger);
+  return provided ?? createSilentLogger();
 }
 
 function locationKey(path: string, line: number): string {
@@ -400,6 +403,7 @@ export async function reviewGitHubPullRequest(
       severityThreshold: "info",
       modelOverrides: { review: true, triage: true },
       models: { premium: null, review: reviewModel, triage: triageModel },
+      pathRules: options.pathRules ?? [],
     }),
     reviewRunId: "github-pr-review",
     toolCallCache: new Map(),
@@ -411,7 +415,7 @@ export async function reviewGitHubPullRequest(
   const triage = new TriagePass(llm, logger);
   const triageResult = await triage.execute(context, passResults);
   passResults.set("triage", triageResult);
-  const triageMeta = triageResult.metadata as unknown as TriagePassMetadata;
+  const triageMeta = triageResult.metadata;
   context = {
     ...context,
     diffs: applyTriageFilter(context.diffs, triageMeta.trivialKeys),
@@ -485,24 +489,19 @@ export async function reviewGitHubPullRequest(
   if (post) {
     const postMode = options.postMode ?? "inline";
     if (postMode === "inline") {
-      const alreadyPosted = useContentDedup
-        ? new Set<string>()
-        : await existingBotCommentLocations(
-            octokit,
-            owner,
-            repo,
-            pullRequestNumber,
-            githubConfig.envs.GITHUB_BOT_USERNAME,
-          );
+      const alreadyPosted = await existingBotCommentLocations(
+        octokit,
+        owner,
+        repo,
+        pullRequestNumber,
+        githubConfig.envs.GITHUB_BOT_USERNAME,
+      );
       for (const finding of postable) {
         const positionResult = buildPosition(finding, versions, parsedDiffs);
         if (!positionResult) continue;
         const targetLine =
           positionResult.position.newLine ?? finding.lineNumber;
-        if (
-          !useContentDedup &&
-          alreadyPosted.has(locationKey(finding.filePath, targetLine))
-        ) {
+        if (alreadyPosted.has(locationKey(finding.filePath, targetLine))) {
           continue;
         }
         const body = formatCommentWithSuggestion(
@@ -514,14 +513,21 @@ export async function reviewGitHubPullRequest(
           positionResult.position.newLine ?? finding.lineNumber,
           finding.endLineNumber,
         );
-        const posted = await codeHost.postInlineComment(
-          projectId,
-          pullRequestNumber,
-          body,
-          positionResult.position,
-        );
-        postedThreadByFinding.set(finding, posted);
-        postedCount++;
+        try {
+          const posted = await codeHost.postInlineComment(
+            projectId,
+            pullRequestNumber,
+            body,
+            positionResult.position,
+          );
+          postedThreadByFinding.set(finding, posted);
+          postedCount++;
+        } catch (error) {
+          logger.warn(
+            { error, filePath: finding.filePath, line: targetLine },
+            "Failed to post inline comment; skipping (best-effort)",
+          );
+        }
       }
     }
 

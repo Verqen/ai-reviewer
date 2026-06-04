@@ -206,6 +206,10 @@ class ReviewFindingPublisherService {
     const addressedFindingIds: string[] = [];
     for (const candidate of correlated) {
       const { finding, newLineNumber } = candidate;
+      const hostDiscussionId = finding.hostDiscussionId;
+      if (!hostDiscussionId) {
+        continue;
+      }
       this.logger.info(
         { filePath: finding.filePath, findingId: finding.id, newLineNumber },
         "Correlated finding after force-push; reposting at new position",
@@ -259,17 +263,17 @@ class ReviewFindingPublisherService {
         await this.codeHost.replyToDiscussion(
           projectId,
           mrIid,
-          finding.hostDiscussionId!,
+          hostDiscussionId,
           "Moved to new position after force-push.",
         );
         await this.codeHost.resolveDiscussion(
           projectId,
           mrIid,
-          finding.hostDiscussionId!,
+          hostDiscussionId,
         );
       } catch (err) {
         this.logger.warn(
-          { discussionId: finding.hostDiscussionId, err },
+          { discussionId: hostDiscussionId, err },
           "Failed to annotate old discussion after force-push correlation",
         );
       }

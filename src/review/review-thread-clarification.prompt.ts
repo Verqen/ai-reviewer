@@ -1,7 +1,10 @@
 import { getReviewLanguage } from "~/config/review-language";
 import type { MergeRequestInfo } from "~/domain/types/code-host.types";
 import type { ReviewFinding } from "~/domain/types/review.types";
-import { UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION } from "~/pipeline/prompts/injection-defense";
+import {
+  UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
+  wrapUntrusted,
+} from "~/pipeline/prompts/injection-defense";
 import {
   injectPathRules,
   injectProjectRules,
@@ -105,24 +108,30 @@ function buildFindingThreadClarificationUserPrompt(
     priorFindingsSummary && priorFindingsSummary.trim().length > 0
       ? `${priorFindingsSummary}\n`
       : "";
+  const descriptionLine = mrInfo.description
+    ? `Description: ${wrapUntrusted("pr_description", mrInfo.description)}`
+    : "";
+  const threadBlock = threadSection
+    ? wrapUntrusted("thread", threadSection)
+    : "";
   const base = [
-    `MR: ${mrInfo.title}`,
+    `MR: ${wrapUntrusted("pr_title", mrInfo.title)}`,
     `Branch: ${mrInfo.sourceBranch} -> ${mrInfo.targetBranch}`,
-    mrInfo.description ? `Description: ${mrInfo.description}` : "",
+    descriptionLine,
     "",
     archBlock,
     priorBlock,
     "Diff (MR):",
-    diffText,
+    wrapUntrusted("diff", diffText),
     "",
     `Finding location: ${location}`,
     `Original bot comment: "${finding.comment}"`,
     excerptBlock,
     suggestionBlock,
-    threadSection,
+    threadBlock,
     "",
     `Developer's latest message:`,
-    `"${developerNote}"`,
+    wrapUntrusted("developer_message", developerNote),
   ]
     .filter(Boolean)
     .join("\n");

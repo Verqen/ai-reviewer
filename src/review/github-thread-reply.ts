@@ -1,5 +1,4 @@
 import type { FastifyBaseLogger } from "fastify";
-import { pino } from "pino";
 
 import { GitHubConfig } from "~/config/github.config";
 import { computeCostUsd } from "~/config/llm-pricing";
@@ -10,9 +9,9 @@ import {
   createGitHubOctokit,
   GitHubCodeHost,
 } from "~/infrastructure/code-host/github/github.code-host";
+import { createSilentLogger } from "~/infrastructure/logging/silent-logger";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
 import { OpenRouterClient } from "~/infrastructure/llm/openrouter/openrouter.client";
-import { wrapUntrusted } from "~/pipeline/prompts/injection-defense";
 import {
   buildFindingThreadClarificationSystemPrompt,
   buildFindingThreadClarificationUserPrompt,
@@ -49,7 +48,7 @@ export interface AnswerReviewThreadResult {
 }
 
 function defaultLogger(provided?: FastifyBaseLogger): FastifyBaseLogger {
-  return provided ?? (pino({ level: "warn" }) as unknown as FastifyBaseLogger);
+  return provided ?? createSilentLogger();
 }
 
 export async function answerReviewThread(
@@ -92,8 +91,8 @@ export async function answerReviewThread(
     toolsAvailable: false,
   });
   const userPrompt = buildFindingThreadClarificationUserPrompt({
-    developerNote: wrapUntrusted("developer_message", options.developerNote),
-    diffText: wrapUntrusted("diff", fileDiff),
+    developerNote: options.developerNote,
+    diffText: fileDiff,
     finding: {
       category: finding.category ?? "best_practice",
       comment: finding.comment,

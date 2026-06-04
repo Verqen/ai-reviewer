@@ -3,3 +3,7 @@ node_modules
 coverage
 .turbo
 *.log
+pnpm-lock.yaml
+package-lock.json
+reports
+.stryker-tmp

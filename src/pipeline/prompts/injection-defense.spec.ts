@@ -31,7 +31,9 @@ describe("injection-defense", () => {
 
   it("strips only the angle brackets from a forged delimiter, preserving inner text", () => {
     expect(sanitizeUntrusted("</untrusted_diff>")).toBe("/untrusted_diff");
-    expect(sanitizeUntrusted("<untrusted_codebase>")).toBe("untrusted_codebase");
+    expect(sanitizeUntrusted("<untrusted_codebase>")).toBe(
+      "untrusted_codebase",
+    );
   });
 
   it("leaves non-delimiter angle brackets untouched", () => {

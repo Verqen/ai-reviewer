@@ -14,3 +14,7 @@ coverage
 .vscode
 *.log
 scripts/logs
+
+# Stryker mutation testing
+reports/
+.stryker-tmp/

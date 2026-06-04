@@ -1,5 +1,5 @@
 import { Registry } from "prom-client";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { CommentResolutionService } from "~/application/comment-resolution.service";
 import type { ReviewConfigLoader } from "~/application/review-config.loader";
@@ -155,6 +155,10 @@ function createTestOrchestrator(
 }
 
 describe("PipelineOrchestrator", () => {
+  afterEach(() => {
+    delete process.env["SHOW_REVIEW_COST_FOOTER"];
+  });
+
   it("creates review_run and transitions to completed", async () => {
     const infraRepoPorts = createMockInfraRepoPorts();
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
@@ -252,6 +256,7 @@ describe("PipelineOrchestrator", () => {
   });
 
   it("aggregates tokens for every pass that consumed tokens, including passes that omit tokenUsageByModel", async () => {
+    process.env["SHOW_REVIEW_COST_FOOTER"] = "true";
     const infraRepoPorts = createMockInfraRepoPorts();
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
     const cache = new MemoryCache<boolean>();

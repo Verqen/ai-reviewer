@@ -139,6 +139,7 @@ describe("buildSummaryNote", () => {
   it("displays per-model token breakdown in footer", () => {
     const note = buildSummaryNote(
       buildParams({
+        includeCostFooter: true,
         tokenUsageByModel: {
           "review-model": { completionTokens: 200, promptTokens: 800 },
           "triage-model": { completionTokens: 100, promptTokens: 400 },
@@ -213,13 +214,24 @@ describe("buildSummaryNote", () => {
     expect(note).toContain("const key = process.env.API_KEY;");
   });
 
-  it("renders the estimated LLM cost when provided", () => {
-    const note = buildSummaryNote(buildParams({ tokenCostUsd: 0.0123 }));
+  it("renders the estimated LLM cost when the footer is enabled", () => {
+    const note = buildSummaryNote(
+      buildParams({ includeCostFooter: true, tokenCostUsd: 0.0123 }),
+    );
     expect(note).toContain("**Estimated LLM cost:** $0.0123");
   });
 
-  it("omits the cost line when cost is zero", () => {
-    const note = buildSummaryNote(buildParams({ tokenCostUsd: 0 }));
+  it("omits the cost line when cost is zero even with the footer enabled", () => {
+    const note = buildSummaryNote(
+      buildParams({ includeCostFooter: true, tokenCostUsd: 0 }),
+    );
+    expect(note).toContain("Tokens by model");
+    expect(note).not.toContain("Estimated LLM cost");
+  });
+
+  it("hides the token/cost footer by default so users never see spend", () => {
+    const note = buildSummaryNote(buildParams({ tokenCostUsd: 0.0123 }));
+    expect(note).not.toContain("Tokens by model");
     expect(note).not.toContain("Estimated LLM cost");
   });
 });

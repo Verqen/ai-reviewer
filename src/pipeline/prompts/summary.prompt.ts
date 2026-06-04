@@ -7,6 +7,7 @@ interface ModelTokenUsage {
 
 interface SummaryParams {
   allFindings: Finding[];
+  includeCostFooter?: boolean;
   overview: string;
   postableFindings: Finding[];
   suppressedCount: number;
@@ -56,6 +57,7 @@ function buildSeverityTable(findings: Finding[]): string {
 function buildSummaryNote(params: SummaryParams): string {
   const {
     allFindings,
+    includeCostFooter = false,
     overview,
     suppressedCount,
     tokenCostUsd,
@@ -121,23 +123,27 @@ function buildSummaryNote(params: SummaryParams): string {
     );
   }
 
-  const modelLines = Object.entries(tokenUsageByModel)
-    .filter(([, usage]) => usage.promptTokens > 0 || usage.completionTokens > 0)
-    .map(
-      ([modelName, usage]) =>
-        `- \`${modelName}\`: ${usage.promptTokens.toLocaleString("en-US")} in / ${usage.completionTokens.toLocaleString("en-US")} out`,
-    );
-  const tokensSection =
-    modelLines.length > 0
-      ? `**Tokens by model:**\n${modelLines.join("\n")}`
-      : "**Tokens by model:** none";
+  if (includeCostFooter) {
+    const modelLines = Object.entries(tokenUsageByModel)
+      .filter(
+        ([, usage]) => usage.promptTokens > 0 || usage.completionTokens > 0,
+      )
+      .map(
+        ([modelName, usage]) =>
+          `- \`${modelName}\`: ${usage.promptTokens.toLocaleString("en-US")} in / ${usage.completionTokens.toLocaleString("en-US")} out`,
+      );
+    const tokensSection =
+      modelLines.length > 0
+        ? `**Tokens by model:**\n${modelLines.join("\n")}`
+        : "**Tokens by model:** none";
 
-  const costSection =
-    tokenCostUsd !== undefined && tokenCostUsd > 0
-      ? `\n**Estimated LLM cost:** $${tokenCostUsd.toFixed(4)}`
-      : "";
+    const costSection =
+      tokenCostUsd !== undefined && tokenCostUsd > 0
+        ? `\n**Estimated LLM cost:** $${tokenCostUsd.toFixed(4)}`
+        : "";
 
-  parts.push(`---\n${tokensSection}${costSection}`);
+    parts.push(`---\n${tokensSection}${costSection}`);
+  }
 
   return parts.join("\n\n");
 }

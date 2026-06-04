@@ -76,6 +76,7 @@ export interface GitHubPullRequestReviewOptions {
   sinceSha?: string | undefined;
   resolverToken?: string | undefined;
   pathRules?: ReviewPathRule[] | undefined;
+  showCostFooter?: boolean | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -543,9 +544,13 @@ export async function reviewGitHubPullRequest(
           ? "No new issues in the changed files."
           : "No issues found."
         : `${String(allFindings.length)} finding(s); ${String(postedCount)} posted inline.`;
+    const showCostFooter =
+      options.showCostFooter ??
+      process.env["SHOW_REVIEW_COST_FOOTER"] === "true";
     const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})${partialNote}${incrementalNote}\n\n${buildSummaryNote(
       {
         allFindings,
+        includeCostFooter: showCostFooter,
         overview,
         postableFindings: postable,
         suppressedCount,

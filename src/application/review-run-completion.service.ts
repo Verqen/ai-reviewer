@@ -116,6 +116,7 @@ class ReviewRunCompletionService {
     });
     const summaryNote = buildSummaryNote({
       allFindings,
+      includeCostFooter: process.env["SHOW_REVIEW_COST_FOOTER"] === "true",
       overview: overviewText,
       postableFindings,
       suppressedCount,

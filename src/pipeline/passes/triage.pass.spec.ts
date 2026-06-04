@@ -11,7 +11,6 @@ import {
   extractHunks,
   hunkKey,
   TriagePass,
-  type TriagePassMetadata,
 } from "./triage.pass";
 
 const HEADER_A = "@@ -1,3 +1,3 @@";
@@ -162,7 +161,7 @@ describe("TriagePass", () => {
     expect(result.findings).toEqual([]);
     expect(result.tokenUsage).toEqual({ completionTokens: 0, promptTokens: 0 });
     expect(llm.calls.chatCompletion).toHaveLength(0);
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
     expect(meta.trivialKeys.size).toBe(0);
     expect(meta.triageSkipRate).toBe(0);
   });
@@ -203,7 +202,7 @@ describe("TriagePass", () => {
     ];
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(buildContext(diffs), new Map());
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
 
     expect(meta.trivialKeys.has(hunkKey("src/a.ts", HEADER_A))).toBe(true);
     expect(meta.trivialKeys.has(hunkKey("src/a.ts", HEADER_C))).toBe(true);
@@ -233,7 +232,7 @@ describe("TriagePass", () => {
     ];
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(buildContext(diffs), new Map());
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
     const decisionByHeader = new Map(
       meta.decisions.map((decision) => [decision.hunkHeader, decision.verdict]),
     );
@@ -267,7 +266,7 @@ describe("TriagePass", () => {
     ];
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(buildContext(diffs), new Map());
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
     const decisionByHeader = new Map(
       meta.decisions.map((decision) => [decision.hunkHeader, decision.verdict]),
     );
@@ -300,8 +299,8 @@ describe("TriagePass", () => {
     const pass = new TriagePass(llm, createMockLogger());
     const firstResult = await pass.execute(buildContext(diffs), new Map());
     const secondResult = await pass.execute(buildContext(diffs), new Map());
-    const firstMeta = firstResult.metadata as unknown as TriagePassMetadata;
-    const secondMeta = secondResult.metadata as unknown as TriagePassMetadata;
+    const firstMeta = firstResult.metadata;
+    const secondMeta = secondResult.metadata;
 
     expect([...firstMeta.trivialKeys]).toEqual([...secondMeta.trivialKeys]);
     expect(firstMeta.trivialKeys.has(hunkKey("src/a.ts", HEADER_A))).toBe(true);
@@ -321,7 +320,7 @@ describe("TriagePass", () => {
     const diffs = [makeDiff("src/a.ts", [line(HEADER_A, "x")])];
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(buildContext(diffs), new Map());
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
 
     expect(meta.trivialKeys.size).toBe(0);
     expect(meta.triageSkipRate).toBe(0);
@@ -334,7 +333,7 @@ describe("TriagePass", () => {
     const diffs = [makeDiff("src/a.ts", [line(HEADER_A, "x")])];
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(buildContext(diffs), new Map());
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
 
     expect(meta.trivialKeys.size).toBe(0);
     expect(meta.decisions[0]!.verdict).toBe("needs-review");
@@ -349,7 +348,7 @@ describe("TriagePass", () => {
     ];
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(buildContext(diffs), new Map());
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
 
     expect(meta.decisions).toHaveLength(2);
     const byHeader = new Map(meta.decisions.map((d) => [d.hunkHeader, d]));
@@ -368,7 +367,7 @@ describe("TriagePass", () => {
     const diffs = [makeDiff("src/a.ts", [line(HEADER_A, "x")])];
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(buildContext(diffs), new Map());
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
 
     expect(meta.decisions).toHaveLength(1);
     expect(meta.decisions[0]!.verdict).toBe("needs-review");
@@ -407,7 +406,7 @@ describe("TriagePass", () => {
     const result = await pass.execute(buildContext(diffs), new Map());
 
     expect(callCount).toBeGreaterThan(1);
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
     expect(meta.decisions).toHaveLength(200);
   });
 
@@ -439,7 +438,7 @@ describe("TriagePass", () => {
 
     const pass = new TriagePass(llm, createMockLogger());
     const result = await pass.execute(buildContext(diffs), new Map());
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
 
     expect(callCount).toBeGreaterThan(1);
     const decisionMap = new Map(
@@ -479,7 +478,7 @@ describe("TriagePass", () => {
       buildContext([makeDiff("src/a.ts", [line(HEADER_A, "x")])]),
       new Map(),
     );
-    const meta = result.metadata as unknown as TriagePassMetadata;
+    const meta = result.metadata;
     expect(meta.totalEstimatedPromptTokens).toBeGreaterThan(0);
     expect(meta.avgBatchEstimatedTokens).toBeGreaterThan(0);
   });

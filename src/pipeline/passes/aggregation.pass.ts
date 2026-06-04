@@ -111,7 +111,7 @@ function isSeverityAtOrAbove(severity: Severity, threshold: Severity): boolean {
   return SEVERITY_ORDER[severity] >= SEVERITY_ORDER[threshold];
 }
 
-class AggregationPass implements IReviewPass {
+class AggregationPass implements IReviewPass<AggregationResult> {
   readonly name = "aggregation";
 
   constructor(
@@ -123,7 +123,7 @@ class AggregationPass implements IReviewPass {
   async execute(
     context: ReviewContext,
     priorResults: Map<string, PassResult>,
-  ): Promise<PassResult> {
+  ): Promise<PassResult<AggregationResult>> {
     const {
       forcePushCorrelation,
       priorFindingsByFile,
@@ -238,7 +238,7 @@ class AggregationPass implements IReviewPass {
 
     return {
       findings: sortedPostable,
-      metadata: aggregationResult as unknown as Record<string, unknown>,
+      metadata: aggregationResult,
       tokenUsage: { completionTokens: 0, promptTokens: 0 },
     };
   }

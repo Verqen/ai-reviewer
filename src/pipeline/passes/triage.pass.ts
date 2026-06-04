@@ -231,10 +231,6 @@ function applyConservativeCap(
   };
 }
 
-function toPassMetadata(metadata: TriagePassMetadata): Record<string, unknown> {
-  return metadata as unknown as Record<string, unknown>;
-}
-
 function emptyMetadata(): TriagePassMetadata {
   return {
     avgBatchEstimatedTokens: 0,
@@ -248,7 +244,7 @@ function emptyMetadata(): TriagePassMetadata {
   };
 }
 
-class TriagePass implements IReviewPass {
+class TriagePass implements IReviewPass<TriagePassMetadata> {
   readonly name = "triage";
 
   constructor(
@@ -450,12 +446,12 @@ class TriagePass implements IReviewPass {
   async execute(
     context: ReviewContext,
     _priorResults: Map<string, PassResult>,
-  ): Promise<PassResult> {
+  ): Promise<PassResult<TriagePassMetadata>> {
     const hunks = extractHunks(context.diffs);
     if (hunks.length === 0) {
       return {
         findings: [],
-        metadata: toPassMetadata(emptyMetadata()),
+        metadata: emptyMetadata(),
         tokenUsage: { completionTokens: 0, promptTokens: 0 },
       };
     }
@@ -644,7 +640,7 @@ class TriagePass implements IReviewPass {
     const triageModel = context.reviewConfig.models.triage;
     return {
       findings: [],
-      metadata: toPassMetadata({
+      metadata: {
         avgBatchEstimatedTokens,
         decisions,
         parseFailures,
@@ -653,7 +649,7 @@ class TriagePass implements IReviewPass {
         triageSkipRate,
         trivialHunkCount: trivialCount,
         trivialKeys: cappedTrivialKeys,
-      }),
+      },
       tokenUsage: {
         completionTokens: totalCompletionTokens,
         promptTokens: totalPromptTokens,

@@ -152,7 +152,7 @@ function buildCompactMrDiffsSection(diffs: readonly ParsedFileDiff[]): {
   return { anchoredPaths, omittedPaths, section };
 }
 
-class CrossFilePass implements IReviewPass {
+class CrossFilePass implements IReviewPass<Record<string, unknown>> {
   readonly name = "cross-file";
 
   constructor(
@@ -164,7 +164,7 @@ class CrossFilePass implements IReviewPass {
   async execute(
     context: ReviewContext,
     priorResults: Map<string, PassResult>,
-  ): Promise<PassResult> {
+  ): Promise<PassResult<Record<string, unknown>>> {
     const { diffs, mrInfo, reviewConfig } = context;
 
     const fileReviewResult = priorResults.get("file-review");

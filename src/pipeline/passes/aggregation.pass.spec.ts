@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { DismissedPattern } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
-import type {
-  AggregationResult,
-  PassResult,
-  ReviewContext,
-} from "~/domain/types/pipeline.types";
+import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
 import type { Finding } from "~/domain/types/review.types";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
@@ -108,7 +104,7 @@ describe("AggregationPass", () => {
     ]);
 
     const result = await pass.execute(buildContext(), priorResults);
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(2);
   });
 
@@ -148,7 +144,7 @@ describe("AggregationPass", () => {
     ]);
 
     const result = await pass.execute(buildContext(), priorResults);
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(1);
   });
 
@@ -188,7 +184,7 @@ describe("AggregationPass", () => {
     ]);
 
     const result = await pass.execute(buildContext(), priorResults);
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(1);
     expect(agg.allFindings[0]?.severity).toBe("critical");
   });
@@ -241,7 +237,7 @@ describe("AggregationPass", () => {
     ]);
 
     const result = await pass.execute(buildContext(), priorResults);
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.suppressedCount).toBe(1);
     expect(agg.allFindings).toHaveLength(0);
   });
@@ -290,7 +286,7 @@ describe("AggregationPass", () => {
     });
 
     const result = await pass.execute(context, priorResults);
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(2);
     expect(agg.postableFindings).toHaveLength(1);
     expect(agg.postableFindings[0]?.severity).toBe("attention");
@@ -346,7 +342,7 @@ describe("AggregationPass", () => {
     ]);
 
     const result = await pass.execute(buildContext(), priorResults);
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings[0]?.severity).toBe("critical");
     expect(agg.allFindings[1]?.severity).toBe("attention");
     expect(agg.allFindings[2]?.severity).toBe("warning");
@@ -411,7 +407,7 @@ describe("AggregationPass", () => {
       }),
       priorResults,
     );
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
@@ -470,7 +466,7 @@ describe("AggregationPass", () => {
       }),
       priorResults,
     );
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
@@ -535,7 +531,7 @@ describe("AggregationPass", () => {
       }),
       priorResults,
     );
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
@@ -600,7 +596,7 @@ describe("AggregationPass", () => {
       }),
       priorResults,
     );
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
@@ -664,7 +660,7 @@ describe("AggregationPass", () => {
       }),
       priorResults,
     );
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(1);
     expect(agg.postableFindings[0]?.category).toBe("performance");
@@ -720,7 +716,7 @@ describe("AggregationPass", () => {
       }),
       priorResults,
     );
-    const agg = result.metadata as unknown as AggregationResult;
+    const agg = result.metadata;
     expect(agg.allFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });

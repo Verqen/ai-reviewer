@@ -389,7 +389,7 @@ async function main(): Promise<void> {
     phases.push(out.phase);
     if (out.result) {
       passResults.set("triage", out.result);
-      const triageMeta = out.result.metadata as unknown as TriagePassMetadata;
+      const triageMeta = out.result.metadata as TriagePassMetadata;
       const filteredDiffs = applyTriageFilter(
         context.diffs,
         triageMeta.trivialKeys,

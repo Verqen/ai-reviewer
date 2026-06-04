@@ -27,9 +27,9 @@ interface ReviewContext {
   versions: VersionInfo;
 }
 
-interface PassResult {
+interface PassResult<M = unknown> {
   findings: Finding[];
-  metadata: Record<string, unknown>;
+  metadata: M;
   tokenUsage: { completionTokens: number; promptTokens: number };
   tokenUsageByModel?: Record<
     string,
@@ -37,11 +37,11 @@ interface PassResult {
   >;
 }
 
-interface IReviewPass {
+interface IReviewPass<M = unknown> {
   execute(
     context: ReviewContext,
     priorResults: Map<string, PassResult>,
-  ): Promise<PassResult>;
+  ): Promise<PassResult<M>>;
   readonly name: string;
 }
 

@@ -168,7 +168,7 @@ function addUsageToModelTotals(
   });
 }
 
-class FileReviewPass implements IReviewPass {
+class FileReviewPass implements IReviewPass<Record<string, unknown>> {
   readonly name = "file-review";
 
   constructor(
@@ -183,7 +183,7 @@ class FileReviewPass implements IReviewPass {
   async execute(
     context: ReviewContext,
     _priorResults: Map<string, PassResult>,
-  ): Promise<PassResult> {
+  ): Promise<PassResult<Record<string, unknown>>> {
     const { diffs, mrInfo, reviewConfig } = context;
 
     if (diffs.length === 0) {
@@ -668,7 +668,9 @@ class FileReviewPass implements IReviewPass {
       "File review pass completed",
     );
 
-    if (allFilesFailed && diffs.length > 0) {
+    const everyFileSkippedForCostCeiling =
+      fileReviewCounters.filesSkippedCostCeiling === diffs.length;
+    if (allFilesFailed && diffs.length > 0 && !everyFileSkippedForCostCeiling) {
       throw new Error("All file reviews failed");
     }
 

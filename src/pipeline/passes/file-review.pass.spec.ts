@@ -1,12 +1,29 @@
 import { describe, expect, it } from "vitest";
 
+import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
 import type { IDocProvider } from "~/domain/ports/doc-provider.port";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
+import { CostBudget } from "~/pipeline/cost-budget";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
 
 import { FileReviewPass } from "./file-review.pass";
+
+function buildDiff(newPath: string): ReviewContext["diffs"][number] {
+  return {
+    lines: [
+      {
+        content: "const x = 1;",
+        hunkHeader: "@@ -1,1 +1,1 @@",
+        newLine: 1,
+        type: "added",
+      },
+    ],
+    newPath,
+    oldPath: newPath,
+  };
+}
 
 function buildContext(overrides: Partial<ReviewContext> = {}): ReviewContext {
   return {
@@ -113,6 +130,51 @@ describe("FileReviewPass", () => {
     expect(llm.calls.chatCompletion).toHaveLength(1);
     expect(llm.calls.chatCompletion[0]?.[1]?.responseSchema).toBeDefined();
   });
+
+  describe("cost ceiling", () => {
+    it("skips every file and returns an honest empty partial when the ceiling is already reached", async () => {
+      const llm = createTwoPhaseMockLlm(buildFileReviewResponse(1));
+      const pass = new FileReviewPass(llm, createMockLogger());
+      const context = buildContext({
+        costBudget: new CostBudget(0),
+        diffs: [buildDiff("src/a.ts"), buildDiff("src/b.ts")],
+      });
+
+      const result = await pass.execute(context, new Map());
+
+      expect(result.findings).toHaveLength(0);
+      expect(result.metadata["filesSkippedCostCeiling"]).toBe(2);
+      expect(result.metadata["costCeilingHit"]).toBe(true);
+      expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
+    });
+
+    it("finishes the in-flight file but skips the rest once the ceiling is crossed", async () => {
+      const llm = createTwoPhaseMockLlm(
+        buildFileReviewResponse(1, "warning", "src/a.ts"),
+      );
+      const pass = new FileReviewPass(llm, createMockLogger());
+      const context = buildContext({
+        costBudget: new CostBudget(0.000001),
+        diffs: [buildDiff("src/a.ts"), buildDiff("src/b.ts")],
+        reviewConfig: createMockReviewConfig({
+          concurrency: { maxParallelFiles: 1 },
+          models: {
+            premium: "premium-model",
+            review: OPENROUTER_REVIEW_MODEL,
+            triage: "triage-model",
+          },
+          severityThreshold: "info",
+        }),
+      });
+
+      const result = await pass.execute(context, new Map());
+
+      expect(result.findings).toHaveLength(1);
+      expect(result.metadata["filesSkippedCostCeiling"]).toBe(1);
+      expect(result.metadata["costCeilingHit"]).toBe(true);
+    });
+  });
+
   it("moves prose suggestion into comment and clears suggestion", async () => {
     const llm = createTwoPhaseMockLlm(
       JSON.stringify({

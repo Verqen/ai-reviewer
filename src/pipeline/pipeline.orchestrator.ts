@@ -375,7 +375,7 @@ export class PipelineOrchestrator {
     context: ReviewContext,
     result: PassResult,
   ): ReviewContext {
-    const metadata = result.metadata as unknown as Partial<TriagePassMetadata>;
+    const metadata = result.metadata as Partial<TriagePassMetadata>;
     const triageSkipRate = metadata.triageSkipRate ?? 0;
     const trivialHunkCount = metadata.trivialHunkCount ?? 0;
     this.metrics.observeTriageSkipRate(triageSkipRate);

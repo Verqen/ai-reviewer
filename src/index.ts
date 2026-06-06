@@ -9,6 +9,7 @@ import { InjectionTokens } from "~/di/injection-tokens";
 import { cleanupRoute } from "~/routes/cleanup.route";
 import { healthRoute } from "~/routes/health.route";
 import { metricsRoute } from "~/routes/metrics.route";
+import { readinessRoute } from "~/routes/readiness.route";
 import { webhookRoute } from "~/routes/webhook.route";
 
 const appConfig = new AppConfig();
@@ -53,7 +54,8 @@ if (!webhookConfig.envs.WEBHOOK_SECRET) {
 
 const application = new Application(fastify, appConfig, queue);
 
-fastify.register(healthRoute, { db, queue });
+fastify.register(healthRoute);
+fastify.register(readinessRoute, { db, queue });
 
 fastify.register(metricsRoute, { registry: metricsRegistry });
 

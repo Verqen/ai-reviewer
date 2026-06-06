@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.github
+coverage
+reports
+**/*.tsbuildinfo
+.env
+.env.*
+*.pem
+Dockerfile
+.dockerignore

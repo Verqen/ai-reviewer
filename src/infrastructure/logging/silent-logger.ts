@@ -8,7 +8,6 @@ function createSilentLogger(): FastifyBaseLogger {
     fatal: noop,
     info: noop,
     level: "silent",
-    msgPrefix: "",
     silent: noop,
     trace: noop,
     warn: noop,

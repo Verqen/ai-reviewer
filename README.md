@@ -1,12 +1,12 @@
 # @gkosach/core — AI Reviewer
 
-Open-source, self-hostable AI code review pipeline.
+Source-available, self-hostable AI code review pipeline.
 
 Multi-pass review (skip-filter → triage → file-review → cross-file → aggregation), anchor-based grounding so the bot can only post on real diff lines, import-path-existence validation, prompt caching, incremental review across pushes, dismissed-pattern learning, and a webhook + queue server you can run with `docker-compose up`.
 
 ## Status
 
-Pre-1.0. Public source under BSL 1.1 (auto-converts to Apache 2.0 on 2030-05-11). See `LICENSE`.
+Pre-1.0. Source-available under FSL-1.1-ALv2 (auto-converts to Apache 2.0 two years after each version's release). See `LICENSE.md`.
 
 ## Quick start
 
@@ -21,6 +21,19 @@ pnpm dev
 ```
 
 Point your GitLab webhook at `http://your-host:3000/webhook` with `WEBHOOK_SECRET`.
+
+## Production image
+
+A root `Dockerfile` builds a slim multi-stage image (~405MB) running the
+webhook + queue server (`node dist/index.js`) with prod-only dependencies:
+
+```bash
+docker build -t ai-reviewer .
+docker run -p 3000:3000 --env-file .env ai-reviewer
+```
+
+Run `pnpm db:migrate` separately against the database before serving (the
+runtime image carries no toolchain).
 
 ## Supported code hosts
 
@@ -61,8 +74,9 @@ See `CONTRIBUTING.md`.
 
 ## License
 
-Business Source License 1.1, converting to Apache 2.0 on 2030-05-11.
-You may use, modify, and self-host this software in production. You may not
-offer it as a hosted or managed service whose primary value is the
-functionality of this software. For commercial / hosted licensing,
-contact the Licensor (see `LICENSE`).
+Functional Source License 1.1 (FSL-1.1-ALv2), converting to Apache 2.0 two
+years after each version's release. You may use, copy, modify, and self-host
+this software for any Permitted Purpose. You may not make it available to others
+as a Competing Use — a commercial product or service that substitutes for, or
+offers substantially similar functionality to, this software. For commercial /
+hosted licensing, contact the Licensor (see `LICENSE.md`).

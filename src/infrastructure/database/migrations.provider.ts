@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { FileMigrationProvider } from "kysely";
+import { FileMigrationProvider } from "kysely/migration";
 
 function createMigrationsProvider(): FileMigrationProvider {
   const filePath = fileURLToPath(import.meta.url);

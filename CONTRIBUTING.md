@@ -53,8 +53,8 @@ Please include: code host, LLM provider/model, reproducible diff (or a sanitized
 
 ## Security
 
-If you find a security issue, do not open a public issue. Email the maintainer (see LICENSE for contact).
+If you find a security issue, do not open a public issue. Email the maintainer (see `LICENSE.md` for contact).
 
 ## Licensing of contributions
 
-By submitting a contribution you agree it is licensed under the same BSL 1.1 terms (auto-converting to Apache 2.0 on the project's Change Date) as the rest of the work.
+By submitting a contribution you agree it is licensed under the same FSL-1.1-ALv2 terms (auto-converting to Apache 2.0 two years after each version's release) as the rest of the work.

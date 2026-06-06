@@ -22,7 +22,6 @@ function createMockLogger(): FastifyBaseLogger {
     fatal: vi.fn(),
     info: vi.fn(),
     level: "info",
-    msgPrefix: "",
     silent: vi.fn(),
     trace: vi.fn(),
     warn: vi.fn(),

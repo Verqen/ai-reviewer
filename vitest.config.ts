@@ -20,14 +20,10 @@ export default defineConfig({
         resolve: { alias },
         test: {
           hookTimeout: 300_000,
+          fileParallelism: false,
           include: ["src/**/*.test.ts"],
           name: "integration",
           pool: "forks",
-          poolOptions: {
-            forks: {
-              singleFork: true,
-            },
-          },
           testTimeout: 30_000,
         },
       },
@@ -35,14 +31,10 @@ export default defineConfig({
         resolve: { alias },
         test: {
           hookTimeout: 300_000,
+          fileParallelism: false,
           include: ["src/**/*.e2e.test.ts"],
           name: "e2e",
           pool: "forks",
-          poolOptions: {
-            forks: {
-              singleFork: true,
-            },
-          },
           testTimeout: 60_000,
         },
       },

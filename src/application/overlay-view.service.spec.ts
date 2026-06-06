@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 
 import type { OverlayResolutionPathPrefixes } from "~/application/overlay-path-resolution-prefixes";
 import { buildOverlayPathResolutionPrefixes } from "~/application/overlay-path-resolution-prefixes";
@@ -21,20 +21,25 @@ interface OverlayTrackedTestDependencies extends OverlayDependencies {
 function createSnapshotRepo(
   baselineFiles: string[] = ["src/base.ts"],
 ): ISnapshotRepository & {
-  getFileContentMock: ReturnType<typeof vi.fn>;
-  listFilesMock: ReturnType<typeof vi.fn>;
-  listPackageRootsFromSnapshotMock: ReturnType<typeof vi.fn>;
+  getFileContentMock: Mock<ISnapshotRepository["getFileContent"]>;
+  listFilesMock: Mock<ISnapshotRepository["listFiles"]>;
+  listPackageRootsFromSnapshotMock: Mock<
+    ISnapshotRepository["listPackageRootsFromSnapshot"]
+  >;
 } {
-  const getFileContentMock = vi.fn(() => Promise.resolve(null));
-  const listPackageRootsFromSnapshotMock = vi.fn(
-    (_projectId: number, _commitSha: string) =>
-      Promise.resolve({
-        hasTopLevelSrcTree: false,
-        packageRoots: [] as readonly string[],
-        packageRootsUsingSrc: [] as readonly string[],
-      }),
+  const getFileContentMock = vi.fn<ISnapshotRepository["getFileContent"]>(() =>
+    Promise.resolve(null),
   );
-  const listFilesMock = vi.fn(
+  const listPackageRootsFromSnapshotMock = vi.fn<
+    ISnapshotRepository["listPackageRootsFromSnapshot"]
+  >((_projectId: number, _commitSha: string) =>
+    Promise.resolve({
+      hasTopLevelSrcTree: false,
+      packageRoots: [] as readonly string[],
+      packageRootsUsingSrc: [] as readonly string[],
+    }),
+  );
+  const listFilesMock = vi.fn<ISnapshotRepository["listFiles"]>(
     (
       _projectId: number,
       _commitSha: string,
@@ -72,9 +77,9 @@ function createSnapshotRepo(
 }
 
 function createCodeHost(): ICodeHost & {
-  getFileContentMock: ReturnType<typeof vi.fn>;
+  getFileContentMock: Mock<ICodeHost["getFileContent"]>;
 } {
-  const getFileContentMock = vi.fn(() =>
+  const getFileContentMock = vi.fn<ICodeHost["getFileContent"]>(() =>
     Promise.resolve("changed file content"),
   );
   return {
@@ -117,11 +122,15 @@ function createCodeHost(): ICodeHost & {
 function createOverlayDependencies(
   baselineFiles: string[] = ["src/base.ts"],
 ): OverlayTrackedTestDependencies & {
-  codeHost: ICodeHost & { getFileContentMock: ReturnType<typeof vi.fn> };
+  codeHost: ICodeHost & {
+    getFileContentMock: Mock<ICodeHost["getFileContent"]>;
+  };
   snapshotRepo: ISnapshotRepository & {
-    getFileContentMock: ReturnType<typeof vi.fn>;
-    listFilesMock: ReturnType<typeof vi.fn>;
-    listPackageRootsFromSnapshotMock: ReturnType<typeof vi.fn>;
+    getFileContentMock: Mock<ISnapshotRepository["getFileContent"]>;
+    listFilesMock: Mock<ISnapshotRepository["listFiles"]>;
+    listPackageRootsFromSnapshotMock: Mock<
+      ISnapshotRepository["listPackageRootsFromSnapshot"]
+    >;
   };
 } {
   const snapshotRepo = createSnapshotRepo(baselineFiles);

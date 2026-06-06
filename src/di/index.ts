@@ -87,7 +87,7 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
   const metricsRegistry = createMetricsRegistry();
   const pipelineMetrics = new PipelineMetrics(metricsRegistry);
 
-  let context7Config: Context7Config | null = null;
+  let context7Config: Context7Config | null;
   try {
     context7Config = new Context7Config();
   } catch {

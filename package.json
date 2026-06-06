@@ -1,8 +1,8 @@
 {
   "name": "@gkosach/core",
   "version": "0.1.0",
-  "description": "Open-source AI code-review pipeline: anchor-grounded, multi-pass, self-hostable.",
-  "license": "BUSL-1.1",
+  "description": "Source-available AI code-review pipeline: anchor-grounded, multi-pass, self-hostable.",
+  "license": "LicenseRef-FSL-1.1-ALv2",
   "author": "German Kosach",
   "type": "module",
   "exports": {
@@ -19,7 +19,7 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
@@ -55,39 +55,43 @@
   "dependencies": {
     "@octokit/auth-app": "^8.2.0",
     "@octokit/rest": "^22.0.1",
-    "fastify": "5.5.0",
-    "kysely": "0.28.15",
+    "fastify": "5.8.5",
+    "kysely": "0.29.2",
     "minimatch": "10.2.5",
-    "p-queue": "9.1.2",
-    "pg": "8.16.3",
-    "pino": "8.10.0",
+    "p-queue": "9.3.0",
+    "pg": "8.21.0",
+    "pino": "10.3.1",
     "prom-client": "15.1.3",
     "tar-stream": "^3.1.8",
     "typed-inject": "5.0.0",
-    "yaml": "2.8.3",
-    "zod": "4.0.14"
+    "yaml": "2.9.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.32.0",
+    "@eslint/js": "^10.0.1",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
-    "@tsconfig/node24": "24.0.1",
-    "@tsconfig/strictest": "2.0.5",
-    "@types/node": "24.2.1",
-    "@types/pg": "8.16.0",
+    "@tsconfig/node24": "24.0.4",
+    "@tsconfig/strictest": "2.0.8",
+    "@types/node": "24.13.1",
+    "@types/pg": "8.20.0",
     "@types/tar-stream": "^3.1.4",
-    "@vitest/coverage-v8": "3.2.4",
-    "dotenv-cli": "10.0.0",
-    "eslint": "9.32.0",
-    "pino-pretty": "9.2.0",
-    "prettier": "3.6.2",
-    "prettier-plugin-packagejson": "2.5.19",
-    "testcontainers": "10.25.0",
-    "tsc-alias": "1.8.15",
-    "tsx": "4.20.5",
-    "typescript": "5.7.2",
-    "typescript-eslint": "^8.20.0",
-    "vitest": "3.2.4"
+    "@vitest/coverage-v8": "4.1.8",
+    "dotenv-cli": "11.0.0",
+    "eslint": "10.4.1",
+    "pino-pretty": "13.1.3",
+    "prettier": "3.8.3",
+    "prettier-plugin-packagejson": "3.0.2",
+    "testcontainers": "12.0.1",
+    "tsc-alias": "1.8.17",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.60.1",
+    "vitest": "4.1.8"
+  },
+  "packageManager": "pnpm@10.33.1",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "cpu-features", "ssh2", "protobufjs"]
   },
   "engines": {
     "node": ">=24"

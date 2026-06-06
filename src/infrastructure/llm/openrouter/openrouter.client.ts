@@ -110,7 +110,7 @@ function mapToolDefinitions(
 
 function parseToolCalls(raw: OpenRouterToolCall[]): ToolCall[] {
   return raw.map((tc) => {
-    let args: Record<string, unknown> = {};
+    let args: Record<string, unknown>;
 
     try {
       args = JSON.parse(tc.function.arguments) as Record<string, unknown>;

@@ -1,4 +1,4 @@
-import { Migrator } from "kysely";
+import { Migrator } from "kysely/migration";
 import { pino } from "pino";
 
 import { AppConfig } from "~/config/app.config";

@@ -1,4 +1,4 @@
-import { Migrator } from "kysely";
+import { Migrator } from "kysely/migration";
 import type { Kysely } from "kysely";
 import { GenericContainer, Wait } from "testcontainers";
 import type { StartedTestContainer } from "testcontainers";

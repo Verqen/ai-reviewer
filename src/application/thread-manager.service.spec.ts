@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
@@ -32,25 +32,31 @@ function buildMockFinding(
 }
 
 describe("ThreadManagerService", () => {
-  let findByProjectAndMrFn: ReturnType<typeof vi.fn>;
+  let findByProjectAndMrFn: Mock<
+    IReviewFindingRepository["findByProjectAndMr"]
+  >;
   let reviewFindingRepo: IReviewFindingRepository;
   let codeHost: ICodeHost;
   let classifyIntentFn: ReturnType<typeof vi.fn>;
   let learnFromReplyFn: ReturnType<typeof vi.fn>;
-  let respondToFindingThreadClarificationFn: ReturnType<typeof vi.fn>;
+  let respondToFindingThreadClarificationFn: Mock<
+    IReviewService["respondToFindingThreadClarification"]
+  >;
   let reviewLearningService: ReviewLearningService;
   let reviewService: IReviewService;
 
   beforeEach(() => {
     codeHost = createMockCodeHost();
-    findByProjectAndMrFn = vi.fn().mockResolvedValue([buildMockFinding()]);
+    findByProjectAndMrFn = vi
+      .fn<IReviewFindingRepository["findByProjectAndMr"]>()
+      .mockResolvedValue([buildMockFinding()]);
     classifyIntentFn = vi.fn().mockResolvedValue({
       intent: "false_positive",
       reason: "intentional by design",
     });
     learnFromReplyFn = vi.fn().mockResolvedValue(undefined);
     respondToFindingThreadClarificationFn = vi
-      .fn()
+      .fn<IReviewService["respondToFindingThreadClarification"]>()
       .mockResolvedValue("Narrow thread reply");
 
     reviewFindingRepo = {

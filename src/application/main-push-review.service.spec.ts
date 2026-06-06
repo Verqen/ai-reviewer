@@ -1,5 +1,5 @@
 import type { FastifyBaseLogger } from "fastify";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { MainPushReviewService } from "~/application/main-push-review.service";
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
@@ -49,9 +49,13 @@ function makeReviewRun(
 }
 
 function makeRepo(): IReviewRunRepository & {
-  findLatestByProjectAndMrFn: ReturnType<typeof vi.fn>;
+  findLatestByProjectAndMrFn: Mock<
+    IReviewRunRepository["findLatestByProjectAndMr"]
+  >;
 } {
-  const findLatestByProjectAndMrFn = vi.fn().mockResolvedValue(undefined);
+  const findLatestByProjectAndMrFn = vi
+    .fn<IReviewRunRepository["findLatestByProjectAndMr"]>()
+    .mockResolvedValue(undefined);
 
   return {
     completeRun: vi.fn(),

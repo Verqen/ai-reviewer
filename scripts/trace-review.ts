@@ -415,7 +415,7 @@ const rl = createInterface({ input: process.stdin });
 
 rl.on("line", (raw) => {
   if (!raw.trim()) return;
-  let parsed: PinoLine | null = null;
+  let parsed: PinoLine | null;
   try {
     parsed = JSON.parse(raw) as PinoLine;
   } catch {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import type { DismissedPattern } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
@@ -46,18 +46,28 @@ function buildMockDismissedPattern(
 }
 
 describe("ReviewLearningService", () => {
-  let createFn: ReturnType<typeof vi.fn>;
-  let findSimilarFn: ReturnType<typeof vi.fn>;
-  let incrementOccurrenceFn: ReturnType<typeof vi.fn>;
-  let updateResolutionFn: ReturnType<typeof vi.fn>;
+  let createFn: Mock<IDismissedPatternRepository["create"]>;
+  let findSimilarFn: Mock<IDismissedPatternRepository["findSimilar"]>;
+  let incrementOccurrenceFn: Mock<
+    IDismissedPatternRepository["incrementOccurrence"]
+  >;
+  let updateResolutionFn: Mock<IReviewFindingRepository["updateResolution"]>;
   let dismissedPatternRepo: IDismissedPatternRepository;
   let reviewFindingRepo: IReviewFindingRepository;
 
   beforeEach(() => {
-    createFn = vi.fn().mockResolvedValue(buildMockDismissedPattern());
-    findSimilarFn = vi.fn().mockResolvedValue(undefined);
-    incrementOccurrenceFn = vi.fn().mockResolvedValue(undefined);
-    updateResolutionFn = vi.fn().mockResolvedValue(undefined);
+    createFn = vi
+      .fn<IDismissedPatternRepository["create"]>()
+      .mockResolvedValue(buildMockDismissedPattern());
+    findSimilarFn = vi
+      .fn<IDismissedPatternRepository["findSimilar"]>()
+      .mockResolvedValue(undefined);
+    incrementOccurrenceFn = vi
+      .fn<IDismissedPatternRepository["incrementOccurrence"]>()
+      .mockResolvedValue(undefined);
+    updateResolutionFn = vi
+      .fn<IReviewFindingRepository["updateResolution"]>()
+      .mockResolvedValue(undefined);
 
     dismissedPatternRepo = {
       create: createFn,

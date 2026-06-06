@@ -25,7 +25,7 @@ describe("computeProductionReadinessScore", () => {
     expect(result.breakdown.every((b) => b.subscore === 100)).toBe(true);
   });
 
-  it("caps the score at 40 (grade D) for any critical security finding", () => {
+  it("caps the score at 40 (grade D) for a critical security finding", () => {
     const result = computeProductionReadinessScore([
       finding("security", "critical"),
     ]);
@@ -42,12 +42,12 @@ describe("computeProductionReadinessScore", () => {
     expect(["D", "F"]).toContain(result.grade);
   });
 
-  it("does NOT cap for a non-security critical finding (weighting matters)", () => {
+  it("caps the score at 40 (grade D) for a non-security critical finding", () => {
     const result = computeProductionReadinessScore([
       finding("performance", "critical"),
     ]);
-    expect(result.score).toBe(94);
-    expect(result.grade).toBe("A");
+    expect(result.score).toBe(40);
+    expect(result.grade).toBe("D");
   });
 
   it("weights security heavier than performance for the same severity", () => {

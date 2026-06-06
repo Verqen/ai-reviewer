@@ -59,7 +59,7 @@ const DEFAULT_SCORE_CATEGORY: ScoreCategory = "Deployment readiness";
 
 const MAX_SUBSCORE = 100;
 
-const CRITICAL_SECURITY_SCORE_CAP = 40;
+const CRITICAL_SCORE_CAP = 40;
 
 const GRADE_THRESHOLDS: ReadonlyArray<{ grade: Grade; min: number }> = [
   { grade: "A", min: 85 },
@@ -89,7 +89,7 @@ function computeProductionReadinessScore(
 ): ProductionReadinessScore {
   const penaltyByCategory = new Map<ScoreCategory, number>();
   const countByCategory = new Map<ScoreCategory, number>();
-  let hasCriticalSecurity = false;
+  let hasCritical = false;
 
   for (const finding of findings) {
     const category = toScoreCategory(finding.category);
@@ -99,8 +99,8 @@ function computeProductionReadinessScore(
         SEVERITY_PENALTY[finding.severity],
     );
     countByCategory.set(category, (countByCategory.get(category) ?? 0) + 1);
-    if (category === "Security" && finding.severity === "critical") {
-      hasCriticalSecurity = true;
+    if (finding.severity === "critical") {
+      hasCritical = true;
     }
   }
 
@@ -119,8 +119,8 @@ function computeProductionReadinessScore(
     0,
   );
   let score = Math.round(weighted);
-  if (hasCriticalSecurity) {
-    score = Math.min(score, CRITICAL_SECURITY_SCORE_CAP);
+  if (hasCritical) {
+    score = Math.min(score, CRITICAL_SCORE_CAP);
   }
 
   return { breakdown, grade: gradeForScore(score), score };

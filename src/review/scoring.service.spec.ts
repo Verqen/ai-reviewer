@@ -52,12 +52,36 @@ describe("computeProductionReadinessScore", () => {
 
   it("weights security heavier than performance for the same severity", () => {
     const sec = computeProductionReadinessScore([
-      finding("security", "attention"),
+      finding("security", "warning"),
     ]).score;
     const perf = computeProductionReadinessScore([
-      finding("performance", "attention"),
+      finding("performance", "warning"),
     ]).score;
     expect(sec).toBeLessThan(perf);
+  });
+
+  it("caps a single high-severity (attention) finding at grade B", () => {
+    const result = computeProductionReadinessScore([
+      finding("contract", "attention"),
+    ]);
+    expect(result.score).toBeLessThanOrEqual(75);
+    expect(result.grade).toBe("B");
+  });
+
+  it("caps two or more high-severity findings at grade C", () => {
+    const result = computeProductionReadinessScore([
+      finding("contract", "attention"),
+      finding("security", "attention"),
+    ]);
+    expect(result.score).toBeLessThanOrEqual(55);
+    expect(result.grade).toBe("C");
+  });
+
+  it("never grades A when a high-severity finding is present", () => {
+    const result = computeProductionReadinessScore([
+      finding("architecture", "attention"),
+    ]);
+    expect(result.grade).not.toBe("A");
   });
 
   it("routes unmapped categories into Deployment readiness", () => {

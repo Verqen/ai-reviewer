@@ -61,6 +61,12 @@ const MAX_SUBSCORE = 100;
 
 const CRITICAL_SCORE_CAP = 40;
 
+const HIGH_SEVERITY_SCORE_CAP = 75;
+
+const MULTIPLE_HIGH_SEVERITY_SCORE_CAP = 55;
+
+const MULTIPLE_HIGH_SEVERITY_THRESHOLD = 2;
+
 const GRADE_THRESHOLDS: ReadonlyArray<{ grade: Grade; min: number }> = [
   { grade: "A", min: 85 },
   { grade: "B", min: 70 },
@@ -90,6 +96,7 @@ function computeProductionReadinessScore(
   const penaltyByCategory = new Map<ScoreCategory, number>();
   const countByCategory = new Map<ScoreCategory, number>();
   let hasCritical = false;
+  let highSeverityCount = 0;
 
   for (const finding of findings) {
     const category = toScoreCategory(finding.category);
@@ -101,6 +108,9 @@ function computeProductionReadinessScore(
     countByCategory.set(category, (countByCategory.get(category) ?? 0) + 1);
     if (finding.severity === "critical") {
       hasCritical = true;
+    }
+    if (finding.severity === "attention") {
+      highSeverityCount += 1;
     }
   }
 
@@ -121,6 +131,10 @@ function computeProductionReadinessScore(
   let score = Math.round(weighted);
   if (hasCritical) {
     score = Math.min(score, CRITICAL_SCORE_CAP);
+  } else if (highSeverityCount >= MULTIPLE_HIGH_SEVERITY_THRESHOLD) {
+    score = Math.min(score, MULTIPLE_HIGH_SEVERITY_SCORE_CAP);
+  } else if (highSeverityCount >= 1) {
+    score = Math.min(score, HIGH_SEVERITY_SCORE_CAP);
   }
 
   return { breakdown, grade: gradeForScore(score), score };

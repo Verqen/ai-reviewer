@@ -80,7 +80,9 @@ function fileReviewResults(findings: Finding[]): Map<string, PassResult> {
   ]);
 }
 
-function buildPattern(overrides: Partial<DismissedPattern> = {}): DismissedPattern {
+function buildPattern(
+  overrides: Partial<DismissedPattern> = {},
+): DismissedPattern {
   return {
     category: "bug",
     createdAt: new Date(),
@@ -482,7 +484,10 @@ describe("AggregationPass", () => {
 
   it("requires all of the first three pattern keywords to be present before suppressing", async () => {
     const repo = repoWithPatterns([
-      buildPattern({ category: "bug", sampleComment: "alpha beta gamma delta" }),
+      buildPattern({
+        category: "bug",
+        sampleComment: "alpha beta gamma delta",
+      }),
     ]);
     const pass = new AggregationPass(repo, createMockLogger(), 3);
 

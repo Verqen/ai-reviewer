@@ -393,7 +393,12 @@ describe("GitHubCodeHost", () => {
 
     expect(repositories).toEqual([
       { defaultBranch: "main", fullName: "owner/repo", id: 1, isPrivate: true },
-      { defaultBranch: "dev", fullName: "owner/other", id: 2, isPrivate: false },
+      {
+        defaultBranch: "dev",
+        fullName: "owner/other",
+        id: 2,
+        isPrivate: false,
+      },
     ]);
   });
 });

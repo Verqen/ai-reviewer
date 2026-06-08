@@ -93,13 +93,27 @@ interface ArchiveEntry {
   path: string;
 }
 
+interface ReviewCommentLocation {
+  line: number;
+  path: string;
+}
+
+interface InstallationRepositoryInfo {
+  defaultBranch: string;
+  fullName: string;
+  id: number;
+  isPrivate: boolean;
+}
+
 export type {
   ArchiveEntry,
   DiffFile,
   FileTreeEntry,
   InlinePosition,
+  InstallationRepositoryInfo,
   MergeRequestInfo,
   Note,
+  ReviewCommentLocation,
   VersionInfo,
   WebhookEvent,
 };

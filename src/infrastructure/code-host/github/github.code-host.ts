@@ -20,8 +20,10 @@ import type {
   DiffFile,
   FileTreeEntry,
   InlinePosition,
+  InstallationRepositoryInfo,
   MergeRequestInfo,
   Note,
+  ReviewCommentLocation,
   VersionInfo,
 } from "~/domain/types/code-host.types";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
@@ -152,6 +154,38 @@ class GitHubCodeHost implements ICodeHost {
     const { owner, repo } = await this.resolveRepo(projectId);
     const response = await this.octokit.rest.repos.get({ owner, repo });
     return response.data.default_branch;
+  }
+
+  async getRepoId(owner: string, repo: string): Promise<number> {
+    const response = await this.octokit.rest.repos.get({ owner, repo });
+    return response.data.id;
+  }
+
+  async listOwnReviewCommentLocations(
+    projectId: number,
+    mrIid: number,
+  ): Promise<ReviewCommentLocation[]> {
+    const { owner, repo } = await this.resolveRepo(projectId);
+    const comments = await this.octokit.paginate(
+      this.octokit.rest.pulls.listReviewComments,
+      { owner, per_page: 100, pull_number: mrIid, repo },
+    );
+    const wanted = this.botUsername.trim().toLowerCase();
+    const locations: ReviewCommentLocation[] = [];
+    for (const comment of comments) {
+      const login = comment.user?.login?.toLowerCase() ?? "";
+      const isAppBot = comment.user?.type === "Bot" && login.endsWith("[bot]");
+      const isNamed = wanted !== "" && login.startsWith(wanted);
+      if (!isAppBot && !isNamed) {
+        continue;
+      }
+      for (const line of [comment.line, comment.original_line]) {
+        if (line !== null && line !== undefined) {
+          locations.push({ line, path: comment.path });
+        }
+      }
+    }
+    return locations;
   }
 
   async getMergeRequestInfo(
@@ -555,9 +589,25 @@ class GitHubCodeHost implements ICodeHost {
   }
 }
 
+async function listInstallationRepositories(
+  octokit: Octokit,
+): Promise<InstallationRepositoryInfo[]> {
+  const repositories = await octokit.paginate(
+    "GET /installation/repositories",
+    { per_page: 100 },
+  );
+  return repositories.map((repository) => ({
+    defaultBranch: repository.default_branch,
+    fullName: repository.full_name,
+    id: repository.id,
+    isPrivate: repository.private,
+  }));
+}
+
 export {
   createGitHubOctokit,
   createGitHubOctokitFromToken,
   GitHubCodeHost,
   GitHubNotFoundError,
+  listInstallationRepositories,
 };

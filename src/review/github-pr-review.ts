@@ -1,4 +1,3 @@
-import type { Octokit } from "@octokit/rest";
 import type { FastifyBaseLogger } from "fastify";
 
 import { GitHubConfig } from "~/config/github.config";
@@ -29,6 +28,7 @@ import {
   createGitHubOctokit,
   createGitHubOctokitFromToken,
   GitHubCodeHost,
+  listInstallationRepositories,
 } from "~/infrastructure/code-host/github/github.code-host";
 import { createSilentLogger } from "~/infrastructure/logging/silent-logger";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
@@ -247,33 +247,6 @@ function aggregateTokenUsageByModel(
   return totals;
 }
 
-async function existingBotCommentLocations(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  pullRequestNumber: number,
-  botUsername: string,
-): Promise<Set<string>> {
-  const comments = await octokit.paginate(
-    octokit.rest.pulls.listReviewComments,
-    { owner, repo, pull_number: pullRequestNumber, per_page: 100 },
-  );
-  const wanted = botUsername.trim().toLowerCase();
-  const locations = new Set<string>();
-  for (const comment of comments) {
-    const login = comment.user?.login?.toLowerCase() ?? "";
-    const isAppBot = comment.user?.type === "Bot" && login.endsWith("[bot]");
-    const isNamed = wanted !== "" && login.startsWith(wanted);
-    if (!isAppBot && !isNamed) continue;
-    for (const line of [comment.line, comment.original_line]) {
-      if (line !== null && line !== undefined) {
-        locations.add(locationKey(comment.path, line));
-      }
-    }
-  }
-  return locations;
-}
-
 export interface GitHubPullRequestHead {
   repoId: number;
   headSha: string;
@@ -291,12 +264,12 @@ export async function resolveGitHubPullRequestHead(options: {
   const githubConfig = new GitHubConfig();
   const octokit = createGitHubOctokit(githubConfig, options.installationId);
   const codeHost = new GitHubCodeHost(octokit, githubConfig, logger);
-  const repoMeta = await octokit.rest.repos.get({ owner, repo });
+  const repoId = await codeHost.getRepoId(owner, repo);
   const versions = await codeHost.getMergeRequestVersions(
-    repoMeta.data.id,
+    repoId,
     pullRequestNumber,
   );
-  return { repoId: repoMeta.data.id, headSha: versions.headSha };
+  return { headSha: versions.headSha, repoId };
 }
 
 export interface InstallationRepository {
@@ -311,15 +284,12 @@ export async function listGitHubInstallationRepositories(options: {
 }): Promise<InstallationRepository[]> {
   const githubConfig = new GitHubConfig();
   const octokit = createGitHubOctokit(githubConfig, options.installationId);
-  const repositories = await octokit.paginate(
-    "GET /installation/repositories",
-    { per_page: 100 },
-  );
+  const repositories = await listInstallationRepositories(octokit);
   return repositories.map((repository) => ({
+    defaultBranch: repository.defaultBranch,
+    fullName: repository.fullName,
     id: repository.id,
-    fullName: repository.full_name,
-    isPrivate: repository.private,
-    defaultBranch: repository.default_branch,
+    isPrivate: repository.isPrivate,
   }));
 }
 
@@ -334,8 +304,7 @@ export async function reviewGitHubPullRequest(
   const octokit = createGitHubOctokit(githubConfig, options.installationId);
   const codeHost = new GitHubCodeHost(octokit, githubConfig, logger);
 
-  const repoMeta = await octokit.rest.repos.get({ owner, repo });
-  const projectId = repoMeta.data.id;
+  const projectId = await codeHost.getRepoId(owner, repo);
 
   const mrInfo = await codeHost.getMergeRequestInfo(
     projectId,
@@ -490,12 +459,14 @@ export async function reviewGitHubPullRequest(
   if (post) {
     const postMode = options.postMode ?? "inline";
     if (postMode === "inline") {
-      const alreadyPosted = await existingBotCommentLocations(
-        octokit,
-        owner,
-        repo,
+      const ownLocations = await codeHost.listOwnReviewCommentLocations(
+        projectId,
         pullRequestNumber,
-        githubConfig.envs.GITHUB_BOT_USERNAME,
+      );
+      const alreadyPosted = new Set(
+        ownLocations.map((location) =>
+          locationKey(location.path, location.line),
+        ),
       );
       for (const finding of postable) {
         const positionResult = buildPosition(finding, versions, parsedDiffs);

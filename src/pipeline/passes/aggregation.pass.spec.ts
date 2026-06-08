@@ -67,6 +67,45 @@ function buildNoopRepo(): IDismissedPatternRepository {
   };
 }
 
+function fileReviewResults(findings: Finding[]): Map<string, PassResult> {
+  return new Map<string, PassResult>([
+    [
+      "file-review",
+      {
+        findings,
+        metadata: {},
+        tokenUsage: { completionTokens: 0, promptTokens: 0 },
+      },
+    ],
+  ]);
+}
+
+function buildPattern(overrides: Partial<DismissedPattern> = {}): DismissedPattern {
+  return {
+    category: "bug",
+    createdAt: new Date(),
+    id: "pattern-1",
+    occurrenceCount: 3,
+    patternDescription: "pattern",
+    projectId: 1,
+    sampleComment: "",
+    severity: "warning",
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+function repoWithPatterns(
+  patterns: DismissedPattern[],
+): IDismissedPatternRepository {
+  return {
+    create: () => Promise.reject(new Error("not implemented")),
+    findByProject: () => Promise.resolve(patterns),
+    findSimilar: () => Promise.resolve(undefined),
+    incrementOccurrence: () => Promise.resolve(),
+  };
+}
+
 describe("AggregationPass", () => {
   it("merges findings from file-review and cross-file passes", async () => {
     const pass = new AggregationPass(buildNoopRepo(), createMockLogger(), 3);
@@ -347,6 +386,223 @@ describe("AggregationPass", () => {
     expect(agg.allFindings[1]?.severity).toBe("attention");
     expect(agg.allFindings[2]?.severity).toBe("warning");
     expect(agg.allFindings[3]?.severity).toBe("nitpick");
+  });
+
+  it("keeps the first occurrence of an exact duplicate regardless of a later same-line copy's severity", async () => {
+    const pass = new AggregationPass(buildNoopRepo(), createMockLogger(), 3);
+
+    const first = buildFinding({
+      comment: "  Duplicate  Issue  ",
+      filePath: "src/a.ts",
+      lineNumber: 1,
+      severity: "info",
+    });
+    const second = buildFinding({
+      comment: "duplicate issue",
+      filePath: "src/a.ts",
+      lineNumber: 1,
+      severity: "critical",
+    });
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults([first, second]),
+    );
+    const agg = result.metadata;
+    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.allFindings[0]?.severity).toBe("info");
+  });
+
+  it("keeps the higher-severity finding when a lower-severity different comment lands on the same line", async () => {
+    const pass = new AggregationPass(buildNoopRepo(), createMockLogger(), 3);
+
+    const critical = buildFinding({
+      comment: "Critical issue",
+      filePath: "src/a.ts",
+      lineNumber: 1,
+      severity: "critical",
+    });
+    const info = buildFinding({
+      comment: "Minor note",
+      filePath: "src/a.ts",
+      lineNumber: 1,
+      severity: "info",
+    });
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults([critical, info]),
+    );
+    const agg = result.metadata;
+    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.allFindings[0]?.severity).toBe("critical");
+  });
+
+  it("keeps the first finding when an equal-severity different comment lands on the same line", async () => {
+    const pass = new AggregationPass(buildNoopRepo(), createMockLogger(), 3);
+
+    const firstWarning = buildFinding({
+      comment: "First warning",
+      filePath: "src/a.ts",
+      lineNumber: 1,
+      severity: "warning",
+    });
+    const secondWarning = buildFinding({
+      comment: "Second warning",
+      filePath: "src/a.ts",
+      lineNumber: 1,
+      severity: "warning",
+    });
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults([firstWarning, secondWarning]),
+    );
+    const agg = result.metadata;
+    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.allFindings[0]?.comment).toBe("First warning");
+  });
+
+  it("does not suppress a finding when the dismissed pattern targets a different category", async () => {
+    const repo = repoWithPatterns([
+      buildPattern({ category: "style", sampleComment: "" }),
+    ]);
+    const pass = new AggregationPass(repo, createMockLogger(), 3);
+
+    const finding = buildFinding({ category: "bug", comment: "Real bug" });
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults([finding]),
+    );
+    const agg = result.metadata;
+    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.suppressedCount).toBe(0);
+  });
+
+  it("requires all of the first three pattern keywords to be present before suppressing", async () => {
+    const repo = repoWithPatterns([
+      buildPattern({ category: "bug", sampleComment: "alpha beta gamma delta" }),
+    ]);
+    const pass = new AggregationPass(repo, createMockLogger(), 3);
+
+    const matchesFirstThree = buildFinding({
+      category: "bug",
+      comment: "alpha beta gamma here",
+      lineNumber: 1,
+    });
+    const matchesOnlyOne = buildFinding({
+      category: "bug",
+      comment: "alpha only stuff",
+      lineNumber: 2,
+    });
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults([matchesFirstThree, matchesOnlyOne]),
+    );
+    const agg = result.metadata;
+    expect(agg.suppressedCount).toBe(1);
+    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.allFindings[0]?.comment).toBe("alpha only stuff");
+  });
+
+  it("breaks severity ties by file path then line number", async () => {
+    const pass = new AggregationPass(buildNoopRepo(), createMockLogger(), 3);
+
+    const findings = [
+      buildFinding({
+        comment: "b file line 2",
+        filePath: "src/b.ts",
+        lineNumber: 2,
+        severity: "warning",
+      }),
+      buildFinding({
+        comment: "a file line 5",
+        filePath: "src/a.ts",
+        lineNumber: 5,
+        severity: "warning",
+      }),
+      buildFinding({
+        comment: "a file line 2",
+        filePath: "src/a.ts",
+        lineNumber: 2,
+        severity: "warning",
+      }),
+    ];
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults(findings),
+    );
+    const agg = result.metadata;
+    expect(
+      agg.allFindings.map((f) => `${f.filePath}:${String(f.lineNumber)}`),
+    ).toEqual(["src/a.ts:2", "src/a.ts:5", "src/b.ts:2"]);
+  });
+
+  it("does not suppress when the dismissed pattern's file glob excludes the finding's path", async () => {
+    const repo = repoWithPatterns([
+      buildPattern({
+        category: "bug",
+        filePathGlob: "src/other/**",
+        sampleComment: "",
+      }),
+    ]);
+    const pass = new AggregationPass(repo, createMockLogger(), 3);
+
+    const finding = buildFinding({
+      category: "bug",
+      comment: "Real bug",
+      filePath: "src/a.ts",
+    });
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults([finding]),
+    );
+    const agg = result.metadata;
+    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.suppressedCount).toBe(0);
+  });
+
+  it("suppresses a category-only dismissed pattern that has no sample comment", async () => {
+    const repo = repoWithPatterns([
+      buildPattern({ category: "bug", sampleComment: undefined }),
+    ]);
+    const pass = new AggregationPass(repo, createMockLogger(), 3);
+
+    const finding = buildFinding({ category: "bug", comment: "Real bug" });
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults([finding]),
+    );
+    const agg = result.metadata;
+    expect(agg.suppressedCount).toBe(1);
+    expect(agg.allFindings).toHaveLength(0);
+  });
+
+  it("does not suppress a matching pattern whose occurrence count is below the threshold", async () => {
+    const repo = repoWithPatterns([
+      buildPattern({ category: "bug", occurrenceCount: 0, sampleComment: "" }),
+    ]);
+    const pass = new AggregationPass(repo, createMockLogger(), 3);
+
+    const finding = buildFinding({ category: "bug", comment: "Real bug" });
+
+    const result = await pass.execute(
+      buildContext(),
+      fileReviewResults([finding]),
+    );
+    const agg = result.metadata;
+    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.suppressedCount).toBe(0);
+  });
+
+  it("exposes the aggregation pass name", () => {
+    const pass = new AggregationPass(buildNoopRepo(), createMockLogger(), 3);
+    expect(pass.name).toBe("aggregation");
   });
 
   it("does not repost finding already correlated to the same line+category after force-push", async () => {

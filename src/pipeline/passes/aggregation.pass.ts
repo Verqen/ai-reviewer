@@ -8,14 +8,10 @@ import type {
   PassResult,
   ReviewContext,
 } from "~/domain/types/pipeline.types";
-import type {
-  Finding,
-  ReviewFinding,
-  Severity,
-} from "~/domain/types/review.types";
+import type { Finding, Severity } from "~/domain/types/review.types";
 import { matchFilePathGlob } from "~/glob/match-file-path-glob";
 import { escalateVibeCodingSeverity } from "~/pipeline/prompts/vibe-coding-patterns";
-import { findingsMatch } from "~/review/finding-match";
+import { findingsMatch, type MatchableFinding } from "~/review/finding-match";
 
 const SEVERITY_ORDER: Record<Severity, number> = {
   attention: 3,
@@ -26,8 +22,8 @@ const SEVERITY_ORDER: Record<Severity, number> = {
 };
 
 function isFindingDuplicate(
-  left: Finding | ReviewFinding,
-  right: Finding | ReviewFinding,
+  left: MatchableFinding,
+  right: MatchableFinding,
   tolerance: number,
 ): boolean {
   return findingsMatch(left, right, tolerance);

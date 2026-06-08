@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 
 import type { GitHubConfigSchema } from "~/config/github.config";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
-import { GitHubCodeHost } from "~/infrastructure/code-host/github/github.code-host";
+import {
+  GitHubCodeHost,
+  listInstallationRepositories,
+} from "~/infrastructure/code-host/github/github.code-host";
 import { createMockLogger } from "~/test-utils/mock-logger";
 
 interface RouteResponse {
@@ -28,6 +31,7 @@ interface RecordedCall {
 function buildHost(handler: RouteHandler): {
   calls: RecordedCall[];
   host: GitHubCodeHost;
+  octokit: Octokit;
 } {
   const calls: RecordedCall[] = [];
   const fetchImpl = (
@@ -63,12 +67,12 @@ function buildHost(handler: RouteHandler): {
       contentType === "application/json"
         ? JSON.stringify(result.body)
         : String(result.body);
-    return Promise.resolve(
-      new Response(payload, {
-        headers: { "content-type": contentType },
-        status: result.status ?? 200,
-      }),
-    );
+    const response = new Response(payload, {
+      headers: { "content-type": contentType },
+      status: result.status ?? 200,
+    });
+    Object.defineProperty(response, "url", { value: urlString });
+    return Promise.resolve(response);
   };
 
   const octokit = new Octokit({
@@ -82,7 +86,7 @@ function buildHost(handler: RouteHandler): {
     },
   } as IConfig<GitHubConfigSchema>;
   const host = new GitHubCodeHost(octokit, config, createMockLogger());
-  return { calls, host };
+  return { calls, host, octokit };
 }
 
 const repoResponse: RouteResponse = {
@@ -300,5 +304,96 @@ describe("GitHubCodeHost", () => {
     await host.resolveDiscussion(42, 7, "555");
     const graphqlCalls = calls.filter((c) => c.path === "/graphql");
     expect(graphqlCalls).toHaveLength(2);
+  });
+
+  it("resolves a numeric repo id from owner and repo without a directory lookup", async () => {
+    const { calls, host } = buildHost((_method, path) => {
+      if (path === "/repos/owner/repo") return { body: { id: 4242 } };
+      return undefined;
+    });
+
+    const repoId = await host.getRepoId("owner", "repo");
+
+    expect(repoId).toBe(4242);
+    expect(calls.some((c) => c.path === "/repositories/4242")).toBe(false);
+  });
+
+  it("collects only the bot's own review-comment locations, both current and original lines", async () => {
+    const { host } = buildHost((_method, path) => {
+      if (path === "/repositories/42") return repoResponse;
+      if (path === "/repos/owner/repo/pulls/7/comments") {
+        return {
+          body: [
+            {
+              line: 10,
+              original_line: 8,
+              path: "src/a.ts",
+              user: { login: "ai", type: "User" },
+            },
+            {
+              line: 20,
+              original_line: null,
+              path: "src/b.ts",
+              user: { login: "octo[bot]", type: "Bot" },
+            },
+            {
+              line: 30,
+              original_line: 30,
+              path: "src/c.ts",
+              user: { login: "human", type: "User" },
+            },
+            {
+              line: null,
+              original_line: null,
+              path: "src/d.ts",
+              user: { login: "ai", type: "User" },
+            },
+          ],
+        };
+      }
+      return undefined;
+    });
+
+    const locations = await host.listOwnReviewCommentLocations(42, 7);
+
+    expect(locations).toEqual([
+      { line: 10, path: "src/a.ts" },
+      { line: 8, path: "src/a.ts" },
+      { line: 20, path: "src/b.ts" },
+    ]);
+  });
+
+  it("maps installation repositories to their domain info shape", async () => {
+    const { octokit } = buildHost((_method, path) => {
+      if (path === "/installation/repositories") {
+        return {
+          body: {
+            repositories: [
+              {
+                default_branch: "main",
+                full_name: "owner/repo",
+                id: 1,
+                private: true,
+              },
+              {
+                default_branch: "dev",
+                full_name: "owner/other",
+                id: 2,
+                private: false,
+              },
+            ],
+            total_count: 2,
+          },
+        };
+      }
+      return undefined;
+    });
+
+    const repositories = await listInstallationRepositories(octokit);
+
+    expect(repositories).toEqual([
+      { defaultBranch: "main", fullName: "owner/repo", id: 1, isPrivate: true },
+      { defaultBranch: "dev", fullName: "owner/other", id: 2, isPrivate: false },
+    ]);
   });
 });

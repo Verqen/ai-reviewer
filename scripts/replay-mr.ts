@@ -31,6 +31,7 @@
  */
 
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import type { FastifyBaseLogger } from "fastify";
@@ -44,6 +45,7 @@ import type { DiffFile } from "~/domain/types/code-host.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { Severity } from "~/domain/types/review.types";
 import type { ToolCall } from "~/domain/types/llm.types";
+import type { ReviewPipelineConfig } from "~/domain/types/config.types";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
 import type { Finding } from "~/domain/types/review.types";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
@@ -70,6 +72,15 @@ const HEAD_REF = parseString("--head") ?? "HEAD";
 const MAX_FILES = parseNumber("--max-files") ?? 30;
 const SKIP_CROSS_FILE = argv.includes("--no-cross-file");
 const SKIP_TRIAGE = argv.includes("--no-triage");
+const INCLUDE_RE = parseString("--include");
+const includeMatcher = INCLUDE_RE === undefined ? null : new RegExp(INCLUDE_RE);
+const RULES_FILE = parseString("--rules-file");
+const pathRules =
+  RULES_FILE === undefined
+    ? undefined
+    : (JSON.parse(
+        readFileSync(RULES_FILE, "utf8"),
+      ) as ReviewPipelineConfig["pathRules"]);
 
 function parseNumber(name: string): number | undefined {
   const idx = argv.indexOf(name);
@@ -117,6 +128,7 @@ function getDiffFiles(base: string, head: string): DiffFile[] {
     const oldPath = parts[1];
     const newPath = status.startsWith("R") ? parts[2] : oldPath;
     if (oldPath === undefined || newPath === undefined) continue;
+    if (includeMatcher !== null && !includeMatcher.test(newPath)) continue;
     const fileDiff = gitOrEmpty(
       `diff --no-color --no-ext-diff -U3 ${base}...${head} -- "${newPath}"`,
     );
@@ -346,7 +358,7 @@ async function main(): Promise<void> {
   }
 
   process.stderr.write(
-    `[REPLAY] Provider=${llmConfig.envs.LLM_PROVIDER}  review=${reviewModel}  triage=${triageModel}\n\n`,
+    `[REPLAY] Provider=${llmConfig.envs.LLM_PROVIDER}  review=${reviewModel}  triage=${triageModel}  playbookRules=${(pathRules ?? []).length.toString()}\n\n`,
   );
 
   const mrInfo = getMrInfo(BASE_REF, HEAD_REF);
@@ -371,6 +383,7 @@ async function main(): Promise<void> {
     reviewConfig: createMockReviewConfig({
       modelOverrides: { review: true, triage: true },
       models: { premium: null, review: reviewModel, triage: triageModel },
+      ...(pathRules ? { pathRules } : {}),
     }),
     reviewRunId: "replay-run",
     toolCallCache: new Map(),

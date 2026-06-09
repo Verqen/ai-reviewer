@@ -107,6 +107,23 @@ function isSeverityAtOrAbove(severity: Severity, threshold: Severity): boolean {
   return SEVERITY_ORDER[severity] >= SEVERITY_ORDER[threshold];
 }
 
+function capFindings(
+  findings: Finding[],
+  maxPerFile: number,
+  maxPerReview: number,
+): Finding[] {
+  const perFileCount = new Map<string, number>();
+  const capped: Finding[] = [];
+  for (const finding of findings) {
+    if (capped.length >= maxPerReview) break;
+    const used = perFileCount.get(finding.filePath) ?? 0;
+    if (used >= maxPerFile) continue;
+    perFileCount.set(finding.filePath, used + 1);
+    capped.push(finding);
+  }
+  return capped;
+}
+
 class AggregationPass implements IReviewPass<AggregationResult> {
   readonly name = "aggregation";
 
@@ -189,6 +206,9 @@ class AggregationPass implements IReviewPass<AggregationResult> {
       if (!isSeverityAtOrAbove(f.severity, threshold)) {
         return false;
       }
+      if (f.confidence < reviewConfig.inlineMinConfidence) {
+        return false;
+      }
 
       const priorPending = priorFindingsByFile?.pending.get(f.filePath) ?? [];
       if (
@@ -205,7 +225,11 @@ class AggregationPass implements IReviewPass<AggregationResult> {
     });
 
     const sortedAll = sortFindings(allFindings);
-    const sortedPostable = sortFindings(postableFindings);
+    const sortedPostable = capFindings(
+      sortFindings(postableFindings),
+      reviewConfig.maxFindingsPerFile,
+      reviewConfig.maxFindingsPerReview,
+    );
 
     this.logger.info(
       {

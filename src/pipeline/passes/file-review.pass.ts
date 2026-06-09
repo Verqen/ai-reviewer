@@ -13,6 +13,7 @@ import type {
   PassResult,
   ReviewContext,
 } from "~/domain/types/pipeline.types";
+import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { Finding } from "~/domain/types/review.types";
 import { PromptTokenBudgetExceededError } from "~/infrastructure/llm/estimate-prompt-tokens";
 import { shouldApplyCachePrefix } from "~/infrastructure/llm/prompt-cache/assert-cache-prefix";
@@ -70,8 +71,9 @@ const FILE_REVIEW_ANALYSIS_TRIAGE_MAX_TOKENS = 1100;
 const FILE_REVIEW_EXTRACTION_MAX_TOKENS = 1200;
 const FILE_REVIEW_TEMPERATURE = 0.1;
 const MISSING_FILE_CLAIM_REGEX =
-  /(does\s+not\s+exist|not\s+found|missing\s+file|не\s+существ|несуществующ|не\s+найден)/i;
+  /(does\s+not\s+exist|not\s+found|missing\s+file|not\s+imported|neither\s+imported|not\s+declared|reference\s*error|не\s+существ|несуществующ|не\s+найден|не\s+импортир|не\s+объявл)/i;
 const IMPORT_MENTION_REGEX = /(import|импорт)/i;
+const MIN_GROUNDABLE_SNIPPET_LENGTH = 12;
 const VERIFIED_REPO_PATH_MARKER_REGEX =
   /\[\s*verified_repo_path\s*:\s*([^\]\s]+)\s*\]/i;
 
@@ -113,6 +115,23 @@ function shouldGateMissingFileFinding(comment: string): boolean {
   return (
     MISSING_FILE_CLAIM_REGEX.test(comment) && IMPORT_MENTION_REGEX.test(comment)
   );
+}
+
+function normalizeForGrounding(text: string): string {
+  return text.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function isFindingSnippetGrounded(
+  snippet: string | null | undefined,
+  diff: ParsedFileDiff,
+): boolean {
+  if (snippet === null || snippet === undefined) return true;
+  const needle = normalizeForGrounding(snippet);
+  if (needle.length < MIN_GROUNDABLE_SNIPPET_LENGTH) return true;
+  const haystack = normalizeForGrounding(
+    diff.lines.map((line) => line.content).join("\n"),
+  );
+  return haystack.includes(needle);
 }
 
 function applyMissingFileVerificationGate(params: {
@@ -572,6 +591,23 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
                           reviewRunId: context.reviewRunId,
                         },
                         "Dropping off-hunk finding",
+                      );
+                      return false;
+                    })
+                    .filter((item) => {
+                      if (isFindingSnippetGrounded(item.original_snippet, diff)) {
+                        return true;
+                      }
+                      this.logger.warn(
+                        {
+                          filePath: item.file_path,
+                          lineNumber: item.line_number,
+                          mrIid: context.mrIid,
+                          pass: "file-review",
+                          projectId: context.projectId,
+                          reviewRunId: context.reviewRunId,
+                        },
+                        "Dropping finding with ungrounded original_snippet",
                       );
                       return false;
                     })

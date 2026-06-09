@@ -69,7 +69,7 @@ const CODEBASE_TOOLS_MIN_DIFF_LINES = 10;
 const FILE_REVIEW_ANALYSIS_MAX_TOKENS = 2200;
 const FILE_REVIEW_ANALYSIS_TRIAGE_MAX_TOKENS = 1100;
 const FILE_REVIEW_EXTRACTION_MAX_TOKENS = 1200;
-const FILE_REVIEW_TEMPERATURE = 0.1;
+const FILE_REVIEW_TEMPERATURE = 0;
 const MISSING_FILE_CLAIM_REGEX =
   /(does\s+not\s+exist|not\s+found|missing\s+file|not\s+imported|neither\s+imported|not\s+declared|reference\s*error|не\s+существ|несуществующ|не\s+найден|не\s+импортир|не\s+объявл)/i;
 const IMPORT_MENTION_REGEX = /(import|импорт)/i;

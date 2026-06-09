@@ -124,6 +124,56 @@ function capFindings(
   return capped;
 }
 
+function consolidationSignature(finding: Finding): string {
+  const normalized = finding.comment
+    .toLowerCase()
+    .replace(/`[^`]*`/g, "")
+    .replace(/[0-9]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 40);
+  return `${finding.filePath}::${finding.category}::${normalized}`;
+}
+
+function consolidateRecurringFindings(
+  findings: Finding[],
+  minOccurrences: number,
+): Finding[] {
+  const groups = new Map<string, Finding[]>();
+  for (const finding of findings) {
+    const key = consolidationSignature(finding);
+    const group = groups.get(key) ?? [];
+    group.push(finding);
+    groups.set(key, group);
+  }
+  const result: Finding[] = [];
+  for (const group of groups.values()) {
+    if (group.length < minOccurrences) {
+      result.push(...group);
+      continue;
+    }
+    const sorted = [...group].sort(
+      (a, b) =>
+        SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] ||
+        b.confidence - a.confidence,
+    );
+    const representative = sorted[0];
+    if (representative === undefined) {
+      result.push(...group);
+      continue;
+    }
+    const otherLines = sorted
+      .slice(1)
+      .map((finding) => finding.lineNumber)
+      .join(", ");
+    result.push({
+      ...representative,
+      comment: `${representative.comment}\n\nThis pattern recurs at ${String(group.length)} locations in this file (also lines ${otherLines}); address them together.`,
+    });
+  }
+  return result;
+}
+
 class AggregationPass implements IReviewPass<AggregationResult> {
   readonly name = "aggregation";
 
@@ -158,8 +208,11 @@ class AggregationPass implements IReviewPass<AggregationResult> {
       "Aggregation pass starting",
     );
 
-    const combined = escalateVibeCodingSeverity(
-      dedup([...fileReviewFindings, ...crossFileFindings]),
+    const combined = consolidateRecurringFindings(
+      escalateVibeCodingSeverity(
+        dedup([...fileReviewFindings, ...crossFileFindings]),
+      ),
+      reviewConfig.consolidateMinOccurrences,
     );
 
     const dedupedCount = combined.length;

@@ -58,6 +58,7 @@ const ReviewPipelineConfigSchema = z.object({
   inlineMinConfidence: z.number().min(0).max(1).default(0.7),
   maxFindingsPerFile: z.number().int().positive().default(10),
   maxFindingsPerReview: z.number().int().positive().default(25),
+  consolidateMinOccurrences: z.number().int().min(2).default(3),
 });
 
 const ResolvedReviewPipelineConfigSchema = ReviewPipelineConfigSchema.extend({

@@ -55,6 +55,9 @@ const ReviewPipelineConfigSchema = z.object({
     .default([]),
   reReviewCooldownMinutes: z.number().int().nonnegative().default(5),
   rulesSource: z.enum(["REVIEW.md (repo)", "REVIEW.md (local)"]).optional(),
+  inlineMinConfidence: z.number().min(0).max(1).default(0.7),
+  maxFindingsPerFile: z.number().int().positive().default(10),
+  maxFindingsPerReview: z.number().int().positive().default(25),
 });
 
 const ResolvedReviewPipelineConfigSchema = ReviewPipelineConfigSchema.extend({

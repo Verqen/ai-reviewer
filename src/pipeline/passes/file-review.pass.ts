@@ -595,7 +595,9 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
                       return false;
                     })
                     .filter((item) => {
-                      if (isFindingSnippetGrounded(item.original_snippet, diff)) {
+                      if (
+                        isFindingSnippetGrounded(item.original_snippet, diff)
+                      ) {
                         return true;
                       }
                       this.logger.warn(

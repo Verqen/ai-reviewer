@@ -10,7 +10,7 @@ async function up(db: Kysely<unknown>): Promise<void> {
     ALTER TABLE dismissed_pattern ALTER COLUMN category TYPE TEXT USING category::TEXT
   `.execute(db);
 
-  await sql`DROP TYPE IF EXISTS finding_category`.execute(db);
+  await sql`DROP TYPE finding_category`.execute(db);
 }
 
 async function down(db: Kysely<unknown>): Promise<void> {

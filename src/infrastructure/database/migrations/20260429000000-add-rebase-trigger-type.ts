@@ -4,7 +4,7 @@ import { sql } from "kysely";
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     ALTER TYPE trigger_type
-    ADD VALUE IF NOT EXISTS 'rebase' AFTER 'force_push'
+    ADD VALUE 'rebase' AFTER 'force_push'
   `.execute(db);
 }
 

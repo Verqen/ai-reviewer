@@ -146,14 +146,14 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  await sql`DROP TABLE IF EXISTS dismissed_pattern`.execute(db);
-  await sql`DROP TABLE IF EXISTS codebase_index`.execute(db);
-  await sql`DROP TABLE IF EXISTS review_finding`.execute(db);
-  await sql`DROP TABLE IF EXISTS review_run`.execute(db);
-  await sql`DROP TYPE IF EXISTS line_type`.execute(db);
-  await sql`DROP TYPE IF EXISTS trigger_type`.execute(db);
-  await sql`DROP TYPE IF EXISTS comment_resolution`.execute(db);
-  await sql`DROP TYPE IF EXISTS finding_category`.execute(db);
-  await sql`DROP TYPE IF EXISTS severity`.execute(db);
-  await sql`DROP TYPE IF EXISTS review_status`.execute(db);
+  await sql`DROP TABLE dismissed_pattern`.execute(db);
+  await sql`DROP TABLE codebase_index`.execute(db);
+  await sql`DROP TABLE review_finding`.execute(db);
+  await sql`DROP TABLE review_run`.execute(db);
+  await sql`DROP TYPE line_type`.execute(db);
+  await sql`DROP TYPE trigger_type`.execute(db);
+  await sql`DROP TYPE comment_resolution`.execute(db);
+  await sql`DROP TYPE finding_category`.execute(db);
+  await sql`DROP TYPE severity`.execute(db);
+  await sql`DROP TYPE review_status`.execute(db);
 }

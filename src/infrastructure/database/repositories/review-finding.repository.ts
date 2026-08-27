@@ -96,6 +96,7 @@ class ReviewFindingRepository implements IReviewFindingRepository {
           old_path: f.oldPath ?? null,
           original_snippet: f.originalSnippet ?? null,
           pass_name: f.passName,
+          resolution: "pending",
           review_run_id: f.reviewRunId,
           severity: f.severity,
           suggestion: f.suggestion ?? null,

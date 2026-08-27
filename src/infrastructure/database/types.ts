@@ -53,7 +53,7 @@ interface ReviewFindingTable {
   old_path: string | null;
   original_snippet: string | null;
   pass_name: string;
-  resolution: Generated<CommentResolution>;
+  resolution: CommentResolution;
   resolved_at: Date | null;
   resolved_by: string | null;
   review_run_id: string;

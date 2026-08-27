@@ -100,6 +100,8 @@ The runtime image carries no toolchain, so migrations run separately (`pnpm db:m
 | `WORKSPACE_PACKAGE_PREFIXES`    | Comma-separated workspace prefixes to skip in doc-context resolution                                                   |
 | `ARCHITECTURE_SNAPSHOT_ENABLED` | Inject target-repo overview (CLAUDE.md, package.json, src tree) into prompts                                           |
 | `SEVERITY_THRESHOLD`            | Lowest severity that gets posted inline                                                                                |
+| `REVIEW_MAX_COST_USD`           | Hard ceiling on estimated spend for one review run; unset means no ceiling                                             |
+| `CLEANUP_TOKEN`                 | Bearer token for `POST /cleanup`; unset means the endpoint is not registered at all                                    |
 
 Full list: `.env.example`.
 
@@ -117,6 +119,8 @@ Hexagonal, DDD-light. Ports and domain types are defined in `src/domain/`; adapt
 - `src/di/` — composition root; every class declares its dependencies through `typed-inject`
 
 ## Observability
+
+`POST /cleanup` deletes review runs and snapshots older than `CLEANUP_RETENTION_DAYS`. It requires `Authorization: Bearer $CLEANUP_TOKEN`, logs every purge with its counts, and is not registered at all when no token is configured.
 
 `GET /metrics` exposes Prometheus counters for skipped files, triage skip rate, tokens and cost per model and phase, cache hit rate, review duration and run outcomes. `GET /health` is liveness; `GET /readiness` checks the database.
 

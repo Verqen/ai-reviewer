@@ -12,6 +12,7 @@ import type { OpenRouterConfig } from "~/config/openrouter.config";
 import type { PipelineConfig } from "~/config/pipeline.config";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
+import { CostBudget } from "~/domain/cost-budget";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { VersionInfo } from "~/domain/types/code-host.types";
 import {
@@ -159,6 +160,7 @@ class ReviewContextBuilderService {
     }
     const context: ReviewContext = {
       architectureSnapshot,
+      costBudget: new CostBudget(this.pipelineConfig.envs.REVIEW_MAX_COST_USD),
       diffs,
       forcePushCorrelation,
       isIncremental,

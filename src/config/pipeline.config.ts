@@ -143,6 +143,7 @@ const PipelineConfigSchema = z.object({
     .int()
     .positive()
     .default(DEFAULT_RUN_STUCK_AFTER_MS),
+  REVIEW_MAX_COST_USD: z.coerce.number().positive().optional(),
   SEVERITY_THRESHOLD: SeverityEnum.default("info"),
   THREAD_PRIOR_FINDINGS_MAX_CHARS: z.coerce
     .number()

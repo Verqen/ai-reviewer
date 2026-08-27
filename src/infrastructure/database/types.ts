@@ -1,23 +1,13 @@
-import type { Generated, Insertable, Selectable, Updateable } from "kysely";
+import type { Generated, Selectable } from "kysely";
 
-type ReviewStatus = "queued" | "in_progress" | "completed" | "failed";
-
-type Severity = "critical" | "attention" | "warning" | "info" | "nitpick";
-
-type FindingCategory = string;
-
-type CommentResolution = "pending" | "addressed" | "dismissed" | "wont_fix";
-
-type TriggerType =
-  | "mr_open"
-  | "mr_undraft"
-  | "push"
-  | "force_push"
-  | "rebase"
-  | "main_push"
-  | "mention";
-
-type LineType = "added" | "removed" | "context";
+import type {
+  CommentResolution,
+  FindingCategory,
+  LineType,
+  ReviewStatus,
+  Severity,
+  TriggerType,
+} from "~/domain/types/review.types";
 
 interface ReviewRunTable {
   base_commit_sha: string;
@@ -127,33 +117,5 @@ interface Database {
 }
 
 type ReviewRunRow = Selectable<ReviewRunTable>;
-type NewReviewRun = Insertable<ReviewRunTable>;
-type ReviewRunUpdate = Updateable<ReviewRunTable>;
 
-type ReviewFindingRow = Selectable<ReviewFindingTable>;
-type NewReviewFinding = Insertable<ReviewFindingTable>;
-type ReviewFindingUpdate = Updateable<ReviewFindingTable>;
-
-type DismissedPatternRow = Selectable<DismissedPatternTable>;
-type NewDismissedPattern = Insertable<DismissedPatternTable>;
-
-type SnapshotBlobRow = Selectable<SnapshotBlobTable>;
-type SnapshotCommitRow = Selectable<SnapshotCommitTable>;
-type SnapshotEntryRow = Selectable<SnapshotEntryTable>;
-type BaselineStateRow = Selectable<BaselineStateTable>;
-
-export type {
-  BaselineStateRow,
-  Database,
-  DismissedPatternRow,
-  NewDismissedPattern,
-  NewReviewFinding,
-  NewReviewRun,
-  ReviewFindingRow,
-  ReviewFindingUpdate,
-  ReviewRunRow,
-  ReviewRunUpdate,
-  SnapshotBlobRow,
-  SnapshotCommitRow,
-  SnapshotEntryRow,
-};
+export type { Database, ReviewRunRow };

@@ -4,6 +4,7 @@ import type { FastifyBaseLogger } from "fastify";
 
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { ISnapshotRepository } from "~/domain/ports/snapshot.repository.port";
+import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 
 type BaselineReviewWaitLimits = {
   pollMs: number;
@@ -148,7 +149,14 @@ class BaselineService {
         }
 
         newEntries.push({ blobHash: hash, filePath });
-      } catch {
+      } catch (err) {
+        if (!(err instanceof CodeHostNotFoundError)) {
+          this.logger.error(
+            { commitSha, err, filePath, projectId },
+            "Baseline advance aborted: file content unreadable",
+          );
+          throw err;
+        }
         deletedPaths.add(filePath);
       }
     }

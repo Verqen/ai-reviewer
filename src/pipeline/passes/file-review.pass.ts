@@ -5,7 +5,6 @@ import { toJSONSchema, z } from "zod";
 import { computeCostUsd } from "~/config/llm-pricing";
 import { OVERLAY_VIEW_DEFAULTS } from "~/config/pipeline.config";
 import { parseLlmJson } from "~/domain/llm/parse-llm-json";
-import type { IDocProvider } from "~/domain/ports/doc-provider.port";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { ToolDefinition } from "~/domain/types/llm.types";
 import type {
@@ -18,12 +17,6 @@ import type { Finding } from "~/domain/types/review.types";
 import { PromptTokenBudgetExceededError } from "~/infrastructure/llm/estimate-prompt-tokens";
 import { shouldApplyCachePrefix } from "~/infrastructure/llm/prompt-cache/assert-cache-prefix";
 import type { TokenBucket } from "~/infrastructure/rate-limiter/token-bucket";
-import {
-  fetchDocContextForFile,
-  resolveLibrariesFromDiffs,
-} from "~/pipeline/context/doc-context";
-import type { ResolvedLibraries } from "~/pipeline/context/doc-context";
-import { docQueryTool, executeDocTool } from "~/pipeline/context/doc-tool";
 import {
   buildFileReviewAnalysisSystemBlocks,
   buildFileReviewAnalysisUserPrompt,
@@ -60,7 +53,6 @@ const FileReviewResponseSchema = z.object({
 
 const FILE_REVIEW_JSON_SCHEMA = toJSONSchema(FileReviewResponseSchema);
 
-const DEFAULT_DOC_MAX_TOKENS = 2500;
 const MAX_TOOL_ROUNDS = 5;
 const MAX_TOOL_ROUNDS_TRIAGE = 5;
 const BASE_TOOL_ROUNDS = 3;
@@ -193,7 +185,6 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
   constructor(
     private readonly llm: ILlmClient,
     private readonly logger: FastifyBaseLogger,
-    private readonly docProvider?: IDocProvider,
     private readonly rateLimiter?: TokenBucket,
     private readonly promptHardLimit?: number,
     private readonly maxDiffCharacters?: number,
@@ -221,15 +212,6 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
       };
     }
 
-    let resolvedLibraries: ResolvedLibraries | undefined;
-    if (this.docProvider) {
-      resolvedLibraries = await resolveLibrariesFromDiffs(
-        diffs,
-        this.docProvider,
-        this.logger,
-      );
-    }
-
     const concurrency = reviewConfig.concurrency?.maxParallelFiles ?? 8;
     const queue = new PQueue({ concurrency });
 
@@ -250,8 +232,6 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
       filesSkippedBudget: 0,
       filesSkippedCostCeiling: 0,
       filesSucceeded: 0,
-      filesWithDocQueryTool: 0,
-      filesWithEagerDocContext: 0,
       filesWithTools: 0,
     };
 
@@ -294,7 +274,6 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
         );
         const diffText = diffPromptPayload.text;
         const isTriageOnly = diffPromptPayload.isTruncated;
-        const canUseDocTool = Boolean(this.docProvider && !isTriageOnly);
         const modelForRequest = isTriageOnly
           ? reviewConfig.models.triage
           : model;
@@ -323,29 +302,11 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
             )
           : analysisCandidateBlocks;
 
-        let docContext: string | undefined;
-        if (this.docProvider && resolvedLibraries && !canUseDocTool) {
-          const fileDiffContent = diff.lines.map((l) => l.content).join("\n");
-          docContext = await fetchDocContextForFile(
-            fileDiffContent,
-            resolvedLibraries,
-            this.docProvider,
-            this.logger,
-            isTriageOnly
-              ? Math.floor(DEFAULT_DOC_MAX_TOKENS / 2)
-              : DEFAULT_DOC_MAX_TOKENS,
-          );
-          if (docContext) {
-            fileReviewCounters.filesWithEagerDocContext++;
-          }
-        }
-
         const analysisUserPrompt = buildFileReviewAnalysisUserPrompt(
           mrInfo,
           diffText,
           pathRules,
           undefined,
-          docContext || undefined,
         );
         totalUserPromptChars += analysisUserPrompt.length;
 
@@ -365,9 +326,6 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
             id: string;
             name: string;
           }): Promise<string> => {
-            if (call.name === "doc_query" && this.docProvider) {
-              return executeDocTool(call, this.docProvider);
-            }
             if (call.name === "diff_hunk" && context.overlayView) {
               return executeDiffHunkTool({
                 call,
@@ -391,10 +349,6 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
           }
           if (diffHunkEligible) {
             tools.push(diffHunkTool);
-          }
-          if (canUseDocTool) {
-            tools.push(docQueryTool);
-            fileReviewCounters.filesWithDocQueryTool++;
           }
           if (tools.length > 0) {
             fileReviewCounters.filesWithTools++;
@@ -736,8 +690,6 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
           diffs.length > 0 ? totalUserPromptChars / diffs.length : 0,
         costCeilingHit: fileReviewCounters.filesSkippedCostCeiling > 0,
         filesSkippedCostCeiling: fileReviewCounters.filesSkippedCostCeiling,
-        filesWithDocQueryTool: fileReviewCounters.filesWithDocQueryTool,
-        filesWithEagerDocContext: fileReviewCounters.filesWithEagerDocContext,
         filesWithTools: fileReviewCounters.filesWithTools,
         totalRequestedToolRounds,
         totalToolCalls,

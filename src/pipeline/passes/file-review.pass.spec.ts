@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
-import type { IDocProvider } from "~/domain/ports/doc-provider.port";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
 import { CostBudget } from "~/domain/cost-budget";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
@@ -798,96 +797,5 @@ describe("FileReviewPass", () => {
     const result = await pass.execute(buildContext(), new Map());
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.comment).not.toContain("[verified_repo_path:");
-  });
-
-  it("uses doc_query tool and skips eager docs when docs tool is available", async () => {
-    const docProvider: IDocProvider = {
-      queryDocs: () => Promise.resolve("react docs"),
-      resolveLibrary: () =>
-        Promise.resolve({
-          description: "React",
-          id: "react-lib",
-          name: "react",
-          snippetCount: 1,
-        }),
-    };
-    const llm = createTwoPhaseMockLlm(buildFileReviewResponse(1));
-    const pass = new FileReviewPass(llm, createMockLogger(), docProvider);
-    await pass.execute(
-      buildContext({
-        diffs: [
-          {
-            lines: [
-              {
-                content: 'import { useMemo } from "react";',
-                hunkHeader: "@@ -1,1 +1,1 @@",
-                newLine: 1,
-                type: "added",
-              },
-            ],
-            newPath: "src/react-file.ts",
-            oldPath: "src/react-file.ts",
-          },
-        ],
-      }),
-      new Map(),
-    );
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    const tools = firstCall?.[1]?.map((tool) => tool.name) ?? [];
-    const userMessage = firstCall?.[0]?.find(
-      (message) => message.role === "user",
-    );
-    expect(tools).toContain("query_library_docs");
-    expect(userMessage?.content).not.toContain("--- Library Documentation ---");
-  });
-
-  it("falls back to eager docs for triage-only files where doc_query is disabled", async () => {
-    let queryDocsCalls = 0;
-    const docProvider: IDocProvider = {
-      queryDocs: () => {
-        queryDocsCalls += 1;
-        return Promise.resolve("react docs");
-      },
-      resolveLibrary: () =>
-        Promise.resolve({
-          description: "React",
-          id: "react-lib",
-          name: "react",
-          snippetCount: 1,
-        }),
-    };
-    const hugeLines = Array.from({ length: 1200 }, (_, index) => ({
-      content:
-        index === 0
-          ? 'import { useMemo } from "react";'
-          : `const value${index} = ${index};`,
-      hunkHeader: "@@ -1,1200 +1,1200 @@",
-      newLine: index + 1,
-      type: "added" as const,
-    }));
-    const llm = createTwoPhaseMockLlm(
-      buildFileReviewResponse(1, "warning", "src/huge-react.ts"),
-    );
-    const pass = new FileReviewPass(llm, createMockLogger(), docProvider);
-    await pass.execute(
-      buildContext({
-        diffs: [
-          {
-            lines: hugeLines,
-            newPath: "src/huge-react.ts",
-            oldPath: "src/huge-react.ts",
-          },
-        ],
-      }),
-      new Map(),
-    );
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    const tools = firstCall?.[1]?.map((tool) => tool.name) ?? [];
-    const userMessage = firstCall?.[0]?.find(
-      (message) => message.role === "user",
-    );
-    expect(tools).not.toContain("doc_query");
-    expect(userMessage?.content).toContain("--- Library Documentation ---");
-    expect(queryDocsCalls).toBeGreaterThan(0);
   });
 });

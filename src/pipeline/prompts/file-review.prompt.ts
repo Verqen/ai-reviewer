@@ -104,7 +104,6 @@ function buildFileReviewAnalysisUserPrompt(
   diffText: string,
   pathRules: string | null,
   codebaseContext?: string,
-  docContext?: string,
 ): string {
   const parts = [
     `MR title: ${wrapUntrusted("pr_title", mrInfo.title)}`,
@@ -124,13 +123,6 @@ function buildFileReviewAnalysisUserPrompt(
       "",
       "Related codebase context:",
       wrapUntrusted("codebase", codebaseContext),
-    );
-  }
-  if (docContext) {
-    parts.push(
-      "",
-      "Library/API documentation context:",
-      wrapUntrusted("docs", docContext),
     );
   }
   return parts.join("\n");

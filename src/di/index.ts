@@ -3,7 +3,6 @@ import type { Kysely } from "kysely";
 import type { Registry } from "prom-client";
 import { createInjector } from "typed-inject";
 
-import { Context7Config } from "~/config/context7.config";
 import { DatabaseConfig } from "~/config/database.config";
 import { GitHubConfig } from "~/config/github.config";
 import { GitLabConfig } from "~/config/gitlab.config";
@@ -30,8 +29,6 @@ import {
 import { GitLabCodeHost } from "~/infrastructure/code-host/gitlab/gitlab.code-host";
 import { createDatabase } from "~/infrastructure/database/database";
 import type { Database } from "~/infrastructure/database/types";
-import { Context7Provider } from "~/infrastructure/docs/context7/context7.provider";
-import { NoOpDocProvider } from "~/infrastructure/docs/noop-doc-provider";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
 import { OpenRouterClient } from "~/infrastructure/llm/openrouter/openrouter.client";
 import { createMetricsRegistry } from "~/infrastructure/metrics/metrics.registry";
@@ -112,17 +109,10 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
   const metricsRegistry: Registry = createMetricsRegistry();
   const pipelineMetrics = new PipelineMetrics(metricsRegistry);
 
-  const context7Config = new Context7Config();
-
-  const docProvider = context7Config.envs.CONTEXT7_ENABLED
-    ? new Context7Provider(context7Config, fastifyLogger)
-    : new NoOpDocProvider();
-
   const infraInjector = bootstrapInjector
     .provideValue(InjectionTokens.Database, db)
     .provideValue(InjectionTokens.CodeHost, codeHost)
     .provideValue(InjectionTokens.Llm, llm)
-    .provideValue(InjectionTokens.DocProvider, docProvider)
     .provideValue(InjectionTokens.Cache, cache)
     .provideValue(InjectionTokens.RateLimiter, rateLimiter)
     .provideValue(InjectionTokens.MetricsRegistry, metricsRegistry)

@@ -4,7 +4,6 @@ export enum InjectionTokens {
   CodeHost = "CodeHost",
   Database = "Database",
   DatabaseConfig = "DatabaseConfig",
-  DocProvider = "DocProvider",
   InfraRepoPorts = "InfraRepoPorts",
   Llm = "Llm",
   LlmConfig = "LlmConfig",

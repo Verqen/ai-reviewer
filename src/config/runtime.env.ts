@@ -10,7 +10,6 @@ const RuntimeEnvSchema = z.object({
   REVIEW_LANGUAGE: optionalEnv(z.string()),
   RULES_FALLBACK_PATH: optionalEnv(z.string()),
   SHOW_REVIEW_COST_FOOTER: booleanEnv(false),
-  WORKSPACE_PACKAGE_PREFIXES: z.string().default(""),
 });
 
 type RuntimeEnv = z.infer<typeof RuntimeEnvSchema>;

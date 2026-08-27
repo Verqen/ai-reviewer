@@ -20,7 +20,6 @@ import { ReviewTokens } from "~/di/review-tokens";
 import type { ICache } from "~/domain/ports/cache.port";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
-import type { IDocProvider } from "~/domain/ports/doc-provider.port";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { IPipelineMetrics } from "~/domain/ports/pipeline-metrics.port";
 import type { IReviewPass } from "~/domain/types/pipeline.types";
@@ -38,7 +37,6 @@ class ReviewModule {
     InjectionTokens.InfraRepoPorts,
     InjectionTokens.CodeHost,
     InjectionTokens.Llm,
-    InjectionTokens.DocProvider,
     InjectionTokens.Cache,
     InjectionTokens.RateLimiter,
     InjectionTokens.PipelineConfig,
@@ -52,7 +50,6 @@ class ReviewModule {
     infraRepoPorts: ReviewInfraRepoPorts,
     codeHost: ICodeHost,
     llm: ILlmClient,
-    docProvider: IDocProvider,
     cache: ICache<boolean>,
     rateLimiter: TokenBucket,
     pipelineConfig: PipelineConfig,
@@ -83,7 +80,6 @@ class ReviewModule {
           },
           pipelineConfig.envs.LINE_SHIFT_DEDUP_TOLERANCE,
           pipelineConfig.envs.FILE_REVIEW_MAX_DIFF_CHARACTERS,
-          docProvider,
           rateLimiter,
           pipelineMetrics,
         ),
@@ -154,7 +150,6 @@ function buildPasses(
   promptHardLimits: PromptHardLimits,
   lineShiftDedupTolerance: number,
   fileReviewMaxDiffCharacters: number,
-  docProvider?: IDocProvider,
   rateLimiter?: TokenBucket,
   pipelineMetrics?: IPipelineMetrics,
 ): IReviewPass[] {
@@ -163,7 +158,6 @@ function buildPasses(
     new FileReviewPass(
       llm,
       logger,
-      docProvider,
       rateLimiter,
       promptHardLimits.fileReview,
       fileReviewMaxDiffCharacters,

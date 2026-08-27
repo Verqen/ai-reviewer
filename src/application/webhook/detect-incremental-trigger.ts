@@ -54,11 +54,11 @@ async function detectIncrementalTrigger(
       );
       return "force_push";
     }
-    logger.warn(
+    logger.error(
       { err, newHeadSha, previousSha, projectId },
-      "Error checking commit range; treating as force-push",
+      "Commit range check failed; refusing to guess the trigger type",
     );
-    return "force_push";
+    throw err;
   }
 }
 

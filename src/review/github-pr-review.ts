@@ -3,10 +3,6 @@ import type { FastifyBaseLogger } from "fastify";
 import { GitHubConfig } from "~/config/github.config";
 import { computeReviewRunCostUsd } from "~/config/llm-pricing";
 import { LlmConfig } from "~/config/llm.config";
-import {
-  OPENROUTER_REVIEW_MODEL,
-  OPENROUTER_TRIAGE_MODEL,
-} from "~/config/models";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
@@ -446,10 +442,7 @@ export async function reviewGitHubPullRequest(
     { discussionId: string; noteId: string }
   >();
 
-  const models = {
-    review: OPENROUTER_REVIEW_MODEL,
-    triage: OPENROUTER_TRIAGE_MODEL,
-  };
+  const models = { review: reviewModel, triage: triageModel };
   const tokenCostUsd = computeReviewRunCostUsd(passResults, models);
   const tokenUsageByModel = aggregateTokenUsageByModel(passResults, models);
 

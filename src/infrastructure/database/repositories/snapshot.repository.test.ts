@@ -26,6 +26,38 @@ afterAll(async () => {
 });
 
 describe("SnapshotRepository", () => {
+  it("returns non-ASCII file content unchanged", async () => {
+    const content = 'const приветствие = "Привет, мир"; // 🚀 emoji\n';
+    const contentBuffer = Buffer.from(content, "utf-8");
+
+    await repo.storeBlobs([{ content: contentBuffer, hash: "hash-utf8" }]);
+    await repo.storeSnapshot({
+      commitSha: "sha-utf8",
+      entries: [{ blobHash: "hash-utf8", filePath: "src/greeting.ts" }],
+      projectId: 7,
+    });
+
+    const stored = await repo.getFileContent(7, "sha-utf8", "src/greeting.ts");
+
+    expect(stored).toBe(content);
+  });
+
+  it("finds a non-ASCII needle through content search", async () => {
+    const content = 'const приветствие = "Привет, мир";\n';
+    await repo.storeBlobs([
+      { content: Buffer.from(content, "utf-8"), hash: "hash-search" },
+    ]);
+    await repo.storeSnapshot({
+      commitSha: "sha-search",
+      entries: [{ blobHash: "hash-search", filePath: "src/greeting.ts" }],
+      projectId: 7,
+    });
+
+    const matches = await repo.searchContent(7, "sha-search", "Привет");
+
+    expect(matches.map((match) => match.filePath)).toEqual(["src/greeting.ts"]);
+  });
+
   it("deleteOldSnapshotsBefore removes old commits, cascaded entries, and orphan blobs; retains shared blobs", async () => {
     const db = testDb.db;
     await db

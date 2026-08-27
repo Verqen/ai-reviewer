@@ -61,11 +61,17 @@ fastify.register(readinessRoute, { db, queue });
 
 fastify.register(metricsRoute, { registry: metricsRegistry });
 
-fastify.register(cleanupRoute, {
-  appConfig,
-  reviewRunRepo: infraRepoPorts.reviewRunRepo,
-  snapshotRepo: infraRepoPorts.snapshotRepo,
-});
+const cleanupToken = appConfig.envs.CLEANUP_TOKEN;
+if (cleanupToken === undefined) {
+  fastify.log.info("CLEANUP_TOKEN is not set, POST /cleanup is not registered");
+} else {
+  fastify.register(cleanupRoute, {
+    appConfig,
+    cleanupToken,
+    reviewRunRepo: infraRepoPorts.reviewRunRepo,
+    snapshotRepo: infraRepoPorts.snapshotRepo,
+  });
+}
 
 const baselineService = new BaselineService(
   infraRepoPorts.snapshotRepo,

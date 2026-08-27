@@ -6,6 +6,8 @@ import type { ISnapshotRepository } from "~/domain/ports/snapshot.repository.por
 
 import { cleanupRoute } from "./cleanup.route";
 
+const CLEANUP_TOKEN = "a".repeat(32);
+
 function buildMockApp(options: {
   retentionDays: number;
   reviewRunRepo: IReviewRunRepository;
@@ -17,17 +19,34 @@ function buildMockApp(options: {
     appConfig: {
       envs: {
         CLEANUP_RETENTION_DAYS: options.retentionDays,
+        CLEANUP_TOKEN,
         HOST: "0.0.0.0",
         LOG_LEVEL: "info",
         PORT: 3000,
         SHUTDOWN_TIMEOUT_MS: 240_000,
       },
     },
+    cleanupToken: CLEANUP_TOKEN,
     reviewRunRepo: options.reviewRunRepo,
     snapshotRepo: options.snapshotRepo,
   });
 
   return app;
+}
+
+function buildRepos() {
+  const deleteCompletedOrFailedBefore = vi.fn().mockResolvedValue(3);
+  const deleteOldSnapshotsBefore = vi.fn().mockResolvedValue(5);
+  return {
+    deleteCompletedOrFailedBefore,
+    deleteOldSnapshotsBefore,
+    reviewRunRepo: {
+      deleteCompletedOrFailedBefore,
+    } as unknown as IReviewRunRepository,
+    snapshotRepo: {
+      deleteOldSnapshotsBefore,
+    } as unknown as ISnapshotRepository,
+  };
 }
 
 describe("cleanupRoute", () => {
@@ -41,20 +60,13 @@ describe("cleanupRoute", () => {
   });
 
   it("returns 200 with deletion counts and cutoff from retention days", async () => {
-    const deleteCompletedOrFailedBefore = vi.fn().mockResolvedValue(3);
-    const deleteOldSnapshotsBefore = vi.fn().mockResolvedValue(5);
-    const reviewRunRepo = {
-      deleteCompletedOrFailedBefore,
-    } as unknown as IReviewRunRepository;
-    const snapshotRepo = {
-      deleteOldSnapshotsBefore,
-    } as unknown as ISnapshotRepository;
-    const app = buildMockApp({
-      retentionDays: 10,
-      reviewRunRepo,
-      snapshotRepo,
+    const repos = buildRepos();
+    const app = buildMockApp({ retentionDays: 10, ...repos });
+    const response = await app.inject({
+      headers: { authorization: `Bearer ${CLEANUP_TOKEN}` },
+      method: "POST",
+      url: "/cleanup",
     });
-    const response = await app.inject({ method: "POST", url: "/cleanup" });
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body) as {
       cutoff: string;
@@ -64,16 +76,49 @@ describe("cleanupRoute", () => {
     expect(body.deletedReviewRuns).toBe(3);
     expect(body.deletedSnapshots).toBe(5);
     expect(body.cutoff).toBe("2024-06-05T12:00:00.000Z");
-    expect(deleteCompletedOrFailedBefore).toHaveBeenCalledTimes(1);
-    expect(deleteOldSnapshotsBefore).toHaveBeenCalledTimes(1);
-    const firstArg = vi.mocked(deleteCompletedOrFailedBefore).mock
+    expect(repos.deleteCompletedOrFailedBefore).toHaveBeenCalledTimes(1);
+    expect(repos.deleteOldSnapshotsBefore).toHaveBeenCalledTimes(1);
+    const firstArg = vi.mocked(repos.deleteCompletedOrFailedBefore).mock
       .calls[0]?.[0] as Date;
     expect(firstArg).toBeInstanceOf(Date);
     expect(firstArg.getTime()).toBe(
       new Date("2024-06-05T12:00:00.000Z").getTime(),
     );
-    expect(vi.mocked(deleteOldSnapshotsBefore).mock.calls[0]?.[0]).toEqual(
-      firstArg,
-    );
+    expect(
+      vi.mocked(repos.deleteOldSnapshotsBefore).mock.calls[0]?.[0],
+    ).toEqual(firstArg);
+  });
+
+  it("rejects a request without a token and deletes nothing", async () => {
+    const repos = buildRepos();
+    const app = buildMockApp({ retentionDays: 10, ...repos });
+    const response = await app.inject({ method: "POST", url: "/cleanup" });
+    expect(response.statusCode).toBe(401);
+    expect(repos.deleteCompletedOrFailedBefore).not.toHaveBeenCalled();
+    expect(repos.deleteOldSnapshotsBefore).not.toHaveBeenCalled();
+  });
+
+  it("rejects a request with a wrong token", async () => {
+    const repos = buildRepos();
+    const app = buildMockApp({ retentionDays: 10, ...repos });
+    const response = await app.inject({
+      headers: { authorization: `Bearer ${"b".repeat(32)}` },
+      method: "POST",
+      url: "/cleanup",
+    });
+    expect(response.statusCode).toBe(401);
+    expect(repos.deleteCompletedOrFailedBefore).not.toHaveBeenCalled();
+  });
+
+  it("rejects a token sent without the bearer scheme", async () => {
+    const repos = buildRepos();
+    const app = buildMockApp({ retentionDays: 10, ...repos });
+    const response = await app.inject({
+      headers: { authorization: CLEANUP_TOKEN },
+      method: "POST",
+      url: "/cleanup",
+    });
+    expect(response.statusCode).toBe(401);
+    expect(repos.deleteCompletedOrFailedBefore).not.toHaveBeenCalled();
   });
 });

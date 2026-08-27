@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 import type { IConfig } from "~/shared/config";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -22,6 +22,7 @@ import type { ReviewJob } from "~/domain/types/job.types";
 import { parseGitHubWebhook } from "~/infrastructure/code-host/github/github.webhook-adapter";
 import { parseGitLabWebhook } from "~/infrastructure/code-host/gitlab/gitlab.webhook-adapter";
 import type { IReviewService } from "~/review/review.types";
+import { hashValue } from "~/shared/secret-compare";
 
 type CodeHostProvider = "github" | "gitlab";
 
@@ -42,10 +43,6 @@ interface WebhookRouteOptions {
   snapshotRepo: ISnapshotRepository;
   threadManagerService?: ThreadManagerService | undefined;
   webhookConfig: IConfig<WebhookConfigSchema>;
-}
-
-function hashValue(value: string): Buffer {
-  return createHash("sha256").update(value).digest();
 }
 
 function verifySecret(

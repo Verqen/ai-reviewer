@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
 import type { PipelineConfig } from "~/config/pipeline.config";
+import { ReviewRunConflictError } from "~/domain/errors/review-run.errors";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
 import type { VersionInfo } from "~/domain/types/code-host.types";
@@ -86,14 +87,11 @@ class ReviewRunLifecycleService {
         mrIid,
         previousRunId,
         projectId,
+        startedAt: new Date(),
         triggerType,
       });
     } catch (err) {
-      const isUniqueViolation =
-        err instanceof Error &&
-        "code" in err &&
-        (err as { code: string }).code === "23505";
-      if (isUniqueViolation) {
+      if (err instanceof ReviewRunConflictError) {
         this.logger.info(
           { mrIid, projectId },
           "Skipping duplicate review (unique constraint)",
@@ -102,11 +100,6 @@ class ReviewRunLifecycleService {
       }
       throw err;
     }
-    await this.infraRepoPorts.reviewRunRepo.updateStatus(
-      reviewRun.id,
-      "in_progress",
-      new Date(),
-    );
     return { outcome: "started", reviewRun };
   }
 
@@ -133,14 +126,20 @@ class ReviewRunLifecycleService {
       { ageMs, mrIid, projectId, runId: existingRun.id, stuckAfterMs },
       "Reclaiming stuck review run — marking failed before starting new attempt",
     );
-    await this.infraRepoPorts.reviewRunRepo.updateStatus(
+    const reclaimed = await this.infraRepoPorts.reviewRunRepo.failStuckRun(
       existingRun.id,
-      "failed",
-      new Date(),
+      {
+        errorMessage: `reclaimed: stuck in_progress for ${String(ageMs)}ms (threshold ${String(stuckAfterMs)}ms)`,
+        timestamp: new Date(),
+      },
     );
-    await this.infraRepoPorts.reviewRunRepo.updateStats(existingRun.id, {
-      errorMessage: `reclaimed: stuck in_progress for ${String(ageMs)}ms (threshold ${String(stuckAfterMs)}ms)`,
-    });
+    if (!reclaimed) {
+      this.logger.info(
+        { mrIid, projectId, runId: existingRun.id },
+        "Stuck run left in_progress by another worker, skipping",
+      );
+      return { outcome: "skipped", reason: "already_in_progress" };
+    }
     return { outcome: "proceeded" };
   }
 

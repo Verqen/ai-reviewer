@@ -11,6 +11,7 @@ interface CreateReviewRunInput {
   mrIid: number;
   previousRunId?: string | undefined;
   projectId: number;
+  startedAt: Date;
   triggerType: TriggerType;
 }
 
@@ -51,6 +52,10 @@ interface IReviewRunRepository {
     baseCommitSha: string,
     triggerType: TriggerType,
   ): Promise<ReviewRun | undefined>;
+  failStuckRun(
+    id: string,
+    params: { errorMessage: string; timestamp: Date },
+  ): Promise<boolean>;
   findByProjectAndMr(projectId: number, mrIid: number): Promise<ReviewRun[]>;
   findLatestByProjectAndMr(
     projectId: number,

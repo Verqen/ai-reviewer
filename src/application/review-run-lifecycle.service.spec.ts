@@ -3,12 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReviewRunLifecycleService } from "~/application/review-run-lifecycle.service";
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
 import type { PipelineConfig } from "~/config/pipeline.config";
+import { ReviewRunConflictError } from "~/domain/errors/review-run.errors";
 import type { IReviewRunRepository } from "~/domain/ports/review-run.repository.port";
-import type {
-  ReviewRun,
-  ReviewStatus,
-  TriggerType,
-} from "~/domain/types/review.types";
+import type { ReviewRun, TriggerType } from "~/domain/types/review.types";
 import { createMockLogger } from "~/test-utils/mock-logger";
 
 const RUN_STUCK_AFTER_MS = 30 * 60 * 1000;
@@ -21,8 +18,7 @@ const VERSIONS = {
 
 interface RepoCalls {
   createInputs: unknown[];
-  failedRunIds: string[];
-  failedStats: Array<{ errorMessage: string | undefined; id: string }>;
+  failedStuckRuns: Array<{ errorMessage: string; id: string }>;
 }
 
 function buildRun(overrides: Partial<ReviewRun> = {}): ReviewRun {
@@ -43,6 +39,7 @@ function buildRun(overrides: Partial<ReviewRun> = {}): ReviewRun {
 function makeMocks(options: {
   createdRun?: ReviewRun;
   existingRun?: ReviewRun;
+  stuckRunReclaimed?: boolean;
 }): {
   calls: RepoCalls;
   pipelineConfig: PipelineConfig;
@@ -50,15 +47,15 @@ function makeMocks(options: {
 } {
   const calls: RepoCalls = {
     createInputs: [],
-    failedRunIds: [],
-    failedStats: [],
+    failedStuckRuns: [],
   };
   const createdRun: ReviewRun =
     options.createdRun ??
     buildRun({
       id: "new-run-id",
       queuedAt: new Date(),
-      status: "queued",
+      startedAt: new Date(),
+      status: "in_progress",
     });
   const reviewRunRepo: IReviewRunRepository = {
     completeRun: () => Promise.resolve(),
@@ -67,20 +64,16 @@ function makeMocks(options: {
       return Promise.resolve(createdRun);
     },
     deleteCompletedOrFailedBefore: () => Promise.resolve(0),
+    failStuckRun: (id, params) => {
+      calls.failedStuckRuns.push({ errorMessage: params.errorMessage, id });
+      return Promise.resolve(options.stuckRunReclaimed ?? true);
+    },
     findById: () => Promise.resolve(undefined),
     findByIdentity: () => Promise.resolve(options.existingRun),
     findByProjectAndMr: () => Promise.resolve([]),
     findLatestByProjectAndMr: () => Promise.resolve(undefined),
-    updateStats: (id, stats) => {
-      calls.failedStats.push({ errorMessage: stats.errorMessage, id });
-      return Promise.resolve();
-    },
-    updateStatus: (id, status: ReviewStatus) => {
-      if (status === "failed") {
-        calls.failedRunIds.push(id);
-      }
-      return Promise.resolve();
-    },
+    updateStats: () => Promise.resolve(),
+    updateStatus: () => Promise.resolve(),
   };
   const ports = { reviewRunRepo } as unknown as ReviewInfraRepoPorts;
   const pipelineConfig = {
@@ -163,7 +156,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
       reason: "already_in_progress",
     });
     expect(calls.createInputs).toHaveLength(0);
-    expect(calls.failedRunIds).toHaveLength(0);
+    expect(calls.failedStuckRuns).toHaveLength(0);
   });
 
   it("reclaims a stuck in_progress run older than RUN_STUCK_AFTER_MS and starts a new one", async () => {
@@ -187,9 +180,8 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const result = await service.startRun(makeStartParams());
 
     expect(result.outcome).toBe("started");
-    expect(calls.failedRunIds).toEqual(["stuck-run-id"]);
-    expect(calls.failedStats[0]?.id).toBe("stuck-run-id");
-    expect(calls.failedStats[0]?.errorMessage).toMatch(/reclaimed: stuck/);
+    expect(calls.failedStuckRuns[0]?.id).toBe("stuck-run-id");
+    expect(calls.failedStuckRuns[0]?.errorMessage).toMatch(/reclaimed: stuck/);
     expect(calls.createInputs).toHaveLength(1);
   });
 
@@ -213,7 +205,7 @@ describe("ReviewRunLifecycleService.startRun", () => {
     const result = await service.startRun(makeStartParams());
 
     expect(result.outcome).toBe("started");
-    expect(calls.failedRunIds).toHaveLength(1);
+    expect(calls.failedStuckRuns).toHaveLength(1);
   });
 
   it("skips identity pre-check entirely for mention triggers", async () => {
@@ -232,12 +224,37 @@ describe("ReviewRunLifecycleService.startRun", () => {
     expect(calls.createInputs).toHaveLength(1);
   });
 
-  it("returns skipped on Postgres unique violation (23505) during create", async () => {
-    const { pipelineConfig, ports } = makeMocks({});
-    const uniqueErr = Object.assign(new Error("duplicate key"), {
-      code: "23505",
+  it("skips when another worker still holds the stuck run", async () => {
+    const startedAt = new Date("2026-01-01T00:00:00Z");
+    vi.setSystemTime(new Date(startedAt.getTime() + RUN_STUCK_AFTER_MS + 1000));
+
+    const { calls, pipelineConfig, ports } = makeMocks({
+      existingRun: buildRun({
+        id: "stuck-run-id",
+        startedAt,
+        status: "in_progress",
+      }),
+      stuckRunReclaimed: false,
     });
-    ports.reviewRunRepo.create = () => Promise.reject(uniqueErr);
+    const service = new ReviewRunLifecycleService(
+      ports,
+      createMockLogger(),
+      pipelineConfig,
+    );
+
+    const result = await service.startRun(makeStartParams());
+
+    expect(result).toEqual({
+      outcome: "skipped",
+      reason: "already_in_progress",
+    });
+    expect(calls.createInputs).toHaveLength(0);
+  });
+
+  it("returns skipped when the repository reports an identity conflict", async () => {
+    const { pipelineConfig, ports } = makeMocks({});
+    ports.reviewRunRepo.create = () =>
+      Promise.reject(new ReviewRunConflictError());
 
     const service = new ReviewRunLifecycleService(
       ports,

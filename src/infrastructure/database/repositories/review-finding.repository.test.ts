@@ -32,6 +32,7 @@ async function createTestRun(): Promise<ReviewRun> {
     headCommitSha: "head-sha",
     isIncremental: false,
     mrIid: 1,
+    startedAt: new Date(),
     projectId: 1,
     triggerType: "mr_open",
   });

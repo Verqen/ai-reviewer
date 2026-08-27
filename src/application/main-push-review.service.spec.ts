@@ -61,6 +61,7 @@ function makeRepo(): IReviewRunRepository & {
     completeRun: vi.fn(),
     create: vi.fn(),
     deleteCompletedOrFailedBefore: vi.fn().mockResolvedValue(0),
+    failStuckRun: vi.fn().mockResolvedValue(true),
     findById: vi.fn(),
     findByIdentity: vi.fn(),
     findByProjectAndMr: vi.fn(),

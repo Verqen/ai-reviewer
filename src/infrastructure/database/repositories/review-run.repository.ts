@@ -1,6 +1,7 @@
 import type { Kysely } from "kysely";
 
 import { InjectionTokens } from "~/di/injection-tokens";
+import { ReviewRunConflictError } from "~/domain/errors/review-run.errors";
 import type {
   CreateReviewRunInput,
   FindLatestReviewRunOptions,
@@ -12,33 +13,17 @@ import type {
   ReviewStatus,
   TriggerType,
 } from "~/domain/types/review.types";
-import type { Database } from "~/infrastructure/database/types";
+import type { Database, ReviewRunRow } from "~/infrastructure/database/types";
 
-function rowToReviewRun(row: {
-  id: string;
-  project_id: number;
-  mr_iid: number;
-  head_commit_sha: string;
-  base_commit_sha: string;
-  previous_run_id: string | null;
-  status: string;
-  is_incremental: boolean;
-  trigger_type: string;
-  queued_at: Date;
-  started_at: Date | null;
-  completed_at: Date | null;
-  files_reviewed: number | null;
-  total_findings: number | null;
-  critical_count: number | null;
-  warning_count: number | null;
-  prompt_tokens: number | null;
-  completion_tokens: number | null;
-  total_cost: number | null;
-  triage_model: string | null;
-  review_model: string | null;
-  config_snapshot: unknown;
-  error_message: string | null;
-}): ReviewRun {
+function isUniqueViolation(err: unknown): boolean {
+  if (typeof err !== "object" || err === null || !("code" in err)) {
+    return false;
+  }
+  const { code } = err;
+  return code === "23505";
+}
+
+function rowToReviewRun(row: ReviewRunRow): ReviewRun {
   return {
     baseCommitSha: row.base_commit_sha,
     completedAt: row.completed_at ?? undefined,
@@ -60,11 +45,11 @@ function rowToReviewRun(row: {
     queuedAt: row.queued_at,
     reviewModel: row.review_model ?? undefined,
     startedAt: row.started_at ?? undefined,
-    status: row.status as ReviewStatus,
+    status: row.status,
     totalCost: row.total_cost ?? undefined,
     totalFindings: row.total_findings ?? undefined,
     triageModel: row.triage_model ?? undefined,
-    triggerType: row.trigger_type as TriggerType,
+    triggerType: row.trigger_type,
     warningCount: row.warning_count ?? undefined,
   };
 }
@@ -100,22 +85,48 @@ class ReviewRunRepository implements IReviewRunRepository {
   }
 
   async create(input: CreateReviewRunInput): Promise<ReviewRun> {
-    const row = await this.db
-      .insertInto("review_run")
-      .values({
-        base_commit_sha: input.baseCommitSha,
-        head_commit_sha: input.headCommitSha,
-        is_incremental: input.isIncremental,
-        mr_iid: input.mrIid,
-        previous_run_id: input.previousRunId ?? null,
-        project_id: input.projectId,
-        status: "queued",
-        trigger_type: input.triggerType,
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    try {
+      const row = await this.db
+        .insertInto("review_run")
+        .values({
+          base_commit_sha: input.baseCommitSha,
+          head_commit_sha: input.headCommitSha,
+          is_incremental: input.isIncremental,
+          mr_iid: input.mrIid,
+          previous_run_id: input.previousRunId ?? null,
+          project_id: input.projectId,
+          started_at: input.startedAt,
+          status: "in_progress",
+          trigger_type: input.triggerType,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
 
-    return rowToReviewRun(row);
+      return rowToReviewRun(row);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ReviewRunConflictError();
+      }
+      throw err;
+    }
+  }
+
+  async failStuckRun(
+    id: string,
+    params: { errorMessage: string; timestamp: Date },
+  ): Promise<boolean> {
+    const result = await this.db
+      .updateTable("review_run")
+      .set({
+        completed_at: params.timestamp,
+        error_message: params.errorMessage,
+        status: "failed",
+      })
+      .where("id", "=", id)
+      .where("status", "=", "in_progress")
+      .executeTakeFirst();
+
+    return Number(result.numUpdatedRows ?? 0n) > 0;
   }
 
   async findById(id: string): Promise<ReviewRun | undefined> {

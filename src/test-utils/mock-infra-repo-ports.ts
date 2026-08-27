@@ -159,6 +159,13 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         return Promise.resolve(0);
       },
 
+      failStuckRun(
+        _id: string,
+        _params: { errorMessage: string; timestamp: Date },
+      ): Promise<boolean> {
+        return Promise.resolve(true);
+      },
+
       findById(_id: string): Promise<ReviewRun | undefined> {
         return Promise.resolve(undefined);
       },

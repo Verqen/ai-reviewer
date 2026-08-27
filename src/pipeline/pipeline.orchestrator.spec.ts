@@ -184,8 +184,9 @@ describe("PipelineOrchestrator", () => {
     });
 
     expect(infraRepoPorts.calls.createRun).toHaveLength(1);
-    const statusCalls = infraRepoPorts.calls.updateStatus;
-    expect(statusCalls.some(([, s]) => s === "in_progress")).toBe(true);
+    expect(infraRepoPorts.calls.createRun[0]).toMatchObject({
+      startedAt: expect.any(Date) as Date,
+    });
     expect(infraRepoPorts.calls.completeRun).toHaveLength(1);
   });
 

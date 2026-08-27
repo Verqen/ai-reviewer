@@ -27,14 +27,16 @@ const BASE_INPUT = {
   isIncremental: false,
   mrIid: 7,
   projectId: 42,
+  startedAt: new Date("2024-06-15T12:00:00.000Z"),
   triggerType: "mr_open" as const,
 };
 
 describe("ReviewRunRepository", () => {
-  it("creates a run with status queued", async () => {
+  it("creates a run already in progress", async () => {
     const run = await repo.create(BASE_INPUT);
     expect(run.id).toBeDefined();
-    expect(run.status).toBe("queued");
+    expect(run.status).toBe("in_progress");
+    expect(run.startedAt).toEqual(BASE_INPUT.startedAt);
     expect(run.projectId).toBe(42);
     expect(run.mrIid).toBe(7);
   });

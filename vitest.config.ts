@@ -21,6 +21,7 @@ export default defineConfig({
         test: {
           hookTimeout: 300_000,
           fileParallelism: false,
+          exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.e2e.test.ts"],
           include: ["src/**/*.test.ts"],
           name: "integration",
           pool: "forks",

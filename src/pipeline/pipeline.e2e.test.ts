@@ -158,7 +158,12 @@ describe("PipelineOrchestrator E2E (Ollama + fake GitLab + real Postgres)", asyn
   const ollamaAvailable = await isOllamaAvailable();
 
   if (!ollamaAvailable) {
-    it.skip("Ollama not available — skipping E2E tests", () => {});
+    if (process.env["REQUIRE_OLLAMA"] === "true") {
+      throw new Error(
+        `REQUIRE_OLLAMA=true but no Ollama is reachable at ${OLLAMA_URL}`,
+      );
+    }
+    it.skip(`E2E skipped: no Ollama at ${OLLAMA_URL}`, () => {});
     return;
   }
 

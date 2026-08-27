@@ -54,6 +54,7 @@ function buildMockWebhookConfig(secret?: string) {
     envs: {
       WEBHOOK_MAX_QUEUE_SIZE: 150,
       WEBHOOK_SECRET: secret,
+      WEBHOOK_SIGNATURE_REQUIRED: secret !== undefined,
     },
   };
 }

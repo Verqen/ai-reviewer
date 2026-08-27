@@ -101,7 +101,9 @@ class SnapshotRepository implements ISnapshotRepository {
         "snapshot_blob.hash",
         "snapshot_entry.blob_hash",
       )
-      .select(sql<string>`encode(snapshot_blob.content, 'escape')`.as("text"))
+      .select(
+        sql<string>`convert_from(snapshot_blob.content, 'UTF8')`.as("text"),
+      )
       .where("snapshot_entry.project_id", "=", projectId)
       .where("snapshot_entry.commit_sha", "=", commitSha)
       .where("snapshot_entry.file_path", "=", filePath)
@@ -222,12 +224,12 @@ class SnapshotRepository implements ISnapshotRepository {
       )
       .select([
         "snapshot_entry.file_path",
-        sql<string>`encode(snapshot_blob.content, 'escape')`.as("text"),
+        sql<string>`convert_from(snapshot_blob.content, 'UTF8')`.as("text"),
       ])
       .where("snapshot_entry.project_id", "=", projectId)
       .where("snapshot_entry.commit_sha", "=", commitSha)
       .where(
-        sql`encode(snapshot_blob.content, 'escape')`,
+        sql`convert_from(snapshot_blob.content, 'UTF8')`,
         "like",
         `%${pattern}%`,
       );

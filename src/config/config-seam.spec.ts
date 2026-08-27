@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { AppConfig, AppConfigSchema } from "~/config/app.config";
-import { Context7Config, Context7ConfigSchema } from "~/config/context7.config";
 import { DatabaseConfig, DatabaseConfigSchema } from "~/config/database.config";
 import { GitHubConfig, GitHubConfigSchema } from "~/config/github.config";
 import { GitLabConfig, GitLabConfigSchema } from "~/config/gitlab.config";
@@ -37,9 +36,6 @@ describe("config seam", () => {
   it("builds every config from an explicit parsed schema", () => {
     const configs = {
       app: new AppConfig(AppConfigSchema.parse({})).envs,
-      context7: new Context7Config(
-        Context7ConfigSchema.parse({ CONTEXT7_ENABLED: "false" }),
-      ).envs,
       github: new GitHubConfig(
         GitHubConfigSchema.parse({ GITHUB_TOKEN: "seam-token" }),
       ).envs,
@@ -62,7 +58,6 @@ describe("config seam", () => {
       ).envs,
     };
 
-    expect(configs.context7.CONTEXT7_ENABLED).toBe(false);
     expect(configs.github.GITHUB_TOKEN).toBe("seam-token");
     expect(configs.gitlab.GITLAB_API_URL).toBe(SENTINEL_URL);
     expect(configs.llm.LLM_PROVIDER).toBe("ollama");
@@ -88,7 +83,6 @@ describe("config seam", () => {
 
     expect(runtime.CODE_HOST_PROVIDER).toBe("github");
     expect(runtime.SHOW_REVIEW_COST_FOOTER).toBe(true);
-    expect(runtime.WORKSPACE_PACKAGE_PREFIXES).toBe("");
   });
 
   it("resolves the review language from an explicit source", () => {

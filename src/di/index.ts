@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Kysely } from "kysely";
+import type { Registry } from "prom-client";
 import { createInjector } from "typed-inject";
 
 import { Context7Config } from "~/config/context7.config";
@@ -84,7 +85,7 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
   const cache: ICache<boolean> = new MemoryCache<boolean>();
   const queue = new JobQueue<ReviewJob>();
   const rateLimiter = new TokenBucket(60, 1);
-  const metricsRegistry = createMetricsRegistry();
+  const metricsRegistry: Registry = createMetricsRegistry();
   const pipelineMetrics = new PipelineMetrics(metricsRegistry);
 
   let context7Config: Context7Config | null;

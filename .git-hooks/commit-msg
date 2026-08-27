@@ -1,0 +1,67 @@
+#!/bin/sh
+
+set -e
+
+message_file="$1"
+
+if [ -z "$message_file" ] || [ ! -f "$message_file" ]; then
+  echo "commit-msg: no commit message file was passed to the hook" >&2
+  exit 1
+fi
+
+types="chore|ci|docs|feat|fix|refactor|style|test"
+
+usage() {
+  echo "" >&2
+  echo "Required form: a single line, no body." >&2
+  echo "  type(scope): description" >&2
+  echo "  type: description" >&2
+  echo "Allowed types: chore, ci, docs, feat, fix, refactor, style, test" >&2
+  echo "Example: fix(gitlab): treat 404 on getFileContent as missing" >&2
+  echo "" >&2
+  echo "Never add a body, a Co-Authored-By trailer, a 'Generated with' line or an emoji." >&2
+  echo "Commit history is read a year later to find who decided what; a tool signature" >&2
+  echo "answers none of that and pollutes git log --author, stats and changelogs." >&2
+}
+
+reject() {
+  echo "commit-msg: $1" >&2
+  usage
+  exit 1
+}
+
+content=$(grep -v '^#' "$message_file" || true)
+body=$(printf '%s\n' "$content" | grep -v '^[[:space:]]*$' || true)
+
+if [ -z "$body" ]; then
+  reject "the commit message is empty"
+fi
+
+offender=$(printf '%s\n' "$body" | grep -i -m 1 'co-authored-by:' || true)
+if [ -n "$offender" ]; then
+  reject "authorship trailers are not allowed: $offender"
+fi
+
+offender=$(printf '%s\n' "$body" | grep -i -m 1 'generated with' || true)
+if [ -n "$offender" ]; then
+  reject "tool signature lines are not allowed: $offender"
+fi
+
+emoji_bytes=$(printf '\360\237|\342\230|\342\231|\342\232|\342\234|\342\235|\342\236|\342\255|\357\270\217')
+offender=$(printf '%s\n' "$body" | LC_ALL=C grep -E -m 1 "$emoji_bytes" || true)
+if [ -n "$offender" ]; then
+  reject "emoji are not allowed: $offender"
+fi
+
+line_count=$(printf '%s\n' "$body" | grep -c '')
+if [ "$line_count" -gt 1 ]; then
+  extra=$(printf '%s\n' "$body" | sed -n '2p')
+  reject "the message must be a single line, found $line_count: $extra"
+fi
+
+subject=$(printf '%s\n' "$body" | head -n 1)
+if ! printf '%s\n' "$subject" | grep -E -q "^($types)(\([a-z0-9._/-]+\))?: .+$"; then
+  reject "the subject does not match type(scope): description -- $subject"
+fi
+
+exit 0

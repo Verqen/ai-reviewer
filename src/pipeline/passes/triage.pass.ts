@@ -23,8 +23,8 @@ import {
 } from "~/pipeline/prompts/triage.prompt";
 
 const TRIAGE_BATCH_PROMPT_TOKEN_BUDGET = 6000;
-const TRIAGE_MAX_TOKENS_PER_HUNK = 12;
-const TRIAGE_MIN_MAX_TOKENS = 200;
+const TRIAGE_MAX_TOKENS_PER_HUNK = 25;
+const TRIAGE_MIN_MAX_TOKENS = 800;
 const TRIAGE_MAX_TRIVIAL_SHARE = 0.4;
 
 const TriageResponseSchema = z.object({

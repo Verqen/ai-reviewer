@@ -1,32 +1,3 @@
-/**
- * One-shot DB snapshot for ai-reviewer review runs.
- *
- * Connects to the same Postgres the service uses (DATABASE_URL or
- * DATABASE_URL_PROD env), pulls last N runs (optionally filtered by mrIid /
- * projectId / triggerType) and prints a readable breakdown:
- *   - per-run: trigger_type, prompt/completion tokens, cost, models, status,
- *     duration, findings counts
- *   - per-pass findings (model breakdown from review_finding table)
- *   - aggregate: totals + average cost per run
- *
- * Examples:
- *   pnpm --filter ai-reviewer db:snapshot --mr 22 --project 76914544
- *   pnpm --filter ai-reviewer db:snapshot --limit 10
- *   pnpm --filter ai-reviewer db:snapshot --trigger main_push --limit 5
- *   DATABASE_URL=postgresql://... pnpm --filter ai-reviewer db:snapshot
- *
- * Flags:
- *   --mr <iid>          filter by merge_request iid
- *   --project <id>      filter by project_id
- *   --trigger <type>    filter by trigger_type (mr_open|push|force_push|main_push|mention|mr_undraft)
- *   --limit <n>         max runs to show (default 5)
- *   --no-color          disable ANSI colors
- *
- * Required env (one of):
- *   DATABASE_URL_PROD   production DSN (preferred — won't conflict with local DB)
- *   DATABASE_URL        fallback DSN (your local dev DB)
- */
-
 import pg from "pg";
 
 const argv = process.argv.slice(2);

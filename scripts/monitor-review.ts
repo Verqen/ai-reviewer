@@ -1,33 +1,3 @@
-/**
- * Live monitor for ai-reviewer pipeline runs.
- *
- * Reads pino JSON from stdin, prints a focused breakdown of one or more review
- * runs in real time (per-pass tokens, LLM calls, GitLab API calls, skips,
- * cooldowns). Saves the raw stream to JSONL for later forensics.
- *
- * Examples:
- *   # 1. Stream live logs from a Kubernetes pod, filter by mrIid:
- *   kubectl logs -f deployment/ai-reviewer -n <ns> \
- *     | pnpm --filter ai-reviewer monitor --mr 22
- *
- *   # 2. Stream live logs and watch every run:
- *   kubectl logs -f deployment/ai-reviewer -n <ns> \
- *     | pnpm --filter ai-reviewer monitor
- *
- *   # 3. Replay a saved log file:
- *   cat my-trace.log | pnpm --filter ai-reviewer monitor --mr 22
- *
- *   # 4. Local dev mode (sees own service stdout):
- *   pnpm --filter ai-reviewer dev:raw 2>&1 \
- *     | pnpm --filter ai-reviewer monitor
- *
- * Flags:
- *   --mr <iid>          show only events for this merge request iid
- *   --project <id>      show only events for this gitlab project id
- *   --raw               also forward every line to stdout (no filtering)
- *   --no-color          disable ANSI colors
- */
-
 import { createWriteStream, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";

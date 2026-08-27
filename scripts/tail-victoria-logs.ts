@@ -1,43 +1,3 @@
-/**
- * Pulls or tails ai-reviewer logs from VictoriaLogs and prints a readable view.
- *
- * Useful when you want to see what the reviewer did for a specific MR without
- * digging through the VMUI by hand.
- *
- * Examples:
- *   # 1. Show last hour of logs for MR 800:
- *   pnpm --filter ai-reviewer exec tsx scripts/tail-victoria-logs.ts \
- *     --mr 800 --since 1h
- *
- *   # 2. Live tail for MR 800 (Ctrl+C to stop):
- *   pnpm --filter ai-reviewer exec tsx scripts/tail-victoria-logs.ts \
- *     --mr 800 --follow
- *
- *   # 3. Custom server / token:
- *   VL_URL=https://logs.example.com \
- *   VL_TOKEN=... \
- *   pnpm --filter ai-reviewer exec tsx scripts/tail-victoria-logs.ts --mr 800
- *
- *   # 4. Show only key pipeline events (no debug noise):
- *   pnpm --filter ai-reviewer exec tsx scripts/tail-victoria-logs.ts \
- *     --mr 800 --since 30m --important
- *
- * Flags:
- *   --mr <iid>      filter by mrIid
- *   --project <id>  filter by projectId
- *   --since <dur>   how far back to query (5m, 1h, 24h). Default: 30m
- *   --follow        live tail mode (uses /tail endpoint)
- *   --important     only key events (run started/completed, pass completed,
- *                   trigger detected, errors)
- *   --raw           print full JSON line instead of formatted view
- *   --limit <n>     max results for non-follow mode (default 1000)
- *
- * Env:
- *   VL_URL          VictoriaLogs base URL (default https://logs.example.com)
- *   VL_TOKEN        Bearer token if auth is required
- *   VL_TENANT       optional "AccountID:ProjectID" pair
- */
-
 interface CliArgs {
   follow: boolean;
   important: boolean;
@@ -172,6 +132,14 @@ function toScalarString(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function parseEmbeddedJson(raw: string): Record<string, unknown> | undefined {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
 function formatLine(rawJson: string, args: CliArgs): string | null {
   if (args.raw) {
     return rawJson;
@@ -182,16 +150,11 @@ function formatLine(rawJson: string, args: CliArgs): string | null {
   } catch {
     return rawJson;
   }
-  // ai-reviewer logs are pino JSON nested inside _msg as a string
   const rawMsgField = entry["_msg"];
   if (typeof rawMsgField === "string") {
-    try {
-      const inner = JSON.parse(rawMsgField) as Record<string, unknown>;
-      for (const [k, v] of Object.entries(inner)) {
-        if (entry[k] === undefined) entry[k] = v;
-      }
-    } catch {
-      // not JSON, keep raw _msg
+    const inner = parseEmbeddedJson(rawMsgField);
+    for (const [k, v] of Object.entries(inner ?? {})) {
+      if (entry[k] === undefined) entry[k] = v;
     }
   }
   const msg = toScalarString(entry["msg"] ?? entry["_msg"]);

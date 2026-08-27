@@ -1,39 +1,9 @@
-/**
- * Trace AI-reviewer events from a pino-JSON stdin stream.
- *
- * Usage:
- *   pnpm --filter ai-reviewer dev 2>&1 | pnpm --filter ai-reviewer trace
- *   # or pipe a saved log:
- *   cat run.log | pnpm --filter ai-reviewer trace
- *
- * What it does:
- *   - Reads pino JSON lines from stdin.
- *   - Filters and pretty-prints events relevant to a single review run:
- *     * webhook events (push, mr, note, @ai mention)
- *     * thread reply path (matching finding lookup, classifyIntent verdict,
- *       answerClarification call, code-host reply)
- *     * pipeline orchestrator (skip-filter counts, triage skip rate)
- *     * each LLM call: model, phase, prompt size, completion size, cost
- *     * any "WARN"/"ERROR" entries
- *   - Saves the full unfiltered stream as JSONL into
- *     scripts/logs/review-trace-<timestamp>.jsonl for offline grep/jq.
- *   - At end (or on SIGINT) prints a summary: total LLM calls per phase,
- *     total tokens (in/out/cached), total skip / triage counts.
- *
- * Tags it understands (no source changes required — driven by pino msg/keys):
- *   - msg containing "Webhook", "MR review", "Tool loop", "Cache", "Triage",
- *     "Skip", "Thread reply", "Responding to @ai"
- *   - top-level fields: mrIid, projectId, model, phase, runId, discussionId,
- *     promptTokens, completionTokens, cachedTokens, costUsd, durationMs
- */
-
 import { createWriteStream, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
 interface PinoLine {
-  // arbitrary structured fields
   [key: string]: unknown;
   level: number;
   msg?: string;

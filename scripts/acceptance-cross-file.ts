@@ -1,18 +1,3 @@
-/**
- * Acceptance script: cross-file dependency chain review.
- *
- * Verifies that CrossFilePass detects cascading impact when a core utility
- * function is changed and multiple files depend on it.
- *
- * Usage:
- *   pnpm --filter ai-reviewer run acceptance:cross-file
- *   pnpm --filter ai-reviewer run acceptance:cross-file:ollama
- *
- * Exit codes:
- *   0 — cross-file pass caught the dependency chain
- *   1 — cross-file pass missed it or failed to parse
- */
-
 import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
 

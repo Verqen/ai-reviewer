@@ -50,15 +50,15 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     )
   `.execute(db);
 
-  await sql`DROP TABLE IF EXISTS codebase_index`.execute(db);
+  await sql`DROP TABLE codebase_index`.execute(db);
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  await sql`DROP TABLE IF EXISTS baseline_state`.execute(db);
-  await sql`DROP TABLE IF EXISTS snapshot_entry`.execute(db);
-  await sql`DROP TABLE IF EXISTS snapshot_commit`.execute(db);
-  await sql`DROP TABLE IF EXISTS snapshot_blob`.execute(db);
-  await sql`DROP TYPE IF EXISTS baseline_status`.execute(db);
+  await sql`DROP TABLE baseline_state`.execute(db);
+  await sql`DROP TABLE snapshot_entry`.execute(db);
+  await sql`DROP TABLE snapshot_commit`.execute(db);
+  await sql`DROP TABLE snapshot_blob`.execute(db);
+  await sql`DROP TYPE baseline_status`.execute(db);
 
   await sql`
     CREATE TABLE codebase_index (

@@ -4,7 +4,7 @@ import { sql } from "kysely";
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     ALTER TYPE severity
-    ADD VALUE IF NOT EXISTS 'attention' BEFORE 'warning'
+    ADD VALUE 'attention' BEFORE 'warning'
   `.execute(db);
 }
 

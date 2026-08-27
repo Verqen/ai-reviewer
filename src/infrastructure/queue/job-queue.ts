@@ -16,6 +16,7 @@ type ErrorHandler = (key: string, error: unknown, retriesLeft: number) => void;
 class JobQueue<T> implements IJobQueue<T> {
   private readonly queuedKeys = new Set<string>();
   private readonly activeKeys = new Set<string>();
+  private readonly retryingKeys = new Set<string>();
   private readonly pending: QueuedJob<T>[] = [];
   private draining = false;
   private drainResolvers: Array<() => void> = [];
@@ -47,13 +48,17 @@ class JobQueue<T> implements IJobQueue<T> {
   }
 
   isPending(key: string): boolean {
-    return this.queuedKeys.has(key) || this.activeKeys.has(key);
+    return (
+      this.queuedKeys.has(key) ||
+      this.activeKeys.has(key) ||
+      this.retryingKeys.has(key)
+    );
   }
 
   async drain(): Promise<void> {
     this.draining = true;
 
-    if (this.activeKeys.size === 0 && this.pending.length === 0) {
+    if (this.isIdle()) {
       return;
     }
 
@@ -63,7 +68,7 @@ class JobQueue<T> implements IJobQueue<T> {
   }
 
   get size(): number {
-    return this.queuedKeys.size + this.activeKeys.size;
+    return this.queuedKeys.size + this.activeKeys.size + this.retryingKeys.size;
   }
 
   get activeCount(): number {
@@ -89,10 +94,14 @@ class JobQueue<T> implements IJobQueue<T> {
       await queued.handler(queued.job);
       this.activeKeys.delete(queued.key);
     } catch (err: unknown) {
+      const willRetry = queued.retriesLeft > 0 && !this.draining;
+      if (willRetry) {
+        this.retryingKeys.add(queued.key);
+      }
       this.activeKeys.delete(queued.key);
       this.errorHandler?.(queued.key, err, queued.retriesLeft);
 
-      if (queued.retriesLeft > 0 && !this.draining) {
+      if (willRetry) {
         const attempt = this.maxRetries - queued.retriesLeft;
         const delay =
           this.retryDelaysMs[attempt] ??
@@ -103,6 +112,7 @@ class JobQueue<T> implements IJobQueue<T> {
 
         await new Promise<void>((resolve) => setTimeout(resolve, delay));
 
+        this.retryingKeys.delete(queued.key);
         if (!this.draining) {
           this.queuedKeys.add(queued.key);
           this.pending.push(queued);
@@ -114,8 +124,16 @@ class JobQueue<T> implements IJobQueue<T> {
     this.checkDrained();
   }
 
+  private isIdle(): boolean {
+    return (
+      this.activeKeys.size === 0 &&
+      this.retryingKeys.size === 0 &&
+      this.pending.length === 0
+    );
+  }
+
   private checkDrained(): void {
-    if (this.activeKeys.size === 0 && this.pending.length === 0) {
+    if (this.isIdle()) {
       for (const resolve of this.drainResolvers) {
         resolve();
       }

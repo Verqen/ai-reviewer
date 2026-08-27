@@ -20,6 +20,7 @@ import type {
   VersionInfo,
 } from "~/domain/types/code-host.types";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
+import { fetchWithResilience } from "~/infrastructure/code-host/gitlab/gitlab-resilience";
 import type {
   GitLabBranchApiResponse,
   GitLabCompareResponse,
@@ -246,7 +247,7 @@ class GitLabCodeHost implements ICodeHost {
 
     this.logger.debug({ path, projectId, ref }, "GitLab API getFileContent");
 
-    const response = await fetch(url, {
+    const response = await fetchWithResilience(url, {
       headers: {
         "PRIVATE-TOKEN": this.token,
       },
@@ -518,7 +519,7 @@ class GitLabCodeHost implements ICodeHost {
       "GitLab API request",
     );
 
-    const response = await fetch(url, {
+    const response = await fetchWithResilience(url, {
       ...init,
       headers: {
         "Content-Type": "application/json",

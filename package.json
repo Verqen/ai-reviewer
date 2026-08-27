@@ -35,6 +35,7 @@
     "lint:fix": "eslint . --fix",
     "monitor": "tsx scripts/monitor-review.ts",
     "prepare": "pnpm run build",
+    "quickstart": "tsx scripts/quickstart.ts",
     "replay": "dotenv -e .env -- tsx scripts/replay-mr.ts",
     "review:github": "dotenv -e .env -- tsx scripts/review-github-pr.ts",
     "scan": "dotenv -e .env -- tsx scripts/replay-mr.ts",

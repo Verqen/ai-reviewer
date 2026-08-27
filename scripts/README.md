@@ -4,6 +4,14 @@ Operator and development entry points. Everything here is a thin CLI over code i
 
 Source files carry no comments (see `CLAUDE.md`) — this file is where their usage lives.
 
+## quickstart — the shortest path to a result
+
+`pnpm quickstart` (`scripts/quickstart.ts`)
+
+Interactive entry point for someone who has just cloned the repository. Asks for an `OPENROUTER_API_KEY` if `.env` does not already carry one (writing it in place, without disturbing the rest of the file), then for a repository path and the two refs to compare. It runs `scan` with those answers rather than reimplementing anything, so the two entry points cannot drift.
+
+Needs a terminal. In CI or a pipe it prints the equivalent `scan` command and exits non-zero.
+
 ## scan — run the pipeline over a local git diff
 
 `pnpm run scan -- [flags]` (`scripts/replay-mr.ts`)

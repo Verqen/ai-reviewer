@@ -116,14 +116,14 @@ GitLab (MR webhooks, discussions, inline comments, suggestions) and GitHub (App 
 
 ## Verifying the claims cheaply
 
-No Postgres, no code host, no webhook — point it at a git repository and it runs the whole pipeline over a real diff and prints the findings:
-
 ```bash
-pnpm install && cp .env.example .env   # fill in OPENROUTER_API_KEY
-pnpm run scan -- --base main --head HEAD
+pnpm install
+pnpm quickstart
 ```
 
-Flags, the GitHub PR entry point and the other operator scripts are documented in `scripts/README.md`. Server, database and Docker setup are in `.env.example` and `CONTRIBUTING.md`.
+It asks for an OpenRouter key once, then which repository and which two refs to compare, and prints the findings. No Postgres, no code host, no webhook, and nothing is posted anywhere.
+
+The non-interactive form is `pnpm run scan -- --base main --head HEAD`. Flags, the GitHub PR entry point and the other operator scripts are in `scripts/README.md`; server, database and Docker setup are in `.env.example` and `CONTRIBUTING.md`.
 
 ## Status and license
 

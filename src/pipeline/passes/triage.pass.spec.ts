@@ -187,6 +187,40 @@ describe("TriagePass", () => {
     expect(opts?.responseSchema).toBeDefined();
   });
 
+  it("budgets enough completion tokens for a reasoning model on a small batch", async () => {
+    const llm = createMockLlmClient({
+      defaultContent: verdictsResponse([{ hunk_id: 0, verdict: "trivial" }]),
+    });
+    const pass = new TriagePass(llm, createMockLogger());
+    await pass.execute(
+      buildContext([makeDiff("src/a.ts", [line(HEADER_A, "x")])]),
+      new Map(),
+    );
+
+    const [, opts] = llm.calls.chatCompletion[0]!;
+    expect(opts?.maxTokens).toBeGreaterThanOrEqual(800);
+  });
+
+  it("scales the completion budget with hunk count beyond the floor", async () => {
+    const HEADER_AT = (i: number): string => `@@ -${i},1 +${i},1 @@`;
+    const hunks = Array.from({ length: 60 }, (_, i) =>
+      line(HEADER_AT(i), `const v${i} = 1;`),
+    );
+    const llm = createMockLlmClient({ defaultContent: verdictsResponse([]) });
+    const pass = new TriagePass(llm, createMockLogger());
+    await pass.execute(
+      buildContext([makeDiff("src/many.ts", hunks)]),
+      new Map(),
+    );
+
+    const budgets = llm.calls.chatCompletion.map(([, opts]) => opts?.maxTokens);
+    for (const budget of budgets) {
+      expect(budget).toBeGreaterThanOrEqual(800);
+    }
+    const largest = Math.max(...budgets.map((b) => b ?? 0));
+    expect(largest).toBeGreaterThan(800);
+  });
+
   it("marks trivial hunks and computes skip rate within cap", async () => {
     const llm = createMockLlmClient({
       defaultContent: verdictsResponse([

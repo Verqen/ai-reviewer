@@ -17,7 +17,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,
-    "noUnusedLocals": false,
+    "noUnusedLocals": true,
     "noUnusedParameters": true,
     "outDir": "dist",
     "paths": {

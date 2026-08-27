@@ -1,15 +1,17 @@
 import { Config } from "~/shared/config";
 import { z } from "zod";
 
+import { optionalEnv } from "~/config/optional-env";
+
 const GitHubConfigSchema = z
   .object({
     GITHUB_API_URL: z.url().default("https://api.github.com"),
-    GITHUB_APP_ID: z.string().optional(),
-    GITHUB_APP_INSTALLATION_ID: z.coerce.number().int().optional(),
-    GITHUB_APP_PRIVATE_KEY: z.string().optional(),
-    GITHUB_APP_PRIVATE_KEY_PATH: z.string().optional(),
+    GITHUB_APP_ID: optionalEnv(z.string()),
+    GITHUB_APP_INSTALLATION_ID: optionalEnv(z.coerce.number().int()),
+    GITHUB_APP_PRIVATE_KEY: optionalEnv(z.string()),
+    GITHUB_APP_PRIVATE_KEY_PATH: optionalEnv(z.string()),
     GITHUB_BOT_USERNAME: z.string().default("ai"),
-    GITHUB_TOKEN: z.string().optional(),
+    GITHUB_TOKEN: optionalEnv(z.string()),
   })
   .refine(
     (c) =>

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import type { FastifyBaseLogger } from "fastify";
 
 import type { ICodeHost } from "~/domain/ports/code-host.port";
+import { readRuntimeEnv } from "~/config/runtime.env";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 import {
   ReviewPipelineConfigSchema,
@@ -12,7 +13,7 @@ import {
 
 function resolveRulesFallbackPath(): string {
   return (
-    process.env["RULES_FALLBACK_PATH"] ??
+    readRuntimeEnv().RULES_FALLBACK_PATH ??
     resolve(process.cwd(), ".agents/REVIEW.md")
   );
 }

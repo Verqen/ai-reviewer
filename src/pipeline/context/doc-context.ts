@@ -5,12 +5,13 @@ import type {
   IDocProvider,
   LibraryInfo,
 } from "~/domain/ports/doc-provider.port";
+import { readRuntimeEnv } from "~/config/runtime.env";
 import type { ParsedFileDiff } from "~/review/diff-parser";
 
 const IMPORT_REGEX = /(?:from|require\()\s*['"]([^'"]+)['"]/g;
 
 function getWorkspacePrefixes(): string[] {
-  const raw = process.env["WORKSPACE_PACKAGE_PREFIXES"] ?? "";
+  const raw = readRuntimeEnv().WORKSPACE_PACKAGE_PREFIXES;
   return raw
     .split(",")
     .map((entry) => entry.trim())

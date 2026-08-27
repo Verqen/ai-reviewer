@@ -9,6 +9,7 @@ import { GitLabConfig } from "~/config/gitlab.config";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import { PipelineConfig } from "~/config/pipeline.config";
+import { readRuntimeEnv } from "~/config/runtime.env";
 import { WebhookConfig } from "~/config/webhook.config";
 import { InfraRepoPorts } from "~/di/infra-repo-ports";
 import { InjectionTokens } from "~/di/injection-tokens";
@@ -57,8 +58,7 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
 
   const db: Kysely<Database> = createDatabase(dbConfig.envs.DATABASE_URL);
 
-  const codeHostProvider: "github" | "gitlab" =
-    process.env["CODE_HOST_PROVIDER"] === "github" ? "github" : "gitlab";
+  const codeHostProvider = readRuntimeEnv().CODE_HOST_PROVIDER;
   let codeHost: ICodeHost;
   let botUsername: string;
   if (codeHostProvider === "github") {

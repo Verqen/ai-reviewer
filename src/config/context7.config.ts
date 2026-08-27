@@ -1,8 +1,10 @@
 import { Config } from "~/shared/config";
 import { z } from "zod";
 
+import { optionalEnv } from "~/config/optional-env";
+
 const Context7ConfigSchema = z.object({
-  CONTEXT7_API_KEY: z.string().optional(),
+  CONTEXT7_API_KEY: optionalEnv(z.string()),
   CONTEXT7_BASE_URL: z.string().default("https://context7.com"),
   CONTEXT7_ENABLED: z
     .string()

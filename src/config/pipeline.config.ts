@@ -1,6 +1,8 @@
 import { Config } from "~/shared/config";
 import { z } from "zod";
 
+import { optionalEnv } from "~/config/optional-env";
+
 const SeverityEnum = z.enum([
   "critical",
   "attention",
@@ -143,7 +145,7 @@ const PipelineConfigSchema = z.object({
     .int()
     .positive()
     .default(DEFAULT_RUN_STUCK_AFTER_MS),
-  REVIEW_MAX_COST_USD: z.coerce.number().positive().optional(),
+  REVIEW_MAX_COST_USD: optionalEnv(z.coerce.number().positive()),
   SEVERITY_THRESHOLD: SeverityEnum.default("info"),
   THREAD_PRIOR_FINDINGS_MAX_CHARS: z.coerce
     .number()

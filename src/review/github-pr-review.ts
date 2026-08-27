@@ -4,6 +4,7 @@ import { GitHubConfig } from "~/config/github.config";
 import { computeReviewRunCostUsd } from "~/config/llm-pricing";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
+import { readRuntimeEnv } from "~/config/runtime.env";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
 import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
@@ -509,8 +510,7 @@ export async function reviewGitHubPullRequest(
           : "No issues found."
         : `${String(allFindings.length)} finding(s); ${String(postedCount)} posted inline.`;
     const showCostFooter =
-      options.showCostFooter ??
-      process.env["SHOW_REVIEW_COST_FOOTER"] === "true";
+      options.showCostFooter ?? readRuntimeEnv().SHOW_REVIEW_COST_FOOTER;
     const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})${partialNote}${incrementalNote}\n\n${buildSummaryNote(
       {
         allFindings,

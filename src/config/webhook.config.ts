@@ -1,15 +1,12 @@
 import { Config } from "~/shared/config";
 import { z } from "zod";
 
+import { optionalEnv } from "~/config/optional-env";
+
 const WebhookConfigSchema = z
   .object({
     WEBHOOK_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).default(150),
-    WEBHOOK_SECRET: z
-      .string()
-      .optional()
-      .transform((value) =>
-        value === undefined || value.trim() === "" ? undefined : value,
-      ),
+    WEBHOOK_SECRET: optionalEnv(z.string()),
     WEBHOOK_SIGNATURE_REQUIRED: z
       .enum(["true", "false"])
       .default("true")

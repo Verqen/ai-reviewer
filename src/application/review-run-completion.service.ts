@@ -1,6 +1,7 @@
 import type { FastifyBaseLogger } from "fastify";
 
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
+import { readRuntimeEnv } from "~/config/runtime.env";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
 import type { ICache } from "~/domain/ports/cache.port";
@@ -116,7 +117,7 @@ class ReviewRunCompletionService {
     });
     const summaryNote = buildSummaryNote({
       allFindings,
-      includeCostFooter: process.env["SHOW_REVIEW_COST_FOOTER"] === "true",
+      includeCostFooter: readRuntimeEnv().SHOW_REVIEW_COST_FOOTER,
       overview: overviewText,
       postableFindings,
       suppressedCount,

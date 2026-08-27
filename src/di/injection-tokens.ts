@@ -16,6 +16,5 @@ export enum InjectionTokens {
   RateLimiter = "RateLimiter",
   RespondToComment = "RespondToComment",
   ReviewModule = "ReviewModule",
-  SnapshotRepo = "SnapshotRepo",
   WebhookConfig = "WebhookConfig",
 }

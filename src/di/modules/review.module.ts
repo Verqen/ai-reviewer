@@ -14,6 +14,7 @@ import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports
 import type { LlmConfig } from "~/config/llm.config";
 import type { OpenRouterConfig } from "~/config/openrouter.config";
 import type { PipelineConfig } from "~/config/pipeline.config";
+import { InfraPortsTokens } from "~/di/infra-ports-tokens";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
 import type { ICache } from "~/domain/ports/cache.port";
@@ -21,8 +22,8 @@ import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IDocProvider } from "~/domain/ports/doc-provider.port";
 import type { ILlmClient } from "~/domain/ports/llm.port";
+import type { IPipelineMetrics } from "~/domain/ports/pipeline-metrics.port";
 import type { IReviewPass } from "~/domain/types/pipeline.types";
-import type { PipelineMetrics } from "~/infrastructure/metrics/pipeline.metrics";
 import type { TokenBucket } from "~/infrastructure/rate-limiter/token-bucket";
 import { AggregationPass } from "~/pipeline/passes/aggregation.pass";
 import { CrossFilePass } from "~/pipeline/passes/cross-file.pass";
@@ -57,7 +58,7 @@ class ReviewModule {
     pipelineConfig: PipelineConfig,
     llmConfig: LlmConfig,
     openRouterConfig: OpenRouterConfig,
-    pipelineMetrics: PipelineMetrics,
+    pipelineMetrics: IPipelineMetrics,
     private readonly injector = createInjector()
       .provideValue(InjectionTokens.Logger, logger)
       .provideValue(ReviewTokens.InfraRepoPorts, infraRepoPorts)
@@ -68,17 +69,13 @@ class ReviewModule {
       .provideValue(InjectionTokens.LlmConfig, llmConfig)
       .provideValue(InjectionTokens.OpenRouterConfig, openRouterConfig)
       .provideValue(InjectionTokens.PipelineMetrics, pipelineMetrics)
-      .provideValue(InjectionTokens.SnapshotRepo, infraRepoPorts.snapshotRepo)
+      .provideValue(InfraPortsTokens.SnapshotRepo, infraRepoPorts.snapshotRepo)
       .provideValue(
         ReviewTokens.ReviewPasses,
         buildPasses(
           llm,
           logger,
-          (
-            infraRepoPorts as {
-              dismissedPatternRepo: IDismissedPatternRepository;
-            }
-          ).dismissedPatternRepo,
+          infraRepoPorts.dismissedPatternRepo,
           {
             crossFile: pipelineConfig.envs.REVIEW_CROSS_FILE_PROMPT_HARD_LIMIT,
             fileReview: pipelineConfig.envs.REVIEW_FILE_PROMPT_HARD_LIMIT,
@@ -159,7 +156,7 @@ function buildPasses(
   fileReviewMaxDiffCharacters: number,
   docProvider?: IDocProvider,
   rateLimiter?: TokenBucket,
-  pipelineMetrics?: PipelineMetrics,
+  pipelineMetrics?: IPipelineMetrics,
 ): IReviewPass[] {
   return [
     new TriagePass(llm, logger, promptHardLimits.triage, pipelineMetrics),

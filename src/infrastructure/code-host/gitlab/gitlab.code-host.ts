@@ -33,7 +33,6 @@ import type {
   GitLabVersionApiEntry,
 } from "~/infrastructure/code-host/gitlab/gitlab.types";
 
-const GitLabNotFoundError = CodeHostNotFoundError;
 const MAX_PAGES = 50;
 
 class GitLabCodeHost implements ICodeHost {
@@ -254,7 +253,7 @@ class GitLabCodeHost implements ICodeHost {
     });
 
     if (response.status === 404) {
-      throw new GitLabNotFoundError(`File not found: ${path}`);
+      throw new CodeHostNotFoundError(`File not found: ${path}`);
     }
 
     if (!response.ok) {
@@ -478,7 +477,7 @@ class GitLabCodeHost implements ICodeHost {
       httpsGet(url, { headers: { "PRIVATE-TOKEN": this.token } }, (res) => {
         if (res.statusCode === 404) {
           reject(
-            new GitLabNotFoundError(
+            new CodeHostNotFoundError(
               `Repository archive not found: project=${projectId} ref=${ref}`,
             ),
           );
@@ -531,7 +530,7 @@ class GitLabCodeHost implements ICodeHost {
     if (!response.ok) {
       const errorText = await response.text();
       if (response.status === 404) {
-        throw new GitLabNotFoundError(`GitLab API 404: ${path} ${errorText}`);
+        throw new CodeHostNotFoundError(`GitLab API 404: ${path} ${errorText}`);
       }
       throw new Error(`GitLab API error: ${response.status} ${errorText}`);
     }
@@ -540,4 +539,4 @@ class GitLabCodeHost implements ICodeHost {
   }
 }
 
-export { GitLabCodeHost, GitLabNotFoundError };
+export { GitLabCodeHost };

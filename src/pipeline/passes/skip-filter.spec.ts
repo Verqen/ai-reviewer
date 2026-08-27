@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import type { SkipCategory } from "~/domain/types/skip.types";
+
 import {
   getPrimarySkipReason,
   getSkipCategories,
   shouldSkip,
-  type SkipCategory,
 } from "./skip-filter";
 
 describe("skip-filter", () => {

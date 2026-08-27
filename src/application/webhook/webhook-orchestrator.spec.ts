@@ -7,7 +7,7 @@ import type { ISnapshotRepository } from "~/domain/ports/snapshot.repository.por
 import type { WebhookEvent } from "~/domain/types/code-host.types";
 import type { ReviewJob } from "~/domain/types/job.types";
 import { MemoryCache } from "~/infrastructure/cache/memory-cache";
-import { GitLabNotFoundError } from "~/infrastructure/code-host/gitlab/gitlab.code-host";
+import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 import { JobQueue } from "~/infrastructure/queue/job-queue";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
 import { createMockLogger } from "~/test-utils/mock-logger";
@@ -223,7 +223,7 @@ describe("createWebhookOrchestrator", () => {
   it("uses force_push trigger when commit range diff fails with not found", async () => {
     const codeHost = createMockCodeHost();
     vi.spyOn(codeHost, "getCommitRangeDiff").mockRejectedValue(
-      new GitLabNotFoundError("missing"),
+      new CodeHostNotFoundError("missing"),
     );
     const reviewRunRepo = {
       findLatestByProjectAndMr: vi.fn().mockResolvedValue({

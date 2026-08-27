@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger } from "fastify";
 
 import type { ICodeHost } from "~/domain/ports/code-host.port";
-import { GitLabNotFoundError } from "~/infrastructure/code-host/gitlab/gitlab.code-host";
+import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 
 function isNotFoundError(err: unknown): boolean {
   return (
@@ -11,7 +11,7 @@ function isNotFoundError(err: unknown): boolean {
 }
 
 function isUnreachableCommitRangeError(err: unknown): boolean {
-  return err instanceof GitLabNotFoundError || isNotFoundError(err);
+  return err instanceof CodeHostNotFoundError || isNotFoundError(err);
 }
 
 interface DetectIncrementalTriggerOptions {

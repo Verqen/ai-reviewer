@@ -1,14 +1,6 @@
 import { Minimatch } from "minimatch";
 
-type SkipCategory =
-  | "binary"
-  | "build"
-  | "config"
-  | "generated"
-  | "lock"
-  | "migration"
-  | "snapshot"
-  | "translation";
+import type { SkipCategory } from "~/domain/types/skip.types";
 
 interface SkipRule {
   category: SkipCategory;
@@ -85,9 +77,4 @@ function getPrimarySkipReason(path: string): SkipCategory | null {
   return null;
 }
 
-export {
-  getPrimarySkipReason,
-  getSkipCategories,
-  shouldSkip,
-  type SkipCategory,
-};
+export { getPrimarySkipReason, getSkipCategories, shouldSkip };

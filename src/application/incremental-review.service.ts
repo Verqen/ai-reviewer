@@ -10,7 +10,7 @@ import type {
   ForcePushLikeTriggerType,
   IncrementalTriggerType,
 } from "~/domain/types/review.types";
-import type { PipelineMetrics } from "~/infrastructure/metrics/pipeline.metrics";
+import type { IPipelineMetrics } from "~/domain/ports/pipeline-metrics.port";
 import { getPrimarySkipReason } from "~/pipeline/passes/skip-filter";
 import type { PipelineOrchestrator } from "~/pipeline/pipeline.orchestrator";
 import { parseDiff } from "~/review/diff-parser";
@@ -40,7 +40,7 @@ class IncrementalReviewService {
     private readonly orchestrator: PipelineOrchestrator,
     private readonly logger: FastifyBaseLogger,
     private readonly forcePushCorrelationService: ForcePushCorrelationService,
-    private readonly metrics: PipelineMetrics,
+    private readonly metrics: IPipelineMetrics,
   ) {}
 
   async run(job: IncrementalJob): Promise<void> {

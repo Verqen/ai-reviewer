@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ICodeHost } from "~/domain/ports/code-host.port";
-import { GitLabNotFoundError } from "~/infrastructure/code-host/gitlab/gitlab.code-host";
+import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 import { createMockLogger } from "~/test-utils/mock-logger";
 
 import { ReviewConfigLoader } from "./review-config.loader";
@@ -24,14 +24,16 @@ function makeCodeHost(
     ): Promise<string> => {
       if (path === "REVIEW.md") {
         if (options.reviewMd === null) {
-          return Promise.reject(new GitLabNotFoundError("REVIEW.md not found"));
+          return Promise.reject(
+            new CodeHostNotFoundError("REVIEW.md not found"),
+          );
         }
         if (options.reviewMd !== undefined) {
           return Promise.resolve(options.reviewMd);
         }
-        return Promise.reject(new GitLabNotFoundError("REVIEW.md not found"));
+        return Promise.reject(new CodeHostNotFoundError("REVIEW.md not found"));
       }
-      return Promise.reject(new GitLabNotFoundError("not found"));
+      return Promise.reject(new CodeHostNotFoundError("not found"));
     },
     getFileTree: () => Promise.resolve([]),
     getMergeRequestDiff: () => Promise.resolve([]),

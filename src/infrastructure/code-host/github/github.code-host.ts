@@ -28,8 +28,6 @@ import type {
 } from "~/domain/types/code-host.types";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 
-const GitHubNotFoundError = CodeHostNotFoundError;
-
 const RepoCoordinatesSchema = z.object({
   name: z.string(),
   owner: z.object({ login: z.string() }),
@@ -134,7 +132,9 @@ class GitHubCodeHost implements ICodeHost {
       return coordinates;
     } catch (error) {
       if (isNotFound(error)) {
-        throw new GitHubNotFoundError(`Repository not found: id=${projectId}`);
+        throw new CodeHostNotFoundError(
+          `Repository not found: id=${projectId}`,
+        );
       }
       throw error;
     }
@@ -306,7 +306,7 @@ class GitHubCodeHost implements ICodeHost {
       throw new Error(`Unexpected non-raw content response for ${path}`);
     } catch (error) {
       if (isNotFound(error)) {
-        throw new GitHubNotFoundError(`File not found: ${path}`);
+        throw new CodeHostNotFoundError(`File not found: ${path}`);
       }
       throw error;
     }
@@ -608,6 +608,5 @@ export {
   createGitHubOctokit,
   createGitHubOctokitFromToken,
   GitHubCodeHost,
-  GitHubNotFoundError,
   listInstallationRepositories,
 };

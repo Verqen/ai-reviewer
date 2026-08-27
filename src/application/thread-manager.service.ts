@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { AnalyticsTokens } from "~/di/analytics.tokens";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
+import { CostBudget } from "~/domain/cost-budget";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { ReviewFinding } from "~/domain/types/review.types";
@@ -28,6 +29,7 @@ class ThreadManagerService {
     AnalyticsTokens.ReviewLearningService,
     ReviewTokens.ReviewService,
     InjectionTokens.Logger,
+    AnalyticsTokens.MaxCostUsd,
   ] as const;
 
   constructor(
@@ -36,10 +38,12 @@ class ThreadManagerService {
     private readonly reviewLearningService: ReviewLearningService,
     private readonly reviewService: IReviewService,
     private readonly logger: FastifyBaseLogger,
+    private readonly maxCostUsd: number | undefined = undefined,
   ) {}
 
   async handleReply(input: HandleReplyInput): Promise<void> {
     const { authorUsername, discussionId, mrIid, noteBody, projectId } = input;
+    const costBudget = new CostBudget(this.maxCostUsd);
 
     const findings = await this.reviewFindingRepo.findByProjectAndMr(
       projectId,
@@ -63,6 +67,7 @@ class ThreadManagerService {
     const classifiedIntent = await this.reviewLearningService.classifyIntent(
       finding.comment,
       noteBody,
+      costBudget,
     );
 
     switch (classifiedIntent.intent) {
@@ -76,6 +81,7 @@ class ThreadManagerService {
           authorUsername,
           classifiedIntent,
           "Understood, marking as false positive.",
+          costBudget,
         );
         break;
 
@@ -89,6 +95,7 @@ class ThreadManagerService {
           authorUsername,
           classifiedIntent,
           "Acknowledged as accepted technical debt.",
+          costBudget,
         );
         break;
 
@@ -102,6 +109,7 @@ class ThreadManagerService {
           authorUsername,
           classifiedIntent,
           "Good point, resolving.",
+          costBudget,
         );
         break;
 
@@ -229,6 +237,7 @@ class ThreadManagerService {
     authorUsername: string,
     classifiedIntent: ClassifiedIntent,
     botReply: string,
+    costBudget: CostBudget,
   ): Promise<void> {
     let isDiscussionResolved = false;
     try {
@@ -256,6 +265,7 @@ class ThreadManagerService {
       await this.reviewLearningService.learnFromReply({
         authorUsername,
         classifiedIntent,
+        costBudget,
         devReply,
         finding,
         mrIid,

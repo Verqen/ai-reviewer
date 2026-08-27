@@ -1,10 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import type { CommentResolutionService } from "~/application/comment-resolution.service";
 import type { ReviewConfigLoader } from "~/application/review-config.loader";
 import { ReviewContextBuilderService } from "~/application/review-context-builder.service";
 import { ReviewFindingPublisherService } from "~/application/review-finding-publisher.service";
-import type { ReviewHistoryService } from "~/application/review-history.service";
 import { ReviewRunCompletionService } from "~/application/review-run-completion.service";
 import { ReviewRunLifecycleService } from "~/application/review-run-lifecycle.service";
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
@@ -25,50 +23,27 @@ import { CrossFilePass } from "~/pipeline/passes/cross-file.pass";
 import { FileReviewPass } from "~/pipeline/passes/file-review.pass";
 import { parseDiff } from "~/review/diff-parser";
 import { createFakeGitLabServer } from "~/test-utils/fake-gitlab-server";
+import { createMockCommentResolutionService } from "~/test-utils/mock-comment-resolution-service";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockPipelineMetrics } from "~/test-utils/mock-pipeline-metrics";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
+import { createMockReviewConfigLoader } from "~/test-utils/mock-review-config-loader";
+import { createMockReviewHistoryService } from "~/test-utils/mock-review-history-service";
 import { createTestDatabase } from "~/test-utils/test-database";
 import type { TestDatabase } from "~/test-utils/test-database";
 
 import { PipelineOrchestrator } from "./pipeline.orchestrator";
 
-function createMockReviewConfigLoader(): ReviewConfigLoader {
-  return {
-    load: () => Promise.resolve(createMockReviewConfig()),
-  } as unknown as ReviewConfigLoader;
-}
-
 function createSerialFileReviewConfigLoader(): ReviewConfigLoader {
-  return {
+  return createMockReviewConfigLoader({
     load: () =>
       Promise.resolve(
         createMockReviewConfig({
           concurrency: { maxParallelFiles: 1 },
         }),
       ),
-  } as unknown as ReviewConfigLoader;
-}
-
-function createMockReviewHistoryService(): ReviewHistoryService {
-  return {
-    getPendingFindings: () => Promise.resolve([]),
-    loadPriorFindings: () =>
-      Promise.resolve({ addressed: [], dismissed: [], pending: [] }),
-    loadPriorFindingsByFile: () =>
-      Promise.resolve({
-        addressed: new Map(),
-        dismissed: new Map(),
-        pending: new Map(),
-      }),
-  } as unknown as ReviewHistoryService;
-}
-
-function createMockCommentResolutionService(): CommentResolutionService {
-  return {
-    resolveStaleFindings: () => Promise.resolve({ addressed: [], pending: [] }),
-  } as unknown as CommentResolutionService;
+  });
 }
 
 function createNoOpSnapshotRepo(): ISnapshotRepository {
@@ -142,6 +117,7 @@ function createE2eOrchestrator(options: {
 }
 
 const OLLAMA_URL = "http://localhost:11434";
+const OLLAMA_MODEL = "gpt-oss:20b-cloud";
 
 async function isOllamaAvailable(): Promise<boolean> {
   try {
@@ -154,24 +130,21 @@ async function isOllamaAvailable(): Promise<boolean> {
   }
 }
 
-describe("PipelineOrchestrator E2E (Ollama + fake GitLab + real Postgres)", async () => {
-  const ollamaAvailable = await isOllamaAvailable();
+async function requireOllama(): Promise<void> {
+  if (await isOllamaAvailable()) return;
 
-  if (!ollamaAvailable) {
-    if (process.env["REQUIRE_OLLAMA"] === "true") {
-      throw new Error(
-        `REQUIRE_OLLAMA=true but no Ollama is reachable at ${OLLAMA_URL}`,
-      );
-    }
-    it.skip(`E2E skipped: no Ollama at ${OLLAMA_URL}`, () => {});
-    return;
-  }
+  throw new Error(
+    `This E2E suite needs a reachable Ollama at ${OLLAMA_URL} serving ${OLLAMA_MODEL}. Start it, then rerun pnpm test:e2e.`,
+  );
+}
 
+describe("PipelineOrchestrator E2E (Ollama + fake GitLab + real Postgres)", () => {
   let testDb: TestDatabase;
   let gitlabServer: ReturnType<typeof createFakeGitLabServer>;
   let gitlabUrl: string;
 
   beforeAll(async () => {
+    await requireOllama();
     testDb = await createTestDatabase();
     gitlabServer = createFakeGitLabServer();
     gitlabUrl = await gitlabServer.start();
@@ -196,7 +169,7 @@ describe("PipelineOrchestrator E2E (Ollama + fake GitLab + real Postgres)", asyn
     process.env["GITLAB_TOKEN"] = "test-token";
     process.env["LLM_PROVIDER"] = "ollama";
     process.env["OLLAMA_BASE_URL"] = OLLAMA_URL;
-    process.env["OLLAMA_MODEL"] = "gpt-oss:20b-cloud";
+    process.env["OLLAMA_MODEL"] = OLLAMA_MODEL;
     process.env["OPENROUTER_API_KEY"] = "e2e-not-used";
     process.env["OPENROUTER_MODEL"] = "e2e-not-used";
 

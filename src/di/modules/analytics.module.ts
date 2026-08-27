@@ -3,6 +3,10 @@ import { createInjector } from "typed-inject";
 
 import { ReviewLearningService } from "~/application/review-learning.service";
 import { ThreadManagerService } from "~/application/thread-manager.service";
+import type { LlmConfigSchema } from "~/config/llm.config";
+import type { OpenRouterConfigSchema } from "~/config/openrouter.config";
+import type { PipelineConfigSchema } from "~/config/pipeline.config";
+import { resolveDefaultLlmModel } from "~/config/resolve-default-llm-model";
 import { AnalyticsTokens } from "~/di/analytics.tokens";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
@@ -11,6 +15,7 @@ import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-patte
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { ReviewService } from "~/review/review.service";
+import type { IConfig } from "~/shared/config";
 
 interface AnalyticsInfraRepoPorts {
   dismissedPatternRepo: IDismissedPatternRepository;
@@ -24,6 +29,9 @@ class AnalyticsModule {
     InjectionTokens.Llm,
     InjectionTokens.CodeHost,
     ReviewTokens.ReviewService,
+    InjectionTokens.PipelineConfig,
+    InjectionTokens.LlmConfig,
+    InjectionTokens.OpenRouterConfig,
   ] as const;
 
   constructor(
@@ -32,6 +40,9 @@ class AnalyticsModule {
     llm: ILlmClient,
     codeHost: ICodeHost,
     reviewService: ReviewService,
+    pipelineConfig: IConfig<PipelineConfigSchema>,
+    llmConfig: IConfig<LlmConfigSchema>,
+    openRouterConfig: IConfig<OpenRouterConfigSchema>,
     private readonly injector = createInjector()
       .provideValue(InjectionTokens.Logger, logger)
       .provideValue(InjectionTokens.Llm, llm)
@@ -44,6 +55,14 @@ class AnalyticsModule {
       .provideValue(
         AnalyticsTokens.ReviewFindingRepository,
         infraRepoPorts.reviewFindingRepo,
+      )
+      .provideValue(
+        AnalyticsTokens.MaxCostUsd,
+        pipelineConfig.envs.REVIEW_MAX_COST_USD,
+      )
+      .provideValue(
+        AnalyticsTokens.CostModel,
+        resolveDefaultLlmModel(llmConfig, openRouterConfig),
       )
       .provideClass(
         AnalyticsTokens.ReviewLearningService,

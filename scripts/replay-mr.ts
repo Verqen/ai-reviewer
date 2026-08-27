@@ -2,7 +2,6 @@ import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
 
 import { LlmConfig } from "~/config/llm.config";
@@ -210,12 +209,11 @@ function buildOverlayView(headRef: string): IOverlayView {
 
 function buildEmptyDismissedRepo(): IDismissedPatternRepository {
   return {
-    delete: () => Promise.resolve(),
-    findById: () => Promise.resolve(null),
+    create: () => Promise.reject(new Error("replay does not persist patterns")),
     findByProject: () => Promise.resolve([]),
+    findSimilar: () => Promise.resolve(undefined),
     incrementOccurrence: () => Promise.resolve(),
-    upsert: () => Promise.resolve(),
-  } as unknown as IDismissedPatternRepository;
+  };
 }
 
 interface PhaseResult {
@@ -308,7 +306,7 @@ async function main(): Promise<void> {
 
   const parsedDiffs = reviewableDiffs.map(parseDiff);
 
-  const logger = pino({ level: "info" }) as unknown as FastifyBaseLogger;
+  const logger = pino({ level: "info" });
 
   const llmConfig = new LlmConfig();
   let llm: OllamaClient | OpenRouterClient;

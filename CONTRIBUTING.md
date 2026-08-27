@@ -34,6 +34,18 @@ Integration tests use testcontainers and need Docker running:
 pnpm test:integration
 ```
 
+## Enforcement gates
+
+Install the git hooks once per clone:
+
+```bash
+pnpm run install:gitHooks
+```
+
+This points `core.hooksPath` at `.git-hooks/`. `pre-push` runs format, lint, types, build and the unit tests. `commit-msg` rejects a subject that is not `type(scope): description` (scope optional, type one of `chore`, `ci`, `docs`, `feat`, `fix`, `refactor`, `style`, `test`), any message with more than one non-empty line, and any `Co-Authored-By:` trailer, `Generated with` line or emoji anywhere in the message.
+
+The no-comments rule is enforced by `src/no-code-comments.spec.ts`: it parses every `.ts` file under `src/` and `scripts/` with the TypeScript compiler API and reports the file, line and text of each comment it finds. It lives in the `unit` project, so `pnpm test:unit` and `pre-push` both cover it.
+
 ## Code style
 
 - Strict TypeScript (extends `@tsconfig/strictest`). No `any`, no `as unknown as`.

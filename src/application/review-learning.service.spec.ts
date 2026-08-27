@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
+import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
+import { CostBudget } from "~/domain/cost-budget";
 import type { DismissedPattern } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
@@ -8,6 +10,8 @@ import { createMockLlmClient } from "~/test-utils/mock-llm-client";
 import { createMockLogger } from "~/test-utils/mock-logger";
 
 import { ReviewLearningService } from "./review-learning.service";
+
+const COST_MODEL = OPENROUTER_REVIEW_MODEL;
 
 function buildMockFinding(
   overrides: Partial<ReviewFinding> = {},
@@ -78,6 +82,7 @@ describe("ReviewLearningService", () => {
 
     reviewFindingRepo = {
       createMany: vi.fn().mockResolvedValue([]),
+      existsByHostDiscussionId: vi.fn().mockResolvedValue(false),
       findByProjectAndMr: vi.fn().mockResolvedValue([]),
       findByRunId: vi.fn().mockResolvedValue([]),
       updateResolution: updateResolutionFn,
@@ -105,11 +110,13 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
       const result = await service.classifyIntent(
         "This code smell is bad",
         "This is intentional, it's part of our design",
+        new CostBudget(undefined),
       );
 
       expect(result.intent).toBe("false_positive");
@@ -132,9 +139,14 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
-      const result = await service.classifyIntent("bot comment", "dev reply");
+      const result = await service.classifyIntent(
+        "bot comment",
+        "dev reply",
+        new CostBudget(undefined),
+      );
       expect(result.intent).toBe("clarification");
     });
 
@@ -154,9 +166,14 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
-      const result = await service.classifyIntent("bot comment", "dev reply");
+      const result = await service.classifyIntent(
+        "bot comment",
+        "dev reply",
+        new CostBudget(undefined),
+      );
       expect(result.intent).toBe("clarification");
     });
 
@@ -179,9 +196,14 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
-      const result = await service.classifyIntent("bot", "dev");
+      const result = await service.classifyIntent(
+        "bot",
+        "dev",
+        new CostBudget(undefined),
+      );
       expect(result.intent).toBe("clarification");
       expect(result.reason).toBe("");
     });
@@ -202,9 +224,10 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
-      await service.classifyIntent("bot", "dev");
+      await service.classifyIntent("bot", "dev", new CostBudget(undefined));
 
       const [, opts] = llm.calls.chatCompletion[0]!;
       expect(opts?.maxPromptTokensHard).toBe(6000);
@@ -229,9 +252,14 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
-      await service.classifyIntent("BAD", "предложи исправление");
+      await service.classifyIntent(
+        "BAD",
+        "предложи исправление",
+        new CostBudget(undefined),
+      );
 
       const [messages] = llm.calls.chatCompletion[0]!;
       const systemMsg = messages.find((m) => m.role === "system");
@@ -267,6 +295,7 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
       const finding = buildMockFinding({
@@ -276,7 +305,11 @@ describe("ReviewLearningService", () => {
         lineNumber: 5,
       });
 
-      const reply = await service.answerClarification(finding, "Как починить?");
+      const reply = await service.answerClarification(
+        finding,
+        "Как починить?",
+        new CostBudget(undefined),
+      );
 
       expect(reply).toBe("Замените умножение на деление в строке 5.");
       expect(llm.calls.chatCompletion).toHaveLength(1);
@@ -299,9 +332,14 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
-      await service.answerClarification(buildMockFinding(), "?");
+      await service.answerClarification(
+        buildMockFinding(),
+        "?",
+        new CostBudget(undefined),
+      );
 
       const [, opts] = llm.calls.chatCompletion[0]!;
       expect(opts?.maxPromptTokensHard).toBe(6000);
@@ -324,6 +362,7 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
       const finding = buildMockFinding({
@@ -332,7 +371,11 @@ describe("ReviewLearningService", () => {
         lineNumber: 7,
       });
 
-      await service.answerClarification(finding, "почему?");
+      await service.answerClarification(
+        finding,
+        "почему?",
+        new CostBudget(undefined),
+      );
 
       const [messages] = llm.calls.chatCompletion[0]!;
       const userText = messages
@@ -365,9 +408,14 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
-      const reply = await service.answerClarification(buildMockFinding(), "?");
+      const reply = await service.answerClarification(
+        buildMockFinding(),
+        "?",
+        new CostBudget(undefined),
+      );
 
       expect(reply).toMatch(/context/i);
     });
@@ -388,9 +436,14 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
-      await service.answerClarification(buildMockFinding(), "?");
+      await service.answerClarification(
+        buildMockFinding(),
+        "?",
+        new CostBudget(undefined),
+      );
 
       const [messages] = llm.calls.chatCompletion[0]!;
       const systemMsg = messages.find((m) => m.role === "system");
@@ -432,12 +485,14 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
       const finding = buildMockFinding();
 
       await service.learnFromReply({
         authorUsername: "dev-user",
+        costBudget: new CostBudget(undefined),
         devReply: "This is intentional",
         finding,
         mrIid: 1,
@@ -486,10 +541,12 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
       await service.learnFromReply({
         authorUsername: "dev-user",
+        costBudget: new CostBudget(undefined),
         devReply: "this is fine",
         finding: buildMockFinding(),
         mrIid: 1,
@@ -516,10 +573,12 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
       await service.learnFromReply({
         authorUsername: "dev-user",
+        costBudget: new CostBudget(undefined),
         devReply: "You are right, I will fix this",
         finding: buildMockFinding(),
         mrIid: 1,
@@ -554,10 +613,12 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
       await service.learnFromReply({
         authorUsername: "dev-user",
+        costBudget: new CostBudget(undefined),
         devReply: "We accept this as technical debt",
         finding: buildMockFinding(),
         mrIid: 1,
@@ -579,10 +640,12 @@ describe("ReviewLearningService", () => {
         reviewFindingRepo,
         llm,
         createMockLogger(),
+        COST_MODEL,
       );
 
       await service.learnFromReply({
         authorUsername: "dev-user",
+        costBudget: new CostBudget(undefined),
         classifiedIntent: { intent: "false_positive", reason: "cached" },
         devReply: "This is intentional",
         finding: buildMockFinding(),
@@ -591,6 +654,140 @@ describe("ReviewLearningService", () => {
       });
 
       expect(llm.calls.chatCompletion).toHaveLength(1);
+    });
+  });
+
+  describe("cost ceiling", () => {
+    it("records the intent classification cost on the operation budget", async () => {
+      const llm = createMockLlmClient({
+        responses: [
+          {
+            content: JSON.stringify({
+              intent: "agreement",
+              reason: "will fix",
+            }),
+            toolCalls: [],
+            usage: { completionTokens: 200, promptTokens: 4_000 },
+          },
+        ],
+      });
+      const service = new ReviewLearningService(
+        dismissedPatternRepo,
+        reviewFindingRepo,
+        llm,
+        createMockLogger(),
+        COST_MODEL,
+      );
+      const costBudget = new CostBudget(10);
+
+      const result = await service.classifyIntent("bot", "dev", costBudget);
+
+      expect(result.intent).toBe("agreement");
+      expect(costBudget.spent).toBeGreaterThan(0);
+    });
+
+    it("skips intent classification and defaults to clarification when the budget is exhausted", async () => {
+      const llm = createMockLlmClient({
+        defaultContent: JSON.stringify({
+          intent: "false_positive",
+          reason: "by design",
+        }),
+      });
+      const logger = createMockLogger();
+      const warn = vi.spyOn(logger, "warn");
+      const service = new ReviewLearningService(
+        dismissedPatternRepo,
+        reviewFindingRepo,
+        llm,
+        logger,
+        COST_MODEL,
+      );
+
+      const result = await service.classifyIntent(
+        "bot",
+        "dev",
+        new CostBudget(0),
+      );
+
+      expect(result.intent).toBe("clarification");
+      expect(llm.calls.chatCompletion).toHaveLength(0);
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it("records the pattern description cost on the operation budget", async () => {
+      const llm = createMockLlmClient({
+        responses: [
+          {
+            content: "Dismissing unnecessary pattern warnings",
+            toolCalls: [],
+            usage: { completionTokens: 150, promptTokens: 3_000 },
+          },
+        ],
+      });
+      const service = new ReviewLearningService(
+        dismissedPatternRepo,
+        reviewFindingRepo,
+        llm,
+        createMockLogger(),
+        COST_MODEL,
+      );
+      const costBudget = new CostBudget(10);
+
+      await service.learnFromReply({
+        authorUsername: "dev-user",
+        classifiedIntent: { intent: "false_positive", reason: "by design" },
+        costBudget,
+        devReply: "This is intentional",
+        finding: buildMockFinding(),
+        mrIid: 1,
+        projectId: 1,
+      });
+
+      expect(costBudget.spent).toBeGreaterThan(0);
+      expect(createFn.mock.calls[0]?.[0].patternDescription).toBe(
+        "Dismissing unnecessary pattern warnings",
+      );
+    });
+
+    it("stores the reviewer comment as pattern description once the budget is exhausted", async () => {
+      const llm = createMockLlmClient({
+        responses: [
+          {
+            content: JSON.stringify({
+              intent: "false_positive",
+              reason: "by design",
+            }),
+            toolCalls: [],
+            usage: { completionTokens: 200, promptTokens: 4_000 },
+          },
+        ],
+      });
+      const logger = createMockLogger();
+      const warn = vi.spyOn(logger, "warn");
+      const service = new ReviewLearningService(
+        dismissedPatternRepo,
+        reviewFindingRepo,
+        llm,
+        logger,
+        COST_MODEL,
+      );
+      const costBudget = new CostBudget(0.0000001);
+      const finding = buildMockFinding();
+
+      await service.learnFromReply({
+        authorUsername: "dev-user",
+        costBudget,
+        devReply: "This is intentional",
+        finding,
+        mrIid: 1,
+        projectId: 1,
+      });
+
+      expect(llm.calls.chatCompletion).toHaveLength(1);
+      expect(createFn.mock.calls[0]?.[0].patternDescription).toBe(
+        finding.comment.slice(0, 200),
+      );
+      expect(warn).toHaveBeenCalled();
     });
   });
 });

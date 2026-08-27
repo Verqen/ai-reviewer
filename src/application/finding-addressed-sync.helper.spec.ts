@@ -1,15 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { unresolveDiscussionsAfterFailedPersist } from "~/application/finding-addressed-sync.helper";
-import type { ICodeHost } from "~/domain/ports/code-host.port";
+import { createMockCodeHost } from "~/test-utils/mock-code-host";
 import { createMockLogger } from "~/test-utils/mock-logger";
 
 describe("unresolveDiscussionsAfterFailedPersist", () => {
   it("calls unresolve for each ref", async () => {
     const unresolveDiscussion = vi.fn(() => Promise.resolve());
-    const codeHost = {
-      unresolveDiscussion,
-    } as unknown as ICodeHost;
+    const codeHost = createMockCodeHost({}, { unresolveDiscussion });
     const logger = createMockLogger();
     await unresolveDiscussionsAfterFailedPersist(
       { codeHost, logger, mrIid: 7, projectId: 3 },
@@ -28,9 +26,7 @@ describe("unresolveDiscussionsAfterFailedPersist", () => {
       .fn()
       .mockRejectedValueOnce(new Error("rollback failed"))
       .mockResolvedValueOnce(undefined);
-    const codeHost = {
-      unresolveDiscussion,
-    } as unknown as ICodeHost;
+    const codeHost = createMockCodeHost({}, { unresolveDiscussion });
     const logger = createMockLogger();
     const warnSpy = vi.spyOn(logger, "warn");
     await unresolveDiscussionsAfterFailedPersist(

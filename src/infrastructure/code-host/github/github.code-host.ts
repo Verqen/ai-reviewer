@@ -9,7 +9,11 @@ import type { FastifyBaseLogger } from "fastify";
 import { extract as tarExtract } from "tar-stream";
 import { z } from "zod";
 
-import { installGitHubResilience } from "~/infrastructure/code-host/github/github-resilience";
+import {
+  installGitHubResilience,
+  ARCHIVE_REQUEST_TIMEOUT_MS,
+  withRequestTimeout,
+} from "~/infrastructure/code-host/github/github-resilience";
 import type { GitHubConfigSchema } from "~/config/github.config";
 import type {
   CommitRangeDiffOptions,
@@ -64,7 +68,11 @@ function createGitHubOctokitFromToken(
   token: string,
 ): Octokit {
   return installGitHubResilience(
-    new Octokit({ auth: token, baseUrl: config.envs.GITHUB_API_URL }),
+    new Octokit({
+      auth: token,
+      baseUrl: config.envs.GITHUB_API_URL,
+      request: { fetch: withRequestTimeout() },
+    }),
   );
 }
 
@@ -75,7 +83,11 @@ function createGitHubOctokit(
   const { GITHUB_API_URL, GITHUB_TOKEN } = config.envs;
   if (GITHUB_TOKEN) {
     return installGitHubResilience(
-      new Octokit({ auth: GITHUB_TOKEN, baseUrl: GITHUB_API_URL }),
+      new Octokit({
+        auth: GITHUB_TOKEN,
+        baseUrl: GITHUB_API_URL,
+        request: { fetch: withRequestTimeout() },
+      }),
     );
   }
   const keyPath = config.envs.GITHUB_APP_PRIVATE_KEY_PATH;
@@ -95,6 +107,7 @@ function createGitHubOctokit(
       },
       authStrategy: createAppAuth,
       baseUrl: GITHUB_API_URL,
+      request: { fetch: withRequestTimeout() },
     }),
   );
 }
@@ -527,6 +540,9 @@ class GitHubCodeHost implements ICodeHost {
       owner,
       ref,
       repo,
+      request: {
+        fetch: withRequestTimeout(undefined, ARCHIVE_REQUEST_TIMEOUT_MS),
+      },
     });
     const archive = Buffer.from(response.data as ArrayBuffer);
 

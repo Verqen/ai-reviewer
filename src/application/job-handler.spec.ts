@@ -1,27 +1,60 @@
+import type { FastifyBaseLogger } from "fastify";
+import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 
-import type { BaselineService } from "~/application/baseline.service";
-import type { IncrementalReviewService } from "~/application/incremental-review.service";
-import type { MainPushReviewService } from "~/application/main-push-review.service";
-import type { ThreadManagerService } from "~/application/thread-manager.service";
+import { BaselineService } from "~/application/baseline.service";
+import { MainPushReviewService } from "~/application/main-push-review.service";
 import type { IJobQueue } from "~/domain/ports/job-queue.port";
 import type { ReviewJob } from "~/domain/types/job.types";
 import type { IReviewService } from "~/review/review.types";
+import { createMockBaselineService } from "~/test-utils/mock-baseline-service";
+import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockIncrementalReviewService } from "~/test-utils/mock-incremental-review-service";
+import { createMockInfraRepoPorts } from "~/test-utils/mock-infra-repo-ports";
+import { createMockJobQueue } from "~/test-utils/mock-job-queue";
+import { createMockLogger } from "~/test-utils/mock-logger";
+import { createMockMainPushReviewService } from "~/test-utils/mock-main-push-review-service";
+import { createMockThreadManagerService } from "~/test-utils/mock-thread-manager-service";
 
 import { createJobHandler } from "./job-handler";
 
-function makeLogger() {
-  return {
-    child: vi.fn(),
-    debug: vi.fn(),
-    error: vi.fn(),
-    fatal: vi.fn(),
-    info: vi.fn(),
-    level: "info",
-    silent: vi.fn(),
-    trace: vi.fn(),
-    warn: vi.fn(),
-  };
+interface UnknownJobTypeDispatcher {
+  dispatch(job: { type: string }): Promise<void>;
+}
+
+function makeRecordingLogger(): {
+  error: Mock;
+  logger: FastifyBaseLogger;
+  warn: Mock;
+} {
+  const error = vi.fn();
+  const warn = vi.fn();
+
+  return { error, logger: createMockLogger({ error, warn }), warn };
+}
+
+function makeRealBaselineAndMainPushServices(queue: IJobQueue<ReviewJob>): {
+  baselineService: BaselineService;
+  mainPushReviewService: MainPushReviewService;
+  update: Mock;
+} {
+  const { logger } = makeRecordingLogger();
+  const infraRepoPorts = createMockInfraRepoPorts();
+  const codeHost = createMockCodeHost();
+  const baselineService = new BaselineService(
+    infraRepoPorts.snapshotRepo,
+    codeHost,
+    logger,
+  );
+  const update = vi.spyOn(baselineService, "update").mockResolvedValue();
+  const mainPushReviewService = new MainPushReviewService(
+    infraRepoPorts,
+    codeHost,
+    queue,
+    logger,
+  );
+
+  return { baselineService, mainPushReviewService, update };
 }
 
 function makeReviewService() {
@@ -43,14 +76,16 @@ function makeReviewService() {
 }
 
 function makeQueue() {
-  const enqueue = vi.fn().mockReturnValue(true);
-  const isPending = vi.fn().mockReturnValue(false);
-  const drain = vi.fn().mockResolvedValue(undefined);
-  const queue = {
-    drain,
-    enqueue,
-    isPending,
-  } as unknown as IJobQueue<ReviewJob>;
+  const enqueue = vi
+    .fn<IJobQueue<ReviewJob>["enqueue"]>()
+    .mockReturnValue(true);
+  const isPending = vi
+    .fn<IJobQueue<ReviewJob>["isPending"]>()
+    .mockReturnValue(false);
+  const drain = vi
+    .fn<IJobQueue<ReviewJob>["drain"]>()
+    .mockResolvedValue(undefined);
+  const queue = createMockJobQueue<ReviewJob>({ drain, enqueue, isPending });
 
   return { drain, enqueue, isPending, queue };
 }
@@ -59,7 +94,9 @@ describe("createJobHandler", () => {
   it("calls reviewService.reviewMergeRequest for full_review job", async () => {
     const { reviewMergeRequest, service } = makeReviewService();
     const { queue } = makeQueue();
-    const handler = createJobHandler(service, makeLogger() as never, { queue });
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      queue,
+    });
 
     await handler({
       mrIid: 5,
@@ -77,12 +114,10 @@ describe("createJobHandler", () => {
       .mockResolvedValue(undefined);
     const { reviewMergeRequest, service } = makeReviewService();
     const { queue } = makeQueue();
-    const handler = createJobHandler(service, makeLogger() as never, {
-      baselineService: {
-        bootstrap: vi.fn(),
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      baselineService: createMockBaselineService({
         executeWaitUntilBaselineReadyForReview,
-        update: vi.fn(),
-      } as unknown as BaselineService,
+      }),
       queue,
     });
 
@@ -104,12 +139,11 @@ describe("createJobHandler", () => {
     const { service } = makeReviewService();
     const { queue } = makeQueue();
     const bootstrap = vi.fn().mockResolvedValue(undefined);
-    const handler = createJobHandler(service, makeLogger() as never, {
-      baselineService: {
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      baselineService: createMockBaselineService({
         bootstrap,
         executeWaitUntilBaselineReadyForReview,
-        update: vi.fn(),
-      } as unknown as BaselineService,
+      }),
       queue,
     });
 
@@ -129,15 +163,11 @@ describe("createJobHandler", () => {
     const { service } = makeReviewService();
     const { queue } = makeQueue();
     const run = vi.fn().mockResolvedValue(undefined);
-    const handler = createJobHandler(service, makeLogger() as never, {
-      baselineService: {
-        bootstrap: vi.fn(),
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      baselineService: createMockBaselineService({
         executeWaitUntilBaselineReadyForReview,
-        update: vi.fn(),
-      } as unknown as BaselineService,
-      incrementalReviewService: {
-        run,
-      } as unknown as IncrementalReviewService,
+      }),
+      incrementalReviewService: createMockIncrementalReviewService({ run }),
       queue,
     });
 
@@ -159,7 +189,9 @@ describe("createJobHandler", () => {
   it("calls reviewService.respondToComment for comment_response job", async () => {
     const { respondToComment, service } = makeReviewService();
     const { queue } = makeQueue();
-    const handler = createJobHandler(service, makeLogger() as never, { queue });
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      queue,
+    });
     const context = { note: "please clarify" };
 
     await handler({
@@ -176,8 +208,8 @@ describe("createJobHandler", () => {
     const { service } = makeReviewService();
     const { queue } = makeQueue();
     const run = vi.fn().mockResolvedValue(undefined);
-    const handler = createJobHandler(service, makeLogger() as never, {
-      incrementalReviewService: { run } as unknown as IncrementalReviewService,
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      incrementalReviewService: createMockIncrementalReviewService({ run }),
       queue,
     });
 
@@ -203,11 +235,10 @@ describe("createJobHandler", () => {
     const { service } = makeReviewService();
     const { queue } = makeQueue();
     const runMainPushScopedReview = vi.fn().mockResolvedValue(undefined);
-    const handler = createJobHandler(service, makeLogger() as never, {
-      incrementalReviewService: {
-        run: vi.fn(),
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      incrementalReviewService: createMockIncrementalReviewService({
         runMainPushScopedReview,
-      } as unknown as IncrementalReviewService,
+      }),
       queue,
     });
 
@@ -234,16 +265,13 @@ describe("createJobHandler", () => {
     const { service } = makeReviewService();
     const { queue } = makeQueue();
     const runMainPushScopedReview = vi.fn().mockResolvedValue(undefined);
-    const handler = createJobHandler(service, makeLogger() as never, {
-      baselineService: {
-        bootstrap: vi.fn(),
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      baselineService: createMockBaselineService({
         executeWaitUntilBaselineReadyForReview,
-        update: vi.fn(),
-      } as unknown as BaselineService,
-      incrementalReviewService: {
-        run: vi.fn(),
+      }),
+      incrementalReviewService: createMockIncrementalReviewService({
         runMainPushScopedReview,
-      } as unknown as IncrementalReviewService,
+      }),
       queue,
     });
 
@@ -265,11 +293,8 @@ describe("createJobHandler", () => {
     const { service } = makeReviewService();
     const { queue } = makeQueue();
     const bootstrap = vi.fn().mockResolvedValue(undefined);
-    const handler = createJobHandler(service, makeLogger() as never, {
-      baselineService: {
-        bootstrap,
-        update: vi.fn(),
-      } as unknown as BaselineService,
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      baselineService: createMockBaselineService({ bootstrap }),
       queue,
     });
 
@@ -283,16 +308,11 @@ describe("createJobHandler", () => {
 
   it("calls baselineService.update and enqueues re-review for update_baseline job", async () => {
     const { service } = makeReviewService();
-    const { enqueue, isPending, queue } = makeQueue();
+    const { enqueue, queue } = makeQueue();
     const update = vi.fn().mockResolvedValue(undefined);
-    const handler = createJobHandler(service, makeLogger() as never, {
-      baselineService: {
-        bootstrap: vi.fn(),
-        update,
-      } as unknown as BaselineService,
-      mainPushReviewService: {
-        run: vi.fn(),
-      } as unknown as MainPushReviewService,
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
+      baselineService: createMockBaselineService({ update }),
+      mainPushReviewService: createMockMainPushReviewService(),
       queue,
     });
 
@@ -305,22 +325,20 @@ describe("createJobHandler", () => {
     });
 
     expect(update).toHaveBeenCalledWith(10, "sha1", ["src/foo.ts"]);
-    expect(isPending).toHaveBeenCalledWith("main_push_re_review:10");
-    expect(enqueue).toHaveBeenCalled();
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(enqueue.mock.calls[0]?.[0]).toBe("main_push_re_review:10");
   });
 
-  it("does not enqueue re-review when already pending", async () => {
+  it("warns when the follow-up re-review is dropped by the queue", async () => {
     const { service } = makeReviewService();
-    const { enqueue, isPending, queue } = makeQueue();
-    isPending.mockReturnValue(true);
-    const handler = createJobHandler(service, makeLogger() as never, {
-      baselineService: {
-        bootstrap: vi.fn(),
-        update: vi.fn().mockResolvedValue(undefined),
-      } as unknown as BaselineService,
-      mainPushReviewService: {
-        run: vi.fn(),
-      } as unknown as MainPushReviewService,
+    const { enqueue, queue } = makeQueue();
+    enqueue.mockReturnValue(false);
+    const { logger, warn } = makeRecordingLogger();
+    const { baselineService, mainPushReviewService } =
+      makeRealBaselineAndMainPushServices(queue);
+    const handler = createJobHandler(service, logger, {
+      baselineService,
+      mainPushReviewService,
       queue,
     });
 
@@ -332,21 +350,42 @@ describe("createJobHandler", () => {
       type: "update_baseline",
     });
 
-    expect(enqueue).not.toHaveBeenCalled();
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "main_push_re_review:20", projectId: 20 }),
+      expect.stringContaining("main_push_re_review was not enqueued"),
+    );
+  });
+
+  it("fails loudly on a job type the switch does not handle", async () => {
+    const { service } = makeReviewService();
+    const { queue } = makeQueue();
+    const { error, logger } = makeRecordingLogger();
+    const dispatcher: UnknownJobTypeDispatcher = {
+      dispatch: createJobHandler(service, logger, { queue }),
+    };
+
+    await expect(
+      dispatcher.dispatch({ type: "not_a_job_type" }),
+    ).rejects.toThrow("Unhandled job type");
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({ job: { type: "not_a_job_type" } }),
+      expect.stringContaining("Unhandled job type"),
+    );
   });
 
   it("logs warning when bootstrap_baseline handler not configured", async () => {
     const { service } = makeReviewService();
     const { queue } = makeQueue();
-    const logger = makeLogger();
-    const handler = createJobHandler(service, logger as never, { queue });
+    const { logger, warn } = makeRecordingLogger();
+    const handler = createJobHandler(service, logger, { queue });
 
     await handler({
       projectId: 1,
       type: "bootstrap_baseline",
     });
 
-    const firstWarnCall = logger.warn.mock.calls[0];
+    const firstWarnCall = warn.mock.calls[0];
 
     expect(firstWarnCall?.[0]).toMatchObject({
       job: { type: "bootstrap_baseline" },
@@ -360,9 +399,9 @@ describe("createJobHandler", () => {
     const { service } = makeReviewService();
     const { queue } = makeQueue();
     const handleReply = vi.fn().mockResolvedValue(undefined);
-    const handler = createJobHandler(service, makeLogger() as never, {
+    const handler = createJobHandler(service, makeRecordingLogger().logger, {
       queue,
-      threadManagerService: { handleReply } as unknown as ThreadManagerService,
+      threadManagerService: createMockThreadManagerService({ handleReply }),
     });
 
     await handler({

@@ -141,29 +141,55 @@ describe("JobQueue", () => {
     vi.useRealTimers();
   });
 
-  it("does not resolve drain while a job is waiting to be retried", async () => {
+  it("dispatches pending jobs while a failed job waits out its backoff", async () => {
     vi.useFakeTimers();
-    const queue = new JobQueue<null>(2, 1, [10_000]);
+    const queue = new JobQueue<null>(1, 1, [60_000]);
+    const started: string[] = [];
+
+    queue.enqueue("failing-job", null, () => {
+      started.push("failing-job");
+      return Promise.reject(new Error("Transient error"));
+    });
+    queue.enqueue("pending-job", null, () => {
+      started.push("pending-job");
+      return Promise.resolve();
+    });
+
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(started).toEqual(["failing-job", "pending-job"]);
+    expect(queue.isPending("failing-job")).toBe(true);
+
+    await queue.drain();
+    vi.useRealTimers();
+  });
+
+  it("drain abandons a retry backoff instead of waiting it out", async () => {
+    vi.useFakeTimers();
+    const queue = new JobQueue<null>(1, 1, [60_000]);
     let attempts = 0;
     let drained = false;
 
     queue.enqueue("retry-job", null, () => {
       attempts++;
-      return attempts < 2
-        ? Promise.reject(new Error("Transient error"))
-        : Promise.resolve();
+      return Promise.reject(new Error("Transient error"));
     });
-    queue.enqueue("fast-job", null, () => Promise.resolve());
 
     await vi.advanceTimersByTimeAsync(1);
+    expect(attempts).toBe(1);
+    expect(queue.isPending("retry-job")).toBe(true);
+
     void queue.drain().then(() => {
       drained = true;
     });
     await vi.advanceTimersByTimeAsync(1);
-    expect(drained).toBe(false);
+
+    expect(drained).toBe(true);
+    expect(queue.isPending("retry-job")).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
 
     await vi.runAllTimersAsync();
-    expect(drained).toBe(true);
+    expect(attempts).toBe(1);
     vi.useRealTimers();
   });
 

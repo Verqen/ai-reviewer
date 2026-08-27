@@ -1,10 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import type { CommentResolutionService } from "~/application/comment-resolution.service";
 import type { ReviewConfigLoader } from "~/application/review-config.loader";
 import { ReviewContextBuilderService } from "~/application/review-context-builder.service";
 import { ReviewFindingPublisherService } from "~/application/review-finding-publisher.service";
-import type { ReviewHistoryService } from "~/application/review-history.service";
 import { ReviewRunCompletionService } from "~/application/review-run-completion.service";
 import { ReviewRunLifecycleService } from "~/application/review-run-lifecycle.service";
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
@@ -24,13 +22,15 @@ import { ReviewFindingRepository } from "~/infrastructure/database/repositories/
 import { ReviewRunRepository } from "~/infrastructure/database/repositories/review-run.repository";
 import { parseDiff } from "~/review/diff-parser";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockCommentResolutionService } from "~/test-utils/mock-comment-resolution-service";
 import {
   createMockLlmConfig,
   createMockOpenRouterConfig,
 } from "~/test-utils/mock-llm-config";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockPipelineMetrics } from "~/test-utils/mock-pipeline-metrics";
-import { createMockReviewConfig } from "~/test-utils/mock-review-config";
+import { createMockReviewConfigLoader } from "~/test-utils/mock-review-config-loader";
+import { createMockReviewHistoryService } from "~/test-utils/mock-review-history-service";
 import { createTestDatabase } from "~/test-utils/test-database";
 import type { TestDatabase } from "~/test-utils/test-database";
 
@@ -45,32 +45,6 @@ const MINIMAL_DIFF: DiffFile = {
 function createPipelineConfig(): PipelineConfig {
   process.env["SEVERITY_THRESHOLD"] = "info";
   return new PipelineConfig();
-}
-
-function createMockReviewConfigLoader(): ReviewConfigLoader {
-  return {
-    load: () => Promise.resolve(createMockReviewConfig()),
-  } as unknown as ReviewConfigLoader;
-}
-
-function createMockReviewHistoryService(): ReviewHistoryService {
-  return {
-    getPendingFindings: () => Promise.resolve([]),
-    loadPriorFindings: () =>
-      Promise.resolve({ addressed: [], dismissed: [], pending: [] }),
-    loadPriorFindingsByFile: () =>
-      Promise.resolve({
-        addressed: new Map(),
-        dismissed: new Map(),
-        pending: new Map(),
-      }),
-  } as unknown as ReviewHistoryService;
-}
-
-function createMockCommentResolutionService(): CommentResolutionService {
-  return {
-    resolveStaleFindings: () => Promise.resolve({ addressed: [], pending: [] }),
-  } as unknown as CommentResolutionService;
 }
 
 function createNoOpSnapshotRepo(): ISnapshotRepository {
@@ -94,12 +68,12 @@ function createNoOpSnapshotRepo(): ISnapshotRepository {
   };
 }
 
-function makeAggPass(findings: Finding[] = []): IReviewPass {
+function makeAggPass(findings: Finding[] = []): IReviewPass<AggregationResult> {
   return {
     execute: (
       _ctx: ReviewContext,
       _prior: Map<string, PassResult>,
-    ): Promise<PassResult> => {
+    ): Promise<PassResult<AggregationResult>> => {
       const agg: AggregationResult = {
         allFindings: findings,
         postableFindings: findings,
@@ -108,7 +82,7 @@ function makeAggPass(findings: Finding[] = []): IReviewPass {
       };
       return Promise.resolve({
         findings,
-        metadata: agg as unknown as Record<string, unknown>,
+        metadata: agg,
         tokenUsage: { completionTokens: 5, promptTokens: 10 },
       });
     },

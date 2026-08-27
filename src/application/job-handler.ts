@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { BaselineService } from "~/application/baseline.service";
 import type { IncrementalReviewService } from "~/application/incremental-review.service";
 import type { MainPushReviewService } from "~/application/main-push-review.service";
+import { buildMainPushReReviewJobKey } from "~/application/review-job-key";
 import type { ThreadManagerService } from "~/application/thread-manager.service";
 import type { IJobQueue } from "~/domain/ports/job-queue.port";
 import type { ReviewJob } from "~/domain/types/job.types";
@@ -88,7 +89,7 @@ function createJobHandler(
 
         return options.baselineService.bootstrap(job.projectId);
 
-      case "update_baseline":
+      case "update_baseline": {
         if (!options.baselineService) {
           logger.warn({ job }, "update_baseline handler not configured");
           return;
@@ -104,21 +105,28 @@ function createJobHandler(
           return;
         }
 
-        if (!options.queue.isPending(`main_push_re_review:${job.projectId}`)) {
-          options.queue.enqueue(
-            `main_push_re_review:${job.projectId}`,
-            {
-              changedFiles: job.changedFiles,
-              commitSha: job.commitSha,
-              defaultBranch: job.defaultBranch,
-              projectId: job.projectId,
-              type: "main_push_re_review",
-            },
-            handler,
+        const reReviewKey = buildMainPushReReviewJobKey(job.projectId);
+        const reReviewEnqueued = options.queue.enqueue(
+          reReviewKey,
+          {
+            changedFiles: job.changedFiles,
+            commitSha: job.commitSha,
+            defaultBranch: job.defaultBranch,
+            projectId: job.projectId,
+            type: "main_push_re_review",
+          },
+          handler,
+        );
+
+        if (!reReviewEnqueued) {
+          logger.warn(
+            { key: reReviewKey, projectId: job.projectId },
+            "main_push_re_review was not enqueued, it is already pending or the queue is draining",
           );
         }
 
         return;
+      }
 
       case "main_push_re_review":
         if (!options.mainPushReviewService) {
@@ -149,6 +157,12 @@ function createJobHandler(
           noteBody: job.noteBody,
           projectId: job.projectId,
         });
+
+      default: {
+        const unhandledJob: never = job;
+        logger.error({ job: unhandledJob }, "Unhandled job type");
+        throw new Error("Unhandled job type");
+      }
     }
   };
 

@@ -8,10 +8,9 @@ const DatabaseConfigSchema = z.object({
 type DatabaseConfigSchema = z.infer<typeof DatabaseConfigSchema>;
 
 class DatabaseConfig extends Config<DatabaseConfigSchema> {
-  constructor() {
-    super(() => DatabaseConfigSchema.parse(process.env));
+  constructor(envs?: DatabaseConfigSchema) {
+    super(() => envs ?? DatabaseConfigSchema.parse(process.env));
   }
 }
 
-export { DatabaseConfig };
-export type { DatabaseConfigSchema };
+export { DatabaseConfig, DatabaseConfigSchema };

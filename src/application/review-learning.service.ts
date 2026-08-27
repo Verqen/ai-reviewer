@@ -1,8 +1,10 @@
 import type { FastifyBaseLogger } from "fastify";
 import { toJSONSchema, z } from "zod";
 
+import { computeCostUsd } from "~/config/llm-pricing";
 import { AnalyticsTokens } from "~/di/analytics.tokens";
 import { InjectionTokens } from "~/di/injection-tokens";
+import type { CostBudget } from "~/domain/cost-budget";
 import { parseLlmJson } from "~/domain/llm/parse-llm-json";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { ILlmClient } from "~/domain/ports/llm.port";
@@ -34,10 +36,12 @@ const INTENT_CLASSIFICATION_MAX_TOKENS = 220;
 const INTENT_CLASSIFICATION_TEMPERATURE = 0;
 const PATTERN_SUMMARY_MAX_TOKENS = 140;
 const THREAD_REPLY_PROMPT_TOKEN_HARD_LIMIT = 6_000;
+const COST_CEILING_INTENT_REASON = "cost ceiling reached before classification";
 
 interface LearnFromReplyInput {
   authorUsername: string;
   classifiedIntent?: ClassifiedIntent | undefined;
+  costBudget: CostBudget;
   devReply: string;
   finding: ReviewFinding;
   mrIid: number;
@@ -50,6 +54,7 @@ class ReviewLearningService {
     AnalyticsTokens.ReviewFindingRepository,
     InjectionTokens.Llm,
     InjectionTokens.Logger,
+    AnalyticsTokens.CostModel,
   ] as const;
 
   constructor(
@@ -57,12 +62,34 @@ class ReviewLearningService {
     private readonly reviewFindingRepo: IReviewFindingRepository,
     private readonly llm: ILlmClient,
     private readonly logger: FastifyBaseLogger,
+    private readonly costModel: string,
   ) {}
+
+  private recordCost(
+    costBudget: CostBudget,
+    usage: { completionTokens: number; promptTokens: number },
+  ): void {
+    costBudget.record(
+      computeCostUsd(this.costModel, {
+        inputTokens: usage.promptTokens,
+        outputTokens: usage.completionTokens,
+      }),
+    );
+  }
 
   async classifyIntent(
     botComment: string,
     devReply: string,
+    costBudget: CostBudget,
   ): Promise<ClassifiedIntent> {
+    if (costBudget.isExhausted()) {
+      this.logger.warn(
+        { limitUsd: costBudget.limit, spentUsd: costBudget.spent },
+        "Cost ceiling reached: skipping thread reply intent classification",
+      );
+      return { intent: "clarification", reason: COST_CEILING_INTENT_REASON };
+    }
+
     const systemPrompt = [
       "You classify one developer reply to an automated code-review comment into exactly ONE intent.",
       "",
@@ -120,6 +147,8 @@ class ReviewLearningService {
       temperature: INTENT_CLASSIFICATION_TEMPERATURE,
     });
 
+    this.recordCost(costBudget, response.usage);
+
     const rawUnknown = parseLlmJson(response.content);
     const parsed = IntentResponseSchema.safeParse(rawUnknown);
     const intent: ReplyIntent = parsed.success
@@ -142,16 +171,24 @@ class ReviewLearningService {
   async answerClarification(
     finding: ReviewFinding,
     devReply: string,
+    costBudget: CostBudget,
   ): Promise<string> {
-    return runNarrowFindingClarification(this.llm, finding, devReply);
+    return runNarrowFindingClarification({
+      costBudget,
+      costModel: this.costModel,
+      developerNote: devReply,
+      finding,
+      llm: this.llm,
+      logger: this.logger,
+    });
   }
 
   async learnFromReply(input: LearnFromReplyInput): Promise<void> {
-    const { authorUsername, devReply, finding, projectId } = input;
+    const { authorUsername, costBudget, devReply, finding, projectId } = input;
 
     const classified =
       input.classifiedIntent ??
-      (await this.classifyIntent(finding.comment, devReply));
+      (await this.classifyIntent(finding.comment, devReply, costBudget));
 
     if (
       classified.intent !== "false_positive" &&
@@ -177,6 +214,7 @@ class ReviewLearningService {
       const patternDescription = await this.generatePatternDescription(
         finding.comment,
         devReply,
+        costBudget,
       );
       await this.dismissedPatternRepo.create({
         category: finding.category,
@@ -204,7 +242,16 @@ class ReviewLearningService {
   private async generatePatternDescription(
     botComment: string,
     devReply: string,
+    costBudget: CostBudget,
   ): Promise<string> {
+    if (costBudget.isExhausted()) {
+      this.logger.warn(
+        { limitUsd: costBudget.limit, spentUsd: costBudget.spent },
+        "Cost ceiling reached: storing dismissed pattern without an LLM-generated description",
+      );
+      return botComment.slice(0, 200);
+    }
+
     const messages: ChatMessage[] = [
       {
         content: `Summarize in one sentence what type of code review comment the developer dismissed. Bot comment: "${botComment}". Developer reply: "${devReply}". Respond with just the summary sentence.`,
@@ -218,6 +265,7 @@ class ReviewLearningService {
       reasoning: { effort: "low" },
       temperature: 0.1,
     });
+    this.recordCost(costBudget, response.usage);
     return response.content?.trim() ?? botComment.slice(0, 200);
   }
 }

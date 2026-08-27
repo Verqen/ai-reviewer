@@ -706,6 +706,21 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
       "File review pass completed",
     );
 
+    if (fileReviewCounters.filesSkippedCostCeiling > 0) {
+      this.logger.warn(
+        {
+          filesSkippedCostCeiling: fileReviewCounters.filesSkippedCostCeiling,
+          limitUsd: budget?.limit,
+          mrIid: context.mrIid,
+          projectId: context.projectId,
+          reviewRunId: context.reviewRunId,
+          spentUsd: budget?.spent,
+          totalFiles: diffs.length,
+        },
+        "Per-scan cost ceiling reached: skipping remaining files in the file-review pass",
+      );
+    }
+
     const everyFileSkippedForCostCeiling =
       fileReviewCounters.filesSkippedCostCeiling === diffs.length;
     if (allFilesFailed && diffs.length > 0 && !everyFileSkippedForCostCeiling) {

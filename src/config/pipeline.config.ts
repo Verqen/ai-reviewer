@@ -1,6 +1,28 @@
 import { Config } from "~/shared/config";
 import { z } from "zod";
 
+import { booleanEnv } from "~/config/boolean-env";
+import {
+  DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_FILE_CHARS,
+  DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_LIST_FILES,
+  DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS,
+  DEFAULT_COMMENT_RESPONSE_MAX_DIFF_LENGTH,
+  DEFAULT_COMMENT_RESPONSE_MAX_TOOL_ROUNDS,
+  DEFAULT_COMMENT_RESPONSE_PROMPT_HARD_LIMIT,
+  DEFAULT_FILE_REVIEW_MAX_DIFF_CHARACTERS,
+  DEFAULT_FINDING_THREAD_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS,
+  DEFAULT_FINDING_THREAD_PROMPT_HARD_LIMIT,
+  DEFAULT_FORCE_PUSH_LINE_MATCH_TAB_WIDTH,
+  DEFAULT_FORCE_PUSH_LINE_WINDOW,
+  DEFAULT_LINE_SHIFT_DEDUP_TOLERANCE,
+  DEFAULT_REVIEW_BASELINE_POLL_MS,
+  DEFAULT_REVIEW_BASELINE_READY_TIMEOUT_MS,
+  DEFAULT_REVIEW_CROSS_FILE_PROMPT_HARD_LIMIT,
+  DEFAULT_REVIEW_FILE_PROMPT_HARD_LIMIT,
+  DEFAULT_REVIEW_TRIAGE_PROMPT_HARD_LIMIT,
+  DEFAULT_RUN_STUCK_AFTER_MS,
+  DEFAULT_THREAD_PRIOR_FINDINGS_MAX_CHARS,
+} from "~/config/constants";
 import { optionalEnv } from "~/config/optional-env";
 
 const SeverityEnum = z.enum([
@@ -10,9 +32,6 @@ const SeverityEnum = z.enum([
   "info",
   "nitpick",
 ]);
-
-const MS_PER_MINUTE = 60_000;
-const DEFAULT_RUN_STUCK_AFTER_MS = 30 * MS_PER_MINUTE;
 
 const OVERLAY_VIEW_DEFAULTS = {
   maxListFiles: 200,
@@ -33,62 +52,67 @@ type OverlayViewLimits = {
 };
 
 const PipelineConfigSchema = z.object({
-  ARCHITECTURE_SNAPSHOT_ENABLED: z
-    .enum(["true", "false"])
-    .default("true")
-    .transform((v) => v === "true"),
+  ARCHITECTURE_SNAPSHOT_ENABLED: booleanEnv(true),
   ARCHITECTURE_SNAPSHOT_MAX_FILE_CHARS: z.coerce
     .number()
     .int()
     .positive()
-    .default(8000),
+    .default(DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_FILE_CHARS),
   ARCHITECTURE_SNAPSHOT_MAX_LIST_FILES: z.coerce
     .number()
     .int()
     .positive()
-    .default(200),
+    .default(DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_LIST_FILES),
   ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS: z.coerce
     .number()
     .int()
     .positive()
-    .default(40_000),
+    .default(DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS),
   COMMENT_RESPONSE_MAX_DIFF_LENGTH: z.coerce
     .number()
     .int()
     .positive()
-    .default(200_000),
+    .default(DEFAULT_COMMENT_RESPONSE_MAX_DIFF_LENGTH),
   COMMENT_RESPONSE_MAX_TOOL_ROUNDS: z.coerce
     .number()
     .int()
     .positive()
-    .default(3),
+    .default(DEFAULT_COMMENT_RESPONSE_MAX_TOOL_ROUNDS),
   COMMENT_RESPONSE_PROMPT_HARD_LIMIT: z.coerce
     .number()
     .int()
     .positive()
-    .default(8_000),
+    .default(DEFAULT_COMMENT_RESPONSE_PROMPT_HARD_LIMIT),
   FILE_REVIEW_MAX_DIFF_CHARACTERS: z.coerce
     .number()
     .int()
     .positive()
-    .default(60_000),
+    .default(DEFAULT_FILE_REVIEW_MAX_DIFF_CHARACTERS),
   FINDING_THREAD_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS: z.coerce
     .number()
     .int()
     .positive()
-    .default(12_000),
+    .default(DEFAULT_FINDING_THREAD_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS),
   FINDING_THREAD_PROMPT_HARD_LIMIT: z.coerce
     .number()
     .int()
     .positive()
-    .default(12_000),
+    .default(DEFAULT_FINDING_THREAD_PROMPT_HARD_LIMIT),
   FORCE_PUSH_LINE_MATCH_TAB_WIDTH: z.coerce
     .number()
     .int()
     .positive()
-    .default(4),
-  FORCE_PUSH_LINE_WINDOW: z.coerce.number().int().positive().default(20),
-  LINE_SHIFT_DEDUP_TOLERANCE: z.coerce.number().int().nonnegative().default(3),
+    .default(DEFAULT_FORCE_PUSH_LINE_MATCH_TAB_WIDTH),
+  FORCE_PUSH_LINE_WINDOW: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_FORCE_PUSH_LINE_WINDOW),
+  LINE_SHIFT_DEDUP_TOLERANCE: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(DEFAULT_LINE_SHIFT_DEDUP_TOLERANCE),
   OVERLAY_MAX_LIST_FILES: z.coerce
     .number()
     .int()
@@ -119,27 +143,31 @@ const PipelineConfigSchema = z.object({
     .int()
     .positive()
     .default(OVERLAY_VIEW_DEFAULTS.maxToolResponseChars),
-  REVIEW_BASELINE_POLL_MS: z.coerce.number().int().positive().default(400),
+  REVIEW_BASELINE_POLL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_REVIEW_BASELINE_POLL_MS),
   REVIEW_BASELINE_READY_TIMEOUT_MS: z.coerce
     .number()
     .int()
     .positive()
-    .default(900_000),
+    .default(DEFAULT_REVIEW_BASELINE_READY_TIMEOUT_MS),
   REVIEW_CROSS_FILE_PROMPT_HARD_LIMIT: z.coerce
     .number()
     .int()
     .positive()
-    .default(12_000),
+    .default(DEFAULT_REVIEW_CROSS_FILE_PROMPT_HARD_LIMIT),
   REVIEW_FILE_PROMPT_HARD_LIMIT: z.coerce
     .number()
     .int()
     .positive()
-    .default(10_000),
+    .default(DEFAULT_REVIEW_FILE_PROMPT_HARD_LIMIT),
   REVIEW_TRIAGE_PROMPT_HARD_LIMIT: z.coerce
     .number()
     .int()
     .positive()
-    .default(5_000),
+    .default(DEFAULT_REVIEW_TRIAGE_PROMPT_HARD_LIMIT),
   RUN_STUCK_AFTER_MS: z.coerce
     .number()
     .int()
@@ -151,16 +179,16 @@ const PipelineConfigSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(4000),
+    .default(DEFAULT_THREAD_PRIOR_FINDINGS_MAX_CHARS),
 });
 
 type PipelineConfigSchema = z.infer<typeof PipelineConfigSchema>;
 
 class PipelineConfig extends Config<PipelineConfigSchema> {
-  constructor() {
-    super(() => PipelineConfigSchema.parse(process.env));
+  constructor(envs?: PipelineConfigSchema) {
+    super(() => envs ?? PipelineConfigSchema.parse(process.env));
   }
 }
 
-export { OVERLAY_VIEW_DEFAULTS, PipelineConfig };
-export type { OverlayViewLimits, PipelineConfigSchema };
+export { OVERLAY_VIEW_DEFAULTS, PipelineConfig, PipelineConfigSchema };
+export type { OverlayViewLimits };

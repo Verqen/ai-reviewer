@@ -456,6 +456,25 @@ class TriagePass implements IReviewPass<TriagePassMetadata> {
       };
     }
 
+    const costBudget = context.costBudget;
+    if (costBudget?.isExhausted()) {
+      this.logger.warn(
+        {
+          limitUsd: costBudget.limit,
+          mrIid: context.mrIid,
+          projectId: context.projectId,
+          reviewRunId: context.reviewRunId,
+          spentUsd: costBudget.spent,
+        },
+        "Per-scan cost ceiling reached: skipping triage pass, every hunk stays eligible for review",
+      );
+      return {
+        findings: [],
+        metadata: emptyMetadata(),
+        tokenUsage: { completionTokens: 0, promptTokens: 0 },
+      };
+    }
+
     const model = context.reviewConfig.models.triage;
     const systemPrompt = buildTriageSystemPrompt();
 
@@ -493,9 +512,38 @@ class TriagePass implements IReviewPass<TriagePassMetadata> {
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
     let totalEstimatedPromptTokens = 0;
+    let costCeilingReported = false;
 
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batchHunks = batches[batchIndex]!;
+      if (costBudget?.isExhausted()) {
+        if (!costCeilingReported) {
+          costCeilingReported = true;
+          this.logger.warn(
+            {
+              batchIndex,
+              limitUsd: costBudget.limit,
+              mrIid: context.mrIid,
+              projectId: context.projectId,
+              remainingBatches: batches.length - batchIndex,
+              reviewRunId: context.reviewRunId,
+              spentUsd: costBudget.spent,
+            },
+            "Per-scan cost ceiling reached: skipping remaining triage batches, marking their hunks as needs-review",
+          );
+        }
+        for (const hunk of batchHunks) {
+          if (!seenIds.has(hunk.id)) {
+            seenIds.add(hunk.id);
+            decisions.push({
+              filePath: hunk.filePath,
+              hunkHeader: hunk.header,
+              verdict: "needs-review",
+            });
+          }
+        }
+        continue;
+      }
       const batchUserPrompt = buildTriageUserPrompt(
         batchHunks.map<TriageHunkInput>((h) => ({
           body: h.body,
@@ -534,6 +582,12 @@ class TriagePass implements IReviewPass<TriagePassMetadata> {
         );
         totalPromptTokens += response.usage.promptTokens;
         totalCompletionTokens += response.usage.completionTokens;
+        costBudget?.record(
+          computeCostUsd(model, {
+            inputTokens: response.usage.promptTokens,
+            outputTokens: response.usage.completionTokens,
+          }),
+        );
         if (response.content === null) {
           this.logger.warn(
             { batchIndex, batchSize: batchHunks.length },

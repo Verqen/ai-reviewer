@@ -1,17 +1,25 @@
 import { Registry } from "prom-client";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { ForcePushCorrelationService } from "~/application/force-push-correlation.service";
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
 import { PipelineConfig } from "~/config/pipeline.config";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
+import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { DiffFile } from "~/domain/types/code-host.types";
 import type { ReviewFinding } from "~/domain/types/review.types";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 import { PipelineMetrics } from "~/infrastructure/metrics/pipeline.metrics";
 import type { PipelineOrchestrator } from "~/pipeline/pipeline.orchestrator";
+import {
+  createMockInfraRepoPorts,
+  createMockReviewRun,
+} from "~/test-utils/mock-infra-repo-ports";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockPipelineMetrics } from "~/test-utils/mock-pipeline-metrics";
+import { createMockPipelineOrchestrator } from "~/test-utils/mock-pipeline-orchestrator";
+import { createMockReviewFindingRepository } from "~/test-utils/mock-review-finding-repository";
+import { createMockReviewRunRepository } from "~/test-utils/mock-review-run-repository";
 
 import { IncrementalReviewService } from "./incremental-review.service";
 
@@ -170,20 +178,26 @@ function makeInfraRepoPorts(
   } = {},
 ): ReviewInfraRepoPorts & {
   updateResolutionManyCalls: string[][];
-  updateResolutionManyMock: ReturnType<typeof vi.fn>;
+  updateResolutionManyMock: Mock<
+    IReviewFindingRepository["updateResolutionMany"]
+  >;
   updateResolutionCalls: string[];
-  updateResolutionMock: ReturnType<typeof vi.fn>;
+  updateResolutionMock: Mock<IReviewFindingRepository["updateResolution"]>;
 } {
   const updateResolutionCalls: string[] = [];
   const updateResolutionManyCalls: string[][] = [];
-  const updateResolutionMock = vi.fn((id: string) => {
+  const updateResolutionMock = vi.fn<
+    IReviewFindingRepository["updateResolution"]
+  >((id) => {
     if (options.throwOnUpdateResolution) {
       return Promise.reject(options.throwOnUpdateResolution);
     }
     updateResolutionCalls.push(id);
     return Promise.resolve();
   });
-  const updateResolutionManyMock = vi.fn((ids: readonly string[]) => {
+  const updateResolutionManyMock = vi.fn<
+    IReviewFindingRepository["updateResolutionMany"]
+  >((ids) => {
     if (options.throwOnUpdateResolution) {
       return Promise.reject(options.throwOnUpdateResolution);
     }
@@ -192,76 +206,55 @@ function makeInfraRepoPorts(
   });
 
   return {
-    dismissedPatternRepo: {
-      create: () => Promise.reject(new Error("not impl")),
-      findByProject: () => Promise.resolve([]),
-      incrementOccurrence: () => Promise.resolve(),
-    },
-    reviewFindingRepo: {
-      createMany: () => Promise.resolve([]),
-      findByProjectAndMr: () => Promise.resolve([]),
-      findByRunId: vi.fn(() => Promise.resolve(options.findingsByRunId ?? [])),
-      updateResolution: updateResolutionMock,
-      updateResolutionMany: updateResolutionManyMock,
-    },
-    reviewRunRepo: {
-      create: () =>
-        Promise.resolve({
-          baseCommitSha: "b",
-          headCommitSha: "h",
-          id: "run-1",
-          isIncremental: true,
-          mrIid: 1,
-          projectId: 1,
-          queuedAt: new Date(),
-          status: "queued" as const,
-          triggerType: "push" as const,
-        }),
-      findById: () => Promise.resolve(undefined),
-      findByIdentity: () => Promise.resolve(undefined),
-      findByProjectAndMr: () => Promise.resolve([]),
-      findLatestByProjectAndMr: vi.fn(() =>
-        Promise.resolve(
-          options.latestRun
-            ? {
-                baseCommitSha: "base",
-                headCommitSha: options.latestRun.headCommitSha,
-                id: options.latestRun.id,
-                isIncremental: false,
-                mrIid: 1,
-                projectId: 1,
-                queuedAt: new Date(),
-                status: "completed" as const,
-                triggerType: "mr_open" as const,
-              }
-            : undefined,
-        ),
-      ),
-      updateStats: () => Promise.resolve(),
-      updateStatus: () => Promise.resolve(),
-    },
+    ...createMockInfraRepoPorts({
+      reviewFindingRepo: createMockReviewFindingRepository({
+        findByRunId: () => Promise.resolve(options.findingsByRunId ?? []),
+        updateResolution: updateResolutionMock,
+        updateResolutionMany: updateResolutionManyMock,
+      }),
+      reviewRunRepo: createMockReviewRunRepository({
+        create: () =>
+          Promise.resolve(
+            createMockReviewRun({
+              baseCommitSha: "b",
+              headCommitSha: "h",
+              id: "run-1",
+              isIncremental: true,
+              triggerType: "push",
+            }),
+          ),
+        findLatestByProjectAndMr: () =>
+          Promise.resolve(
+            options.latestRun
+              ? createMockReviewRun({
+                  baseCommitSha: "base",
+                  headCommitSha: options.latestRun.headCommitSha,
+                  id: options.latestRun.id,
+                  status: "completed",
+                })
+              : undefined,
+          ),
+      }),
+    }),
     updateResolutionCalls,
     updateResolutionManyCalls,
     updateResolutionManyMock,
     updateResolutionMock,
-  } as unknown as ReviewInfraRepoPorts & {
-    updateResolutionManyCalls: string[][];
-    updateResolutionManyMock: ReturnType<typeof vi.fn>;
-    updateResolutionCalls: string[];
-    updateResolutionMock: ReturnType<typeof vi.fn>;
   };
 }
 
 function makeOrchestrator(): PipelineOrchestrator & { runCalls: unknown[] } {
   const runCalls: unknown[] = [];
 
-  return {
-    run: vi.fn((input: unknown) => {
-      runCalls.push(input);
-      return Promise.resolve();
+  return Object.assign(
+    createMockPipelineOrchestrator({
+      run: (input) => {
+        runCalls.push(input);
+        return Promise.resolve();
+      },
     }),
-    runCalls,
-  } as unknown as PipelineOrchestrator & { runCalls: unknown[] };
+    { runCalls },
+  );
 }
 
 function buildIncrementalReviewService(

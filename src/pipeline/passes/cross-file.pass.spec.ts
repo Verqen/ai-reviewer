@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import {
+  OPENROUTER_REVIEW_MODEL,
+  OPENROUTER_TRIAGE_MODEL,
+} from "~/config/models";
+import { CostBudget } from "~/domain/cost-budget";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
@@ -417,5 +422,59 @@ describe("CrossFilePass", () => {
     const result = await pass.execute(buildContext(), new Map());
 
     expect(result.findings).toHaveLength(0);
+  });
+});
+
+describe("CrossFilePass cost ceiling", () => {
+  function buildPricedContext(costBudget: CostBudget): ReviewContext {
+    return buildContext({
+      costBudget,
+      reviewConfig: createMockReviewConfig({
+        models: {
+          premium: null,
+          review: OPENROUTER_REVIEW_MODEL,
+          triage: OPENROUTER_TRIAGE_MODEL,
+        },
+        severityThreshold: "info",
+      }),
+    });
+  }
+
+  it("records the cost of the cross-file call on the review cost budget", async () => {
+    const llm = createMockLlmClient({
+      responses: [
+        {
+          content: buildCrossFileResponse(1),
+          toolCalls: [],
+          usage: { completionTokens: 400, promptTokens: 20_000 },
+        },
+      ],
+    });
+    const costBudget = new CostBudget(10);
+    const pass = new CrossFilePass(llm, createMockLogger());
+
+    await pass.execute(buildPricedContext(costBudget), new Map());
+
+    expect(costBudget.spent).toBeGreaterThan(0);
+  });
+
+  it("skips the cross-file call when the budget is exhausted", async () => {
+    const llm = createMockLlmClient({
+      defaultContent: buildCrossFileResponse(1),
+    });
+    const logger = createMockLogger();
+    const warn = vi.spyOn(logger, "warn");
+    const costBudget = new CostBudget(0);
+    const pass = new CrossFilePass(llm, logger);
+
+    const result = await pass.execute(
+      buildPricedContext(costBudget),
+      new Map(),
+    );
+
+    expect(llm.calls.chatCompletion).toHaveLength(0);
+    expect(result.findings).toHaveLength(0);
+    expect(result.metadata["skipped"]).toBe("cost_ceiling");
+    expect(warn).toHaveBeenCalled();
   });
 });

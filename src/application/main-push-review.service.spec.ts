@@ -12,7 +12,11 @@ import type {
 } from "~/domain/types/code-host.types";
 import type { ReviewJob } from "~/domain/types/job.types";
 import type { ReviewRun, TriggerType } from "~/domain/types/review.types";
+import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockInfraRepoPorts } from "~/test-utils/mock-infra-repo-ports";
+import { createMockJobQueue } from "~/test-utils/mock-job-queue";
 import { createMockLogger } from "~/test-utils/mock-logger";
+import { createMockReviewRunRepository } from "~/test-utils/mock-review-run-repository";
 
 function makeDiff(path: string): DiffFile {
   return { diff: "", newPath: path, oldPath: path };
@@ -58,78 +62,55 @@ function makeRepo(): IReviewRunRepository & {
     .mockResolvedValue(undefined);
 
   return {
-    completeRun: vi.fn(),
-    create: vi.fn(),
-    deleteCompletedOrFailedBefore: vi.fn().mockResolvedValue(0),
-    failStuckRun: vi.fn().mockResolvedValue(true),
-    findById: vi.fn(),
-    findByIdentity: vi.fn(),
-    findByProjectAndMr: vi.fn(),
-    findLatestByProjectAndMr: findLatestByProjectAndMrFn,
+    ...createMockReviewRunRepository({
+      findLatestByProjectAndMr: findLatestByProjectAndMrFn,
+    }),
     findLatestByProjectAndMrFn,
-    updateStats: vi.fn(),
-    updateStatus: vi.fn(),
   };
 }
 
 function makeCodeHost(): ICodeHost & {
-  getMergeRequestDiffFn: ReturnType<typeof vi.fn>;
-  listOpenMergeRequestsFn: ReturnType<typeof vi.fn>;
+  getMergeRequestDiffFn: Mock<ICodeHost["getMergeRequestDiff"]>;
+  listOpenMergeRequestsFn: Mock<ICodeHost["listOpenMergeRequests"]>;
 } {
-  const listOpenMergeRequestsFn = vi.fn().mockResolvedValue([]);
-  const getMergeRequestDiffFn = vi.fn().mockResolvedValue([]);
+  const listOpenMergeRequestsFn = vi
+    .fn<ICodeHost["listOpenMergeRequests"]>()
+    .mockResolvedValue([]);
+  const getMergeRequestDiffFn = vi
+    .fn<ICodeHost["getMergeRequestDiff"]>()
+    .mockResolvedValue([]);
 
   return {
-    approveMergeRequest: () => Promise.resolve(),
-    getCommitRangeDiff: () => Promise.resolve([]),
-    getDefaultBranch: () => Promise.resolve("main"),
-    getDiscussionNotes: () => Promise.resolve([]),
-    getFileContent: () => Promise.resolve(""),
-    getFileTree: () => Promise.resolve([]),
-    getMergeRequestDiff: getMergeRequestDiffFn,
+    ...createMockCodeHost(
+      {},
+      {
+        getMergeRequestDiff: getMergeRequestDiffFn,
+        listOpenMergeRequests: listOpenMergeRequestsFn,
+      },
+    ),
     getMergeRequestDiffFn,
-    getMergeRequestInfo: () =>
-      Promise.resolve({
-        description: "",
-        iid: 1,
-        projectId: 1,
-        sourceBranch: "f",
-        targetBranch: "main",
-        title: "t",
-      }),
-    getMergeRequestVersions: () =>
-      Promise.resolve({ baseSha: "base", headSha: "head", startSha: "start" }),
-    getRepositoryArchive: () => Promise.resolve([]),
-    listOpenMergeRequests: listOpenMergeRequestsFn,
     listOpenMergeRequestsFn,
-    postInlineComment: () =>
-      Promise.resolve({ discussionId: "d", noteId: "n" }),
-    postNote: () => Promise.resolve({ noteId: "n" }),
-    replyToDiscussion: () => Promise.resolve({ noteId: "n" }),
-    resolveDiscussion: () => Promise.resolve(),
-    unapprove: () => Promise.resolve(),
-    unresolveDiscussion: () => Promise.resolve(),
-  } as unknown as ICodeHost & {
-    getMergeRequestDiffFn: ReturnType<typeof vi.fn>;
-    listOpenMergeRequestsFn: ReturnType<typeof vi.fn>;
   };
 }
 
 function makeQueue(): IJobQueue<ReviewJob> & {
-  enqueueFn: ReturnType<typeof vi.fn>;
-  isPendingFn: ReturnType<typeof vi.fn>;
+  enqueueFn: Mock<IJobQueue<ReviewJob>["enqueue"]>;
+  isPendingFn: Mock<IJobQueue<ReviewJob>["isPending"]>;
 } {
-  const enqueueFn = vi.fn().mockReturnValue(true);
-  const isPendingFn = vi.fn().mockReturnValue(false);
+  const enqueueFn = vi
+    .fn<IJobQueue<ReviewJob>["enqueue"]>()
+    .mockReturnValue(true);
+  const isPendingFn = vi
+    .fn<IJobQueue<ReviewJob>["isPending"]>()
+    .mockReturnValue(false);
 
   return {
-    activeCount: 0,
-    drain: vi.fn(),
-    enqueue: enqueueFn,
+    ...createMockJobQueue<ReviewJob>({
+      enqueue: enqueueFn,
+      isPending: isPendingFn,
+    }),
     enqueueFn,
-    isPending: isPendingFn,
     isPendingFn,
-    size: 0,
   };
 }
 
@@ -144,12 +125,7 @@ describe("MainPushReviewService", () => {
 
   beforeEach(() => {
     reviewRunRepo = makeRepo();
-    infraRepoPorts = {
-      dismissedPatternRepo: {} as ReviewInfraRepoPorts["dismissedPatternRepo"],
-      reviewFindingRepo: {} as ReviewInfraRepoPorts["reviewFindingRepo"],
-      reviewRunRepo,
-      snapshotRepo: {} as ReviewInfraRepoPorts["snapshotRepo"],
-    };
+    infraRepoPorts = createMockInfraRepoPorts({ reviewRunRepo });
     codeHost = makeCodeHost();
     queue = makeQueue();
     logger = createMockLogger();

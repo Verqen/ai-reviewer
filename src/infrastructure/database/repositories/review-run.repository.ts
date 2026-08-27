@@ -1,11 +1,14 @@
-import type { Kysely } from "kysely";
+import type { Kysely, Updateable } from "kysely";
 
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewRunConflictError } from "~/domain/errors/review-run.errors";
 import type {
   CreateReviewRunInput,
+  FailReviewRunInput,
   FindLatestReviewRunOptions,
   IReviewRunRepository,
+  ReclaimStuckReviewRunInput,
+  RestartFailedReviewRunInput,
   UpdateReviewRunStatsInput,
 } from "~/domain/ports/review-run.repository.port";
 import type {
@@ -21,6 +24,29 @@ function isUniqueViolation(err: unknown): boolean {
   }
   const { code } = err;
   return code === "23505";
+}
+
+function freshAttemptValues(
+  input: RestartFailedReviewRunInput,
+): Updateable<Database["review_run"]> {
+  return {
+    completed_at: null,
+    completion_tokens: null,
+    config_snapshot: null,
+    critical_count: null,
+    error_message: null,
+    files_reviewed: null,
+    is_incremental: input.isIncremental,
+    previous_run_id: input.previousRunId ?? null,
+    prompt_tokens: null,
+    review_model: null,
+    started_at: input.startedAt,
+    status: "in_progress",
+    total_cost: null,
+    total_findings: null,
+    triage_model: null,
+    warning_count: null,
+  };
 }
 
 function rowToReviewRun(row: ReviewRunRow): ReviewRun {
@@ -111,10 +137,19 @@ class ReviewRunRepository implements IReviewRunRepository {
     }
   }
 
-  async failStuckRun(
-    id: string,
-    params: { errorMessage: string; timestamp: Date },
-  ): Promise<boolean> {
+  async failRun(id: string, params: FailReviewRunInput): Promise<void> {
+    await this.db
+      .updateTable("review_run")
+      .set({
+        completed_at: params.timestamp,
+        error_message: params.errorMessage,
+        status: "failed",
+      })
+      .where("id", "=", id)
+      .execute();
+  }
+
+  async failStuckRun(id: string, params: FailReviewRunInput): Promise<boolean> {
     const result = await this.db
       .updateTable("review_run")
       .set({
@@ -203,17 +238,48 @@ class ReviewRunRepository implements IReviewRunRepository {
     return row ? rowToReviewRun(row) : undefined;
   }
 
+  async reclaimStuckRun(
+    input: ReclaimStuckReviewRunInput,
+  ): Promise<ReviewRun | undefined> {
+    const row = await this.db
+      .updateTable("review_run")
+      .set(freshAttemptValues(input))
+      .where("id", "=", input.id)
+      .where("status", "=", "in_progress")
+      .where((eb) =>
+        eb(eb.fn.coalesce("started_at", "queued_at"), "<=", input.stuckBefore),
+      )
+      .returningAll()
+      .executeTakeFirst();
+
+    return row ? rowToReviewRun(row) : undefined;
+  }
+
+  async restartFailedRun(
+    input: RestartFailedReviewRunInput,
+  ): Promise<ReviewRun | undefined> {
+    const row = await this.db
+      .updateTable("review_run")
+      .set(freshAttemptValues(input))
+      .where("id", "=", input.id)
+      .where("status", "=", "failed")
+      .returningAll()
+      .executeTakeFirst();
+
+    return row ? rowToReviewRun(row) : undefined;
+  }
+
   async updateStatus(
     id: string,
     status: ReviewStatus,
     timestamp?: Date,
   ): Promise<void> {
-    const update: Record<string, Date | ReviewStatus> = { status };
+    const update: Updateable<Database["review_run"]> = { status };
 
     if (status === "in_progress" && timestamp) {
-      update["started_at"] = timestamp;
+      update.started_at = timestamp;
     } else if ((status === "completed" || status === "failed") && timestamp) {
-      update["completed_at"] = timestamp;
+      update.completed_at = timestamp;
     }
 
     await this.db
@@ -254,28 +320,26 @@ class ReviewRunRepository implements IReviewRunRepository {
       timestamp: Date;
     },
   ): Promise<void> {
-    await this.db.transaction().execute(async (trx) => {
-      await trx
-        .updateTable("review_run")
-        .set({
-          base_commit_sha: params.baseCommitSha,
-          completed_at: params.timestamp,
-          completion_tokens: params.stats.completionTokens ?? null,
-          config_snapshot: params.stats.configSnapshot ?? null,
-          critical_count: params.stats.criticalCount ?? null,
-          error_message: params.stats.errorMessage ?? null,
-          files_reviewed: params.stats.filesReviewed ?? null,
-          prompt_tokens: params.stats.promptTokens ?? null,
-          review_model: params.stats.reviewModel ?? null,
-          status: "completed",
-          total_cost: params.stats.totalCost ?? null,
-          total_findings: params.stats.totalFindings ?? null,
-          triage_model: params.stats.triageModel ?? null,
-          warning_count: params.stats.warningCount ?? null,
-        })
-        .where("id", "=", id)
-        .execute();
-    });
+    await this.db
+      .updateTable("review_run")
+      .set({
+        base_commit_sha: params.baseCommitSha,
+        completed_at: params.timestamp,
+        completion_tokens: params.stats.completionTokens ?? null,
+        config_snapshot: params.stats.configSnapshot ?? null,
+        critical_count: params.stats.criticalCount ?? null,
+        error_message: params.stats.errorMessage ?? null,
+        files_reviewed: params.stats.filesReviewed ?? null,
+        prompt_tokens: params.stats.promptTokens ?? null,
+        review_model: params.stats.reviewModel ?? null,
+        status: "completed",
+        total_cost: params.stats.totalCost ?? null,
+        total_findings: params.stats.totalFindings ?? null,
+        triage_model: params.stats.triageModel ?? null,
+        warning_count: params.stats.warningCount ?? null,
+      })
+      .where("id", "=", id)
+      .execute();
   }
 }
 

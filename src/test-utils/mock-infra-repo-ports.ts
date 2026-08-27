@@ -6,7 +6,10 @@ import type {
 import type { CreateReviewFindingInput } from "~/domain/ports/review-finding.repository.port";
 import type {
   CreateReviewRunInput,
+  FailReviewRunInput,
   FindLatestReviewRunOptions,
+  ReclaimStuckReviewRunInput,
+  RestartFailedReviewRunInput,
   UpdateReviewRunStatsInput,
 } from "~/domain/ports/review-run.repository.port";
 import type {
@@ -52,7 +55,10 @@ interface MockInfraRepoPorts extends ReviewInfraRepoPorts {
     createFinding: CreateReviewFindingInput[][];
     createRun: CreateReviewRunInput[];
     deleteCompletedOrFailedBefore: Date[];
+    failRun: Array<[string, FailReviewRunInput]>;
     findByIdentity: Array<[number, number, string, string, TriggerType]>;
+    reclaimStuckRun: ReclaimStuckReviewRunInput[];
+    restartFailedRun: RestartFailedReviewRunInput[];
     updateStats: Array<[string, UpdateReviewRunStatsInput]>;
     updateStatus: Array<[string, ReviewStatus, Date | undefined]>;
   };
@@ -60,7 +66,9 @@ interface MockInfraRepoPorts extends ReviewInfraRepoPorts {
   setCreatedRun(run: ReviewRun): void;
 }
 
-function createMockInfraRepoPorts(): MockInfraRepoPorts {
+function createMockInfraRepoPorts(
+  overrides: Partial<ReviewInfraRepoPorts> = {},
+): MockInfraRepoPorts {
   let completedRun: ReviewRun | undefined = undefined;
   let createdRun: ReviewRun = createMockReviewRun();
 
@@ -69,7 +77,10 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
     createFinding: [],
     createRun: [],
     deleteCompletedOrFailedBefore: [],
+    failRun: [],
     findByIdentity: [],
+    reclaimStuckRun: [],
+    restartFailedRun: [],
     updateStats: [],
     updateStatus: [],
   };
@@ -105,6 +116,14 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
       ): Promise<ReviewFinding[]> {
         calls.createFinding.push(findings);
         return Promise.resolve([]);
+      },
+
+      existsByHostDiscussionId(
+        _projectId: number,
+        _mrIid: number,
+        _hostDiscussionId: string,
+      ): Promise<boolean> {
+        return Promise.resolve(false);
       },
 
       findByProjectAndMr(
@@ -159,10 +178,12 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         return Promise.resolve(0);
       },
 
-      failStuckRun(
-        _id: string,
-        _params: { errorMessage: string; timestamp: Date },
-      ): Promise<boolean> {
+      failRun(id: string, params: FailReviewRunInput): Promise<void> {
+        calls.failRun.push([id, params]);
+        return Promise.resolve();
+      },
+
+      failStuckRun(_id: string, _params: FailReviewRunInput): Promise<boolean> {
         return Promise.resolve(true);
       },
 
@@ -200,6 +221,20 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         _triggerType?: TriggerType,
         _options?: FindLatestReviewRunOptions,
       ): Promise<ReviewRun | undefined> {
+        return Promise.resolve(undefined);
+      },
+
+      reclaimStuckRun(
+        input: ReclaimStuckReviewRunInput,
+      ): Promise<ReviewRun | undefined> {
+        calls.reclaimStuckRun.push(input);
+        return Promise.resolve(undefined);
+      },
+
+      restartFailedRun(
+        input: RestartFailedReviewRunInput,
+      ): Promise<ReviewRun | undefined> {
+        calls.restartFailedRun.push(input);
         return Promise.resolve(undefined);
       },
 
@@ -308,6 +343,8 @@ function createMockInfraRepoPorts(): MockInfraRepoPorts {
         return Promise.resolve();
       },
     },
+
+    ...overrides,
   };
 
   return mock;

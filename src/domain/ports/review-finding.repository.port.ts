@@ -12,6 +12,11 @@ interface CreateReviewFindingInput extends Finding {
 
 interface IReviewFindingRepository {
   createMany(findings: CreateReviewFindingInput[]): Promise<ReviewFinding[]>;
+  existsByHostDiscussionId(
+    projectId: number,
+    mrIid: number,
+    hostDiscussionId: string,
+  ): Promise<boolean>;
   findByProjectAndMr(
     projectId: number,
     mrIid: number,

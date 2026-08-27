@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
+import { CostBudget } from "~/domain/cost-budget";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { ReviewFinding } from "~/domain/types/review.types";
 import type { IReviewService } from "~/review/review.types";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
 import { createMockLogger } from "~/test-utils/mock-logger";
+import { createMockReviewFindingRepository } from "~/test-utils/mock-review-finding-repository";
+import { createMockReviewLearningService } from "~/test-utils/mock-review-learning-service";
+import { createMockReviewService } from "~/test-utils/mock-review-service";
 
 import type { ReviewLearningService } from "./review-learning.service";
 import { ThreadManagerService } from "./thread-manager.service";
@@ -37,8 +41,8 @@ describe("ThreadManagerService", () => {
   >;
   let reviewFindingRepo: IReviewFindingRepository;
   let codeHost: ICodeHost;
-  let classifyIntentFn: ReturnType<typeof vi.fn>;
-  let learnFromReplyFn: ReturnType<typeof vi.fn>;
+  let classifyIntentFn: Mock<ReviewLearningService["classifyIntent"]>;
+  let learnFromReplyFn: Mock<ReviewLearningService["learnFromReply"]>;
   let respondToFindingThreadClarificationFn: Mock<
     IReviewService["respondToFindingThreadClarification"]
   >;
@@ -50,34 +54,32 @@ describe("ThreadManagerService", () => {
     findByProjectAndMrFn = vi
       .fn<IReviewFindingRepository["findByProjectAndMr"]>()
       .mockResolvedValue([buildMockFinding()]);
-    classifyIntentFn = vi.fn().mockResolvedValue({
-      intent: "false_positive",
-      reason: "intentional by design",
-    });
-    learnFromReplyFn = vi.fn().mockResolvedValue(undefined);
+    classifyIntentFn = vi
+      .fn<ReviewLearningService["classifyIntent"]>()
+      .mockResolvedValue({
+        intent: "false_positive",
+        reason: "intentional by design",
+      });
+    learnFromReplyFn = vi
+      .fn<ReviewLearningService["learnFromReply"]>()
+      .mockResolvedValue(undefined);
     respondToFindingThreadClarificationFn = vi
       .fn<IReviewService["respondToFindingThreadClarification"]>()
       .mockResolvedValue("Narrow thread reply");
 
-    reviewFindingRepo = {
-      createMany: vi.fn().mockResolvedValue([]),
+    reviewFindingRepo = createMockReviewFindingRepository({
       findByProjectAndMr: findByProjectAndMrFn,
-      findByRunId: vi.fn().mockResolvedValue([]),
-      updateResolution: vi.fn().mockResolvedValue(undefined),
-      updateResolutionMany: vi.fn().mockResolvedValue(undefined),
-    };
+    });
 
-    reviewLearningService = {
+    reviewLearningService = createMockReviewLearningService({
       classifyIntent: classifyIntentFn,
       learnFromReply: learnFromReplyFn,
-    } as unknown as ReviewLearningService;
+    });
 
-    reviewService = {
-      respondToComment: vi.fn(),
+    reviewService = createMockReviewService({
       respondToFindingThreadClarification:
         respondToFindingThreadClarificationFn,
-      reviewMergeRequest: vi.fn(),
-    };
+    });
   });
 
   function buildService(): ThreadManagerService {
@@ -297,5 +299,30 @@ describe("ThreadManagerService", () => {
         projectId: 1,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it("threads an exhausted cost budget into the learning service when the ceiling is zero", async () => {
+    const service = new ThreadManagerService(
+      reviewFindingRepo,
+      codeHost,
+      reviewLearningService,
+      reviewService,
+      createMockLogger(),
+      0,
+    );
+
+    await service.handleReply({
+      authorUsername: "dev-user",
+      discussionId: "disc-1",
+      mrIid: 1,
+      noteBody: "This is intentional design",
+      projectId: 1,
+    });
+
+    const budgetArgument: unknown = classifyIntentFn.mock.calls[0]?.[2];
+    expect(budgetArgument).toBeInstanceOf(CostBudget);
+    expect(
+      budgetArgument instanceof CostBudget && budgetArgument.isExhausted(),
+    ).toBe(true);
   });
 });

@@ -18,10 +18,9 @@ const OpenRouterConfigSchema = z.object({
 type OpenRouterConfigSchema = z.infer<typeof OpenRouterConfigSchema>;
 
 class OpenRouterConfig extends Config<OpenRouterConfigSchema> {
-  constructor() {
-    super(() => OpenRouterConfigSchema.parse(process.env));
+  constructor(envs?: OpenRouterConfigSchema) {
+    super(() => envs ?? OpenRouterConfigSchema.parse(process.env));
   }
 }
 
-export { OpenRouterConfig };
-export type { OpenRouterConfigSchema };
+export { OpenRouterConfig, OpenRouterConfigSchema };

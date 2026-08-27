@@ -58,6 +58,201 @@ describe("SnapshotRepository", () => {
     expect(matches.map((match) => match.filePath)).toEqual(["src/greeting.ts"]);
   });
 
+  it("copySnapshotEntries copies every entry of a commit and reports the count", async () => {
+    await repo.storeBlobs([
+      { content: Buffer.from("a"), hash: "hash-a" },
+      { content: Buffer.from("b"), hash: "hash-b" },
+    ]);
+    await repo.storeSnapshot({
+      commitSha: "from-sha",
+      entries: [
+        { blobHash: "hash-a", filePath: "src/a.ts" },
+        { blobHash: "hash-b", filePath: "src/b.ts" },
+      ],
+      projectId: 5,
+    });
+    await repo.storeSnapshot({
+      commitSha: "to-sha",
+      entries: [],
+      projectId: 5,
+    });
+
+    const copied = await repo.copySnapshotEntries(5, "from-sha", "to-sha");
+
+    expect(copied).toBe(2);
+    await expect(repo.listFiles(5, "to-sha")).resolves.toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+    await expect(repo.getFileContent(5, "to-sha", "src/b.ts")).resolves.toBe(
+      "b",
+    );
+  });
+
+  it("copySnapshotEntries skips excluded paths and counts only what it copies", async () => {
+    await repo.storeBlobs([{ content: Buffer.from("a"), hash: "hash-a" }]);
+    await repo.storeSnapshot({
+      commitSha: "from-sha",
+      entries: [
+        { blobHash: "hash-a", filePath: "src/a.ts" },
+        { blobHash: "hash-a", filePath: "src/b.ts" },
+        { blobHash: "hash-a", filePath: "src/c.ts" },
+      ],
+      projectId: 5,
+    });
+    await repo.storeSnapshot({
+      commitSha: "to-sha",
+      entries: [],
+      projectId: 5,
+    });
+
+    const copied = await repo.copySnapshotEntries(
+      5,
+      "from-sha",
+      "to-sha",
+      new Set(["src/b.ts"]),
+    );
+
+    expect(copied).toBe(2);
+    await expect(repo.listFiles(5, "to-sha")).resolves.toEqual([
+      "src/a.ts",
+      "src/c.ts",
+    ]);
+  });
+
+  it("copySnapshotEntries keeps entries that already exist at the target commit", async () => {
+    await repo.storeBlobs([
+      { content: Buffer.from("old"), hash: "hash-old" },
+      { content: Buffer.from("new"), hash: "hash-new" },
+    ]);
+    await repo.storeSnapshot({
+      commitSha: "from-sha",
+      entries: [{ blobHash: "hash-old", filePath: "src/a.ts" }],
+      projectId: 5,
+    });
+    await repo.storeSnapshot({
+      commitSha: "to-sha",
+      entries: [{ blobHash: "hash-new", filePath: "src/a.ts" }],
+      projectId: 5,
+    });
+
+    const copied = await repo.copySnapshotEntries(5, "from-sha", "to-sha");
+
+    expect(copied).toBe(1);
+    await expect(repo.getFileContent(5, "to-sha", "src/a.ts")).resolves.toBe(
+      "new",
+    );
+  });
+
+  it("copySnapshotEntries reports zero for an empty source commit", async () => {
+    await repo.storeSnapshot({
+      commitSha: "from-sha",
+      entries: [],
+      projectId: 5,
+    });
+    await repo.storeSnapshot({
+      commitSha: "to-sha",
+      entries: [],
+      projectId: 5,
+    });
+
+    await expect(
+      repo.copySnapshotEntries(5, "from-sha", "to-sha"),
+    ).resolves.toBe(0);
+  });
+
+  it("listFiles caps the returned rows at the requested maximum", async () => {
+    await repo.storeBlobs([{ content: Buffer.from("x"), hash: "hash-x" }]);
+    await repo.storeSnapshot({
+      commitSha: "many-sha",
+      entries: [
+        { blobHash: "hash-x", filePath: "src/a.ts" },
+        { blobHash: "hash-x", filePath: "src/b.ts" },
+        { blobHash: "hash-x", filePath: "src/c.ts" },
+      ],
+      projectId: 6,
+    });
+
+    await expect(repo.listFiles(6, "many-sha", undefined, 2)).resolves.toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+  });
+
+  it("searchContent caps the returned rows and stays ordered by path", async () => {
+    await repo.storeBlobs([
+      { content: Buffer.from("needle here\n"), hash: "hash-1" },
+      { content: Buffer.from("needle there\n"), hash: "hash-2" },
+      { content: Buffer.from("needle everywhere\n"), hash: "hash-3" },
+    ]);
+    await repo.storeSnapshot({
+      commitSha: "search-sha",
+      entries: [
+        { blobHash: "hash-1", filePath: "src/a.ts" },
+        { blobHash: "hash-2", filePath: "src/b.ts" },
+        { blobHash: "hash-3", filePath: "src/c.ts" },
+      ],
+      projectId: 6,
+    });
+
+    const capped = await repo.searchContent(
+      6,
+      "search-sha",
+      "needle",
+      undefined,
+      2,
+    );
+
+    expect(capped.map((match) => match.filePath)).toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+    expect(capped[0]?.matches).toEqual(["1:needle here"]);
+  });
+
+  it("searchContent matches the pattern literally, not as a LIKE wildcard", async () => {
+    await repo.storeBlobs([
+      { content: Buffer.from("const rate = 10%;\n"), hash: "hash-literal" },
+      { content: Buffer.from("const other = 10;\n"), hash: "hash-plain" },
+    ]);
+    await repo.storeSnapshot({
+      commitSha: "literal-sha",
+      entries: [
+        { blobHash: "hash-literal", filePath: "src/literal.ts" },
+        { blobHash: "hash-plain", filePath: "src/plain.ts" },
+      ],
+      projectId: 6,
+    });
+
+    const matches = await repo.searchContent(6, "literal-sha", "10%");
+
+    expect(matches.map((match) => match.filePath)).toEqual(["src/literal.ts"]);
+  });
+
+  it("searchContent restricts results to the requested glob", async () => {
+    await repo.storeBlobs([
+      { content: Buffer.from("needle\n"), hash: "hash-in" },
+      { content: Buffer.from("needle\n"), hash: "hash-out" },
+    ]);
+    await repo.storeSnapshot({
+      commitSha: "glob-sha",
+      entries: [
+        { blobHash: "hash-in", filePath: "src/in.ts" },
+        { blobHash: "hash-out", filePath: "docs/out.md" },
+      ],
+      projectId: 6,
+    });
+
+    const matches = await repo.searchContent(
+      6,
+      "glob-sha",
+      "needle",
+      "src/**/*.ts",
+    );
+
+    expect(matches.map((match) => match.filePath)).toEqual(["src/in.ts"]);
+  });
+
   it("deleteOldSnapshotsBefore removes old commits, cascaded entries, and orphan blobs; retains shared blobs", async () => {
     const db = testDb.db;
     await db

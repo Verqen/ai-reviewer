@@ -1,18 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { IJobQueue } from "~/domain/ports/job-queue.port";
-import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { IReviewRunRepository } from "~/domain/ports/review-run.repository.port";
-import type { ISnapshotRepository } from "~/domain/ports/snapshot.repository.port";
 import type { WebhookEvent } from "~/domain/types/code-host.types";
 import type { ReviewJob } from "~/domain/types/job.types";
 import { MemoryCache } from "~/infrastructure/cache/memory-cache";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 import { JobQueue } from "~/infrastructure/queue/job-queue";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockReviewRun } from "~/test-utils/mock-infra-repo-ports";
 import { createMockLogger } from "~/test-utils/mock-logger";
+import { createMockReviewFindingRepository } from "~/test-utils/mock-review-finding-repository";
+import { createMockReviewRunRepository } from "~/test-utils/mock-review-run-repository";
+import { createMockSnapshotRepository } from "~/test-utils/mock-snapshot-repository";
 
-import type { WebhookOrchestratorDeps } from "./webhook-orchestration.types";
+import type {
+  WebhookOrchestrationResult,
+  WebhookOrchestratorDeps,
+} from "./webhook-orchestration.types";
 import { createWebhookOrchestrator } from "./webhook-orchestrator";
 
 function buildDeps(overrides: Partial<WebhookOrchestratorDeps> = {}): {
@@ -30,22 +35,18 @@ function buildDeps(overrides: Partial<WebhookOrchestratorDeps> = {}): {
     log: overrides.log ?? createMockLogger(),
     queue,
     reviewFindingRepo:
-      overrides.reviewFindingRepo ??
-      ({
-        findByProjectAndMr: vi.fn().mockResolvedValue([]),
-      } as unknown as IReviewFindingRepository),
-    reviewRunRepo:
-      overrides.reviewRunRepo ??
-      ({
-        findLatestByProjectAndMr: vi.fn().mockResolvedValue(undefined),
-      } as unknown as IReviewRunRepository),
+      overrides.reviewFindingRepo ?? createMockReviewFindingRepository(),
+    reviewRunRepo: overrides.reviewRunRepo ?? createMockReviewRunRepository(),
     snapshotRepo:
       overrides.snapshotRepo ??
-      ({
-        getBaselineState: vi
-          .fn()
-          .mockResolvedValue({ commitSha: "abc", status: "ready" }),
-      } as unknown as ISnapshotRepository),
+      createMockSnapshotRepository({
+        getBaselineState: () =>
+          Promise.resolve({
+            commitSha: "abc",
+            errorMessage: null,
+            status: "ready",
+          }),
+      }),
     ...overrides,
   };
   return { deps, jobHandler, queue };
@@ -126,12 +127,15 @@ describe("createWebhookOrchestrator", () => {
 
   it("enqueues incremental_review when previous run exists and range diff succeeds", async () => {
     const codeHost = createMockCodeHost();
-    const reviewRunRepo = {
-      findLatestByProjectAndMr: vi.fn().mockResolvedValue({
-        baseCommitSha: "base-sha",
-        headCommitSha: "prev-sha",
-      }),
-    } as unknown as IReviewRunRepository;
+    const reviewRunRepo = createMockReviewRunRepository({
+      findLatestByProjectAndMr: () =>
+        Promise.resolve(
+          createMockReviewRun({
+            baseCommitSha: "base-sha",
+            headCommitSha: "prev-sha",
+          }),
+        ),
+    });
     const { deps, queue } = buildDeps({ codeHost, reviewRunRepo });
     const enqueueSpy = vi.spyOn(queue, "enqueue");
     const orchestrator = createWebhookOrchestrator(deps);
@@ -157,12 +161,15 @@ describe("createWebhookOrchestrator", () => {
 
   it("uses webhook oldrev as previousSha for incremental review", async () => {
     const codeHost = createMockCodeHost();
-    const reviewRunRepo = {
-      findLatestByProjectAndMr: vi.fn().mockResolvedValue({
-        baseCommitSha: "base-sha",
-        headCommitSha: "prev-run-sha",
-      }),
-    } as unknown as IReviewRunRepository;
+    const reviewRunRepo = createMockReviewRunRepository({
+      findLatestByProjectAndMr: () =>
+        Promise.resolve(
+          createMockReviewRun({
+            baseCommitSha: "base-sha",
+            headCommitSha: "prev-run-sha",
+          }),
+        ),
+    });
     const { deps, queue } = buildDeps({ codeHost, reviewRunRepo });
     const enqueueSpy = vi.spyOn(queue, "enqueue");
     const orchestrator = createWebhookOrchestrator(deps);
@@ -191,12 +198,15 @@ describe("createWebhookOrchestrator", () => {
     const codeHost = createMockCodeHost({
       versions: { baseSha: "base-new", headSha: "new-sha", startSha: "start" },
     });
-    const reviewRunRepo = {
-      findLatestByProjectAndMr: vi.fn().mockResolvedValue({
-        baseCommitSha: "base-old",
-        headCommitSha: "prev-sha",
-      }),
-    } as unknown as IReviewRunRepository;
+    const reviewRunRepo = createMockReviewRunRepository({
+      findLatestByProjectAndMr: () =>
+        Promise.resolve(
+          createMockReviewRun({
+            baseCommitSha: "base-old",
+            headCommitSha: "prev-sha",
+          }),
+        ),
+    });
     const { deps, queue } = buildDeps({ codeHost, reviewRunRepo });
     const enqueueSpy = vi.spyOn(queue, "enqueue");
     const compareSpy = vi.spyOn(codeHost, "getCommitRangeDiff");
@@ -225,12 +235,15 @@ describe("createWebhookOrchestrator", () => {
     vi.spyOn(codeHost, "getCommitRangeDiff").mockRejectedValue(
       new CodeHostNotFoundError("missing"),
     );
-    const reviewRunRepo = {
-      findLatestByProjectAndMr: vi.fn().mockResolvedValue({
-        baseCommitSha: "base-sha",
-        headCommitSha: "prev-sha",
-      }),
-    } as unknown as IReviewRunRepository;
+    const reviewRunRepo = createMockReviewRunRepository({
+      findLatestByProjectAndMr: () =>
+        Promise.resolve(
+          createMockReviewRun({
+            baseCommitSha: "base-sha",
+            headCommitSha: "prev-sha",
+          }),
+        ),
+    });
     const { deps, queue } = buildDeps({ codeHost, reviewRunRepo });
     const enqueueSpy = vi.spyOn(queue, "enqueue");
     const orchestrator = createWebhookOrchestrator(deps);
@@ -254,15 +267,19 @@ describe("createWebhookOrchestrator", () => {
 
   it("enqueues incremental_review on mr_update when latest run is failed", async () => {
     const codeHost = createMockCodeHost();
-    const findLatest = vi.fn().mockResolvedValue({
-      baseCommitSha: "base-sha",
-      headCommitSha: "prev-sha",
-      id: "run-failed",
-      status: "failed",
-    });
-    const reviewRunRepo = {
+    const findLatest = vi
+      .fn<IReviewRunRepository["findLatestByProjectAndMr"]>()
+      .mockResolvedValue(
+        createMockReviewRun({
+          baseCommitSha: "base-sha",
+          headCommitSha: "prev-sha",
+          id: "run-failed",
+          status: "failed",
+        }),
+      );
+    const reviewRunRepo = createMockReviewRunRepository({
       findLatestByProjectAndMr: findLatest,
-    } as unknown as IReviewRunRepository;
+    });
     const { deps, queue } = buildDeps({ codeHost, reviewRunRepo });
     const enqueueSpy = vi.spyOn(queue, "enqueue");
     const orchestrator = createWebhookOrchestrator(deps);
@@ -378,6 +395,30 @@ describe("createWebhookOrchestrator", () => {
     };
     const actualResult = await orchestrator.handleEvent(event);
     expect(actualResult).toEqual({ kind: "ignored" });
+  });
+
+  describe("exhaustive dispatch", () => {
+    interface UnknownEventTypeDispatcher {
+      handleEvent(event: { type: string }): Promise<WebhookOrchestrationResult>;
+    }
+
+    it("logs an error and ignores an event type the dispatch does not cover", async () => {
+      const error =
+        vi.fn<(meta: Record<string, unknown>, msg: string) => void>();
+      const logger = createMockLogger();
+      Object.assign(logger, { error });
+      const { deps } = buildDeps({ log: logger });
+      const dispatcher: UnknownEventTypeDispatcher =
+        createWebhookOrchestrator(deps);
+
+      const result = await dispatcher.handleEvent({ type: "not_an_event" });
+
+      expect(result).toEqual({ kind: "ignored" });
+      expect(error).toHaveBeenCalledWith(
+        expect.objectContaining({ event: { type: "not_an_event" } }),
+        expect.stringContaining("Unhandled webhook event type"),
+      );
+    });
   });
 
   describe("telemetry", () => {

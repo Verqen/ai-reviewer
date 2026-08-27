@@ -4,6 +4,8 @@ import { GitHubConfig } from "~/config/github.config";
 import { computeCostUsd } from "~/config/llm-pricing";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
+import { PipelineConfig } from "~/config/pipeline.config";
+import { CostBudget } from "~/domain/cost-budget";
 import type { LineType, Severity } from "~/domain/types/review.types";
 import {
   createGitHubOctokit,
@@ -31,6 +33,7 @@ export interface ReviewThreadFinding {
 }
 
 export interface AnswerReviewThreadOptions {
+  costBudget?: CostBudget | undefined;
   owner: string;
   repo: string;
   pullRequestNumber: number;
@@ -56,6 +59,21 @@ export async function answerReviewThread(
 ): Promise<AnswerReviewThreadResult> {
   const { owner, repo, pullRequestNumber, replyToCommentId, finding } = options;
   const logger = defaultLogger(options.logger);
+  const costBudget =
+    options.costBudget ??
+    new CostBudget(new PipelineConfig().envs.REVIEW_MAX_COST_USD);
+
+  if (costBudget.isExhausted()) {
+    logger.warn(
+      {
+        limitUsd: costBudget.limit,
+        pullRequestNumber,
+        spentUsd: costBudget.spent,
+      },
+      "Cost ceiling reached: skipping review thread reply",
+    );
+    return { answer: "", posted: false, tokenCostUsd: 0 };
+  }
 
   const githubConfig = new GitHubConfig();
   const octokit = createGitHubOctokit(githubConfig, options.installationId);
@@ -136,6 +154,7 @@ export async function answerReviewThread(
     inputTokens: response.usage.promptTokens,
     outputTokens: response.usage.completionTokens,
   });
+  costBudget.record(tokenCostUsd);
 
   let posted = false;
   if (answer.length > 0) {

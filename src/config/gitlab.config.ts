@@ -10,10 +10,9 @@ const GitLabConfigSchema = z.object({
 type GitLabConfigSchema = z.infer<typeof GitLabConfigSchema>;
 
 class GitLabConfig extends Config<GitLabConfigSchema> {
-  constructor() {
-    super(() => GitLabConfigSchema.parse(process.env));
+  constructor(envs?: GitLabConfigSchema) {
+    super(() => envs ?? GitLabConfigSchema.parse(process.env));
   }
 }
 
-export { GitLabConfig };
-export type { GitLabConfigSchema };
+export { GitLabConfig, GitLabConfigSchema };

@@ -1,8 +1,7 @@
-import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
 import { Registry } from "prom-client";
 
-import type { ReviewPipelineConfig } from "~/domain/types/config.types";
+import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { ReviewContext } from "~/domain/types/pipeline.types";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
@@ -24,7 +23,7 @@ const llmConfig = {
   },
 };
 
-const logger = pino({ level: "info" }) as unknown as FastifyBaseLogger;
+const logger = pino({ level: "info" });
 
 const TRIVIAL_DIFF: ParsedFileDiff = {
   lines: [
@@ -71,7 +70,7 @@ const NEEDS_REVIEW_DIFF: ParsedFileDiff = {
   oldPath: "src/auth.ts",
 };
 
-const reviewConfig = {
+const reviewConfig = ResolvedReviewPipelineConfigSchema.parse({
   blockMergeOn: "none",
   concurrency: { maxParallelFiles: 8 },
   ignore: [],
@@ -81,7 +80,7 @@ const reviewConfig = {
   pathRules: [],
   reReviewCooldownMinutes: 5,
   severityThreshold: "info",
-} as unknown as ReviewPipelineConfig;
+});
 
 const context: ReviewContext = {
   diffs: [TRIVIAL_DIFF, NEEDS_REVIEW_DIFF],

@@ -108,6 +108,24 @@ class ReviewFindingRepository implements IReviewFindingRepository {
     return rows.map(rowToReviewFinding);
   }
 
+  async existsByHostDiscussionId(
+    projectId: number,
+    mrIid: number,
+    hostDiscussionId: string,
+  ): Promise<boolean> {
+    const row = await this.db
+      .selectFrom("review_finding")
+      .innerJoin("review_run", "review_run.id", "review_finding.review_run_id")
+      .select("review_finding.id")
+      .where("review_run.project_id", "=", projectId)
+      .where("review_run.mr_iid", "=", mrIid)
+      .where("review_finding.host_discussion_id", "=", hostDiscussionId)
+      .limit(1)
+      .executeTakeFirst();
+
+    return row !== undefined;
+  }
+
   async findByRunId(reviewRunId: string): Promise<ReviewFinding[]> {
     const rows = await this.db
       .selectFrom("review_finding")

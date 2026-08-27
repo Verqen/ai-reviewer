@@ -74,6 +74,40 @@ describe("ReviewFindingRepository", () => {
     expect(result).toHaveLength(0);
   });
 
+  it("existsByHostDiscussionId finds a discussion of the merge request", async () => {
+    const run = await createTestRun();
+    await findingRepo.createMany([
+      makeFindingInput(run.id, { hostDiscussionId: "disc-bot" }),
+    ]);
+
+    await expect(
+      findingRepo.existsByHostDiscussionId(1, 1, "disc-bot"),
+    ).resolves.toBe(true);
+  });
+
+  it("existsByHostDiscussionId ignores discussions of other merge requests", async () => {
+    const run = await createTestRun();
+    await findingRepo.createMany([
+      makeFindingInput(run.id, { hostDiscussionId: "disc-bot" }),
+    ]);
+
+    await expect(
+      findingRepo.existsByHostDiscussionId(1, 2, "disc-bot"),
+    ).resolves.toBe(false);
+    await expect(
+      findingRepo.existsByHostDiscussionId(2, 1, "disc-bot"),
+    ).resolves.toBe(false);
+  });
+
+  it("existsByHostDiscussionId reports unknown discussions as absent", async () => {
+    const run = await createTestRun();
+    await findingRepo.createMany([makeFindingInput(run.id)]);
+
+    await expect(
+      findingRepo.existsByHostDiscussionId(1, 1, "disc-human"),
+    ).resolves.toBe(false);
+  });
+
   it("findByRunId returns findings for run", async () => {
     const run = await createTestRun();
     await findingRepo.createMany([

@@ -1,4 +1,3 @@
-import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
 
 import { LlmConfig } from "~/config/llm.config";
@@ -175,7 +174,7 @@ function buildContext(
 }
 
 async function main(): Promise<void> {
-  const logger = pino({ level: "debug" }) as unknown as FastifyBaseLogger;
+  const logger = pino({ level: "debug" });
 
   const llmConfig = new LlmConfig();
   let llm: OllamaClient | OpenRouterClient;

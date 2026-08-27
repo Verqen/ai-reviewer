@@ -1,9 +1,29 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { ReviewRunLifecycleService } from "~/application/review-run-lifecycle.service";
+import { PipelineConfig } from "~/config/pipeline.config";
+import { ReviewRunConflictError } from "~/domain/errors/review-run.errors";
+import { createMockInfraRepoPorts } from "~/test-utils/mock-infra-repo-ports";
+import { createMockLogger } from "~/test-utils/mock-logger";
 import type { TestDatabase } from "~/test-utils/test-database";
 import { createTestDatabase } from "~/test-utils/test-database";
 
 import { ReviewRunRepository } from "./review-run.repository";
+
+const RUN_STUCK_AFTER_MS = 30 * 60 * 1000;
+
+function buildLifecycleService(
+  runRepo: ReviewRunRepository,
+): ReviewRunLifecycleService {
+  process.env["RUN_STUCK_AFTER_MS"] = String(RUN_STUCK_AFTER_MS);
+  const ports = createMockInfraRepoPorts();
+  ports.reviewRunRepo = runRepo;
+  return new ReviewRunLifecycleService(
+    ports,
+    createMockLogger(),
+    new PipelineConfig(),
+  );
+}
 
 let testDb: TestDatabase;
 let repo: ReviewRunRepository;
@@ -20,6 +40,19 @@ beforeEach(async () => {
 afterAll(async () => {
   await testDb.cleanup();
 });
+
+const START_PARAMS = {
+  isIncremental: false,
+  mrIid: 7,
+  previousRunId: undefined,
+  projectId: 42,
+  triggerType: "mr_open" as const,
+  versions: {
+    baseSha: "base-abc",
+    headSha: "head-abc",
+    startSha: "base-abc",
+  },
+};
 
 const BASE_INPUT = {
   baseCommitSha: "base-abc",
@@ -201,6 +234,304 @@ describe("ReviewRunRepository", () => {
   it("unique constraint rejects duplicate 5-tuple", async () => {
     await repo.create(BASE_INPUT);
     await expect(repo.create(BASE_INPUT)).rejects.toThrow();
+  });
+
+  it("failRun records status and reason in one statement, keeping earlier stats", async () => {
+    const run = await repo.create(BASE_INPUT);
+    await repo.updateStats(run.id, { filesReviewed: 4, totalFindings: 9 });
+
+    await repo.failRun(run.id, {
+      errorMessage: "pass exploded",
+      timestamp: new Date("2024-06-15T12:30:00.000Z"),
+    });
+
+    const failed = await repo.findById(run.id);
+    expect(failed?.status).toBe("failed");
+    expect(failed?.errorMessage).toBe("pass exploded");
+    expect(failed?.completedAt).toEqual(new Date("2024-06-15T12:30:00.000Z"));
+    expect(failed?.totalFindings).toBe(9);
+    expect(failed?.filesReviewed).toBe(4);
+  });
+
+  it("failStuckRun fails an in_progress run once and refuses a second time", async () => {
+    const run = await repo.create(BASE_INPUT);
+
+    const first = await repo.failStuckRun(run.id, {
+      errorMessage: "stuck",
+      timestamp: new Date(),
+    });
+    const second = await repo.failStuckRun(run.id, {
+      errorMessage: "stuck again",
+      timestamp: new Date(),
+    });
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+    const failed = await repo.findById(run.id);
+    expect(failed?.status).toBe("failed");
+    expect(failed?.errorMessage).toBe("stuck");
+  });
+
+  it("failStuckRun leaves the identity taken, so a fresh insert still conflicts", async () => {
+    const run = await repo.create(BASE_INPUT);
+    await repo.failStuckRun(run.id, {
+      errorMessage: "stuck",
+      timestamp: new Date(),
+    });
+
+    await expect(repo.create(BASE_INPUT)).rejects.toBeInstanceOf(
+      ReviewRunConflictError,
+    );
+  });
+
+  it("reclaimStuckRun restarts a stuck run in place and clears the previous attempt", async () => {
+    const startedAt = new Date(Date.now() - RUN_STUCK_AFTER_MS - 60_000);
+    const run = await repo.create({ ...BASE_INPUT, startedAt });
+    await repo.updateStats(run.id, {
+      errorMessage: "stale error",
+      totalFindings: 3,
+    });
+    const restartedAt = new Date();
+
+    const reclaimed = await repo.reclaimStuckRun({
+      id: run.id,
+      isIncremental: true,
+      previousRunId: undefined,
+      startedAt: restartedAt,
+      stuckBefore: new Date(Date.now() - RUN_STUCK_AFTER_MS),
+    });
+
+    expect(reclaimed?.id).toBe(run.id);
+    expect(reclaimed?.status).toBe("in_progress");
+    expect(reclaimed?.startedAt).toEqual(restartedAt);
+    expect(reclaimed?.isIncremental).toBe(true);
+    expect(reclaimed?.errorMessage).toBeUndefined();
+    expect(reclaimed?.totalFindings).toBeUndefined();
+    expect(reclaimed?.completedAt).toBeUndefined();
+    const runs = await repo.findByProjectAndMr(42, 7);
+    expect(runs).toHaveLength(1);
+  });
+
+  it("restartFailedRun restarts a failed run in place and clears the previous attempt", async () => {
+    const run = await repo.create({ ...BASE_INPUT, startedAt: new Date() });
+    await repo.failRun(run.id, {
+      errorMessage: "pass exploded",
+      timestamp: new Date(),
+    });
+    const restartedAt = new Date();
+
+    const restarted = await repo.restartFailedRun({
+      id: run.id,
+      isIncremental: true,
+      previousRunId: undefined,
+      startedAt: restartedAt,
+    });
+
+    expect(restarted?.id).toBe(run.id);
+    expect(restarted?.status).toBe("in_progress");
+    expect(restarted?.startedAt).toEqual(restartedAt);
+    expect(restarted?.errorMessage).toBeUndefined();
+    expect(restarted?.completedAt).toBeUndefined();
+    const runs = await repo.findByProjectAndMr(42, 7);
+    expect(runs).toHaveLength(1);
+  });
+
+  it("restartFailedRun refuses a run that is not failed", async () => {
+    const run = await repo.create({ ...BASE_INPUT, startedAt: new Date() });
+
+    const restarted = await repo.restartFailedRun({
+      id: run.id,
+      isIncremental: false,
+      previousRunId: undefined,
+      startedAt: new Date(),
+    });
+
+    expect(restarted).toBeUndefined();
+  });
+
+  it("restartFailedRun lets only one worker win the same failed run", async () => {
+    const run = await repo.create({ ...BASE_INPUT, startedAt: new Date() });
+    await repo.failRun(run.id, {
+      errorMessage: "pass exploded",
+      timestamp: new Date(),
+    });
+
+    const [first, second] = await Promise.all([
+      repo.restartFailedRun({
+        id: run.id,
+        isIncremental: false,
+        previousRunId: undefined,
+        startedAt: new Date(),
+      }),
+      repo.restartFailedRun({
+        id: run.id,
+        isIncremental: false,
+        previousRunId: undefined,
+        startedAt: new Date(),
+      }),
+    ]);
+
+    expect([first, second].filter((r) => r !== undefined)).toHaveLength(1);
+  });
+
+  it("a failed run is retried in place by the lifecycle service", async () => {
+    const service = buildLifecycleService(repo);
+    const started = await service.startRun(START_PARAMS);
+    expect(started.outcome).toBe("started");
+    if (started.outcome !== "started") return;
+    await repo.failRun(started.reviewRun.id, {
+      errorMessage: "pass exploded",
+      timestamp: new Date(),
+    });
+
+    const retried = await service.startRun(START_PARAMS);
+
+    expect(retried.outcome).toBe("started");
+    expect(
+      retried.outcome === "started" ? retried.reviewRun.id : undefined,
+    ).toBe(started.reviewRun.id);
+    const runs = await repo.findByProjectAndMr(42, 7);
+    expect(runs).toHaveLength(1);
+  });
+
+  it("reclaimStuckRun leaves a run that is still within the stuck window", async () => {
+    const run = await repo.create({ ...BASE_INPUT, startedAt: new Date() });
+
+    const reclaimed = await repo.reclaimStuckRun({
+      id: run.id,
+      isIncremental: false,
+      previousRunId: undefined,
+      startedAt: new Date(),
+      stuckBefore: new Date(Date.now() - RUN_STUCK_AFTER_MS),
+    });
+
+    expect(reclaimed).toBeUndefined();
+  });
+
+  it("reclaimStuckRun lets only one worker win the same stuck run", async () => {
+    const startedAt = new Date(Date.now() - RUN_STUCK_AFTER_MS - 60_000);
+    const run = await repo.create({ ...BASE_INPUT, startedAt });
+    const stuckBefore = new Date(Date.now() - RUN_STUCK_AFTER_MS);
+
+    const first = await repo.reclaimStuckRun({
+      id: run.id,
+      isIncremental: false,
+      previousRunId: undefined,
+      startedAt: new Date(),
+      stuckBefore,
+    });
+    const second = await repo.reclaimStuckRun({
+      id: run.id,
+      isIncremental: false,
+      previousRunId: undefined,
+      startedAt: new Date(),
+      stuckBefore,
+    });
+
+    expect(first?.id).toBe(run.id);
+    expect(second).toBeUndefined();
+  });
+
+  it("reclaimStuckRun refuses a run that already reached a terminal state", async () => {
+    const startedAt = new Date(Date.now() - RUN_STUCK_AFTER_MS - 60_000);
+    const run = await repo.create({ ...BASE_INPUT, startedAt });
+    await repo.failRun(run.id, {
+      errorMessage: "already failed",
+      timestamp: new Date(),
+    });
+
+    const reclaimed = await repo.reclaimStuckRun({
+      id: run.id,
+      isIncremental: false,
+      previousRunId: undefined,
+      startedAt: new Date(),
+      stuckBefore: new Date(Date.now() - RUN_STUCK_AFTER_MS),
+    });
+
+    expect(reclaimed).toBeUndefined();
+  });
+
+  it("reclaimStuckRun falls back to queued_at when started_at was never set", async () => {
+    const queuedAt = new Date(Date.now() - RUN_STUCK_AFTER_MS - 60_000);
+    const inserted = await testDb.db
+      .insertInto("review_run")
+      .values({
+        base_commit_sha: BASE_INPUT.baseCommitSha,
+        head_commit_sha: BASE_INPUT.headCommitSha,
+        is_incremental: false,
+        mr_iid: BASE_INPUT.mrIid,
+        project_id: BASE_INPUT.projectId,
+        queued_at: queuedAt,
+        started_at: null,
+        status: "in_progress",
+        trigger_type: BASE_INPUT.triggerType,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+
+    const reclaimed = await repo.reclaimStuckRun({
+      id: inserted.id,
+      isIncremental: false,
+      previousRunId: undefined,
+      startedAt: new Date(),
+      stuckBefore: new Date(Date.now() - RUN_STUCK_AFTER_MS),
+    });
+
+    expect(reclaimed?.id).toBe(inserted.id);
+  });
+
+  it("reclaims a stuck run and starts the next attempt on the same row", async () => {
+    const startedAt = new Date(Date.now() - RUN_STUCK_AFTER_MS - 60_000);
+    const stuck = await repo.create({ ...BASE_INPUT, startedAt });
+    const service = buildLifecycleService(repo);
+
+    const result = await service.startRun({
+      isIncremental: false,
+      mrIid: BASE_INPUT.mrIid,
+      previousRunId: undefined,
+      projectId: BASE_INPUT.projectId,
+      triggerType: BASE_INPUT.triggerType,
+      versions: {
+        baseSha: BASE_INPUT.baseCommitSha,
+        headSha: BASE_INPUT.headCommitSha,
+        startSha: BASE_INPUT.baseCommitSha,
+      },
+    });
+
+    expect(result.outcome).toBe("started");
+    expect(result.outcome === "started" ? result.reviewRun.id : undefined).toBe(
+      stuck.id,
+    );
+    const runs = await repo.findByProjectAndMr(
+      BASE_INPUT.projectId,
+      BASE_INPUT.mrIid,
+    );
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.status).toBe("in_progress");
+    expect(runs[0]?.startedAt?.getTime()).toBeGreaterThan(startedAt.getTime());
+  });
+
+  it("skips a fresh in_progress run instead of reclaiming it", async () => {
+    await repo.create({ ...BASE_INPUT, startedAt: new Date() });
+    const service = buildLifecycleService(repo);
+
+    const result = await service.startRun({
+      isIncremental: false,
+      mrIid: BASE_INPUT.mrIid,
+      previousRunId: undefined,
+      projectId: BASE_INPUT.projectId,
+      triggerType: BASE_INPUT.triggerType,
+      versions: {
+        baseSha: BASE_INPUT.baseCommitSha,
+        headSha: BASE_INPUT.headCommitSha,
+        startSha: BASE_INPUT.baseCommitSha,
+      },
+    });
+
+    expect(result).toEqual({
+      outcome: "skipped",
+      reason: "already_in_progress",
+    });
   });
 
   it("deleteCompletedOrFailedBefore removes runs, findings, and returns count", async () => {

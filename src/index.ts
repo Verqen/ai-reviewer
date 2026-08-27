@@ -46,13 +46,15 @@ const analyticsModule = appInjector.resolve(InjectionTokens.AnalyticsModule);
 
 const pipelineConfig = appInjector.resolve(InjectionTokens.PipelineConfig);
 
-if (!webhookConfig.envs.WEBHOOK_SECRET) {
+if (!webhookConfig.envs.WEBHOOK_SIGNATURE_REQUIRED) {
   fastify.log.warn(
-    "WEBHOOK_SECRET is not set, webhook endpoint is unauthenticated",
+    "WEBHOOK_SIGNATURE_REQUIRED=false, webhook signatures are not verified",
   );
 }
 
-const application = new Application(fastify, appConfig, queue);
+const application = new Application(fastify, appConfig, queue, async () => {
+  await db.destroy();
+});
 
 fastify.register(healthRoute);
 fastify.register(readinessRoute, { db, queue });

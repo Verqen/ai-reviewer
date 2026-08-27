@@ -5,18 +5,23 @@ import type { AppConfigSchema } from "~/config/app.config";
 import type { IJobQueue } from "~/domain/ports/job-queue.port";
 import type { ReviewJob } from "~/domain/types/job.types";
 
+type DisposeInfrastructure = () => Promise<void>;
+
 class Application {
-  static inject = [] as const;
+  private shutdownRun: Promise<void> | null = null;
 
   constructor(
     private readonly app: FastifyInstance,
     private readonly appConfig: IConfig<AppConfigSchema>,
     private readonly queue: IJobQueue<ReviewJob>,
+    private readonly disposeInfrastructure: DisposeInfrastructure,
   ) {
     process
       .once("unhandledRejection", (reason) => {
         this.app.log.fatal(reason, "Unhandled rejection!");
-        void this.shutdown();
+        void this.shutdown().finally(() => {
+          process.exit(1);
+        });
       })
       .once("SIGTERM", (signal) => void this.handleExitSignal(signal))
       .once("SIGINT", (signal) => void this.handleExitSignal(signal))
@@ -31,6 +36,11 @@ class Application {
   }
 
   async shutdown(): Promise<void> {
+    this.shutdownRun ??= this.runShutdown();
+    return this.shutdownRun;
+  }
+
+  private async runShutdown(): Promise<void> {
     const timeoutMs = this.appConfig.envs.SHUTDOWN_TIMEOUT_MS;
     const startedAt = Date.now();
     const shutdownTimeout = setTimeout(() => {
@@ -41,22 +51,26 @@ class Application {
       process.exit(1);
     }, timeoutMs);
 
-    const inFlight = this.queue.size;
+    try {
+      await this.app.close();
 
-    if (inFlight > 0) {
-      this.app.log.info(
-        { count: inFlight, timeoutMs },
-        "Waiting for in-flight reviews to complete",
-      );
-      await this.queue.drain();
-      this.app.log.info(
-        { drainElapsedMs: Date.now() - startedAt },
-        "In-flight reviews drained",
-      );
+      const inFlight = this.queue.size;
+      if (inFlight > 0) {
+        this.app.log.info(
+          { count: inFlight, timeoutMs },
+          "Waiting for in-flight reviews to complete",
+        );
+        await this.queue.drain();
+        this.app.log.info(
+          { drainElapsedMs: Date.now() - startedAt },
+          "In-flight reviews drained",
+        );
+      }
+
+      await this.disposeInfrastructure();
+    } finally {
+      clearTimeout(shutdownTimeout);
     }
-
-    await this.app.close();
-    clearTimeout(shutdownTimeout);
   }
 
   private async handleExitSignal(signal: NodeJS.Signals): Promise<void> {
@@ -67,3 +81,4 @@ class Application {
 }
 
 export { Application };
+export type { DisposeInfrastructure };

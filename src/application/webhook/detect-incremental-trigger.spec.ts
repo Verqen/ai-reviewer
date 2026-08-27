@@ -104,17 +104,18 @@ describe("detectIncrementalTrigger", () => {
     expect(result).toBe("push");
   });
 
-  it("returns 'force_push' on generic errors when no base SHA hints provided", async () => {
+  it("rethrows a generic error instead of guessing the trigger type", async () => {
     const codeHost = makeCodeHost(
       vi.fn().mockRejectedValue(new Error("network blew up")),
     );
-    const result = await detectIncrementalTrigger(
-      codeHost,
-      projectId,
-      previousSha,
-      newHeadSha,
-      createMockLogger(),
-    );
-    expect(result).toBe("force_push");
+    await expect(
+      detectIncrementalTrigger(
+        codeHost,
+        projectId,
+        previousSha,
+        newHeadSha,
+        createMockLogger(),
+      ),
+    ).rejects.toThrow("network blew up");
   });
 });

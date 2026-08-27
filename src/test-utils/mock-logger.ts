@@ -1,9 +1,11 @@
 import type { FastifyBaseLogger } from "fastify";
 
-function createMockLogger(): FastifyBaseLogger {
+function createMockLogger(
+  overrides: Partial<FastifyBaseLogger> = {},
+): FastifyBaseLogger {
   const noop = (): void => undefined;
 
-  const logger = {
+  const logger: FastifyBaseLogger = {
     child: (): FastifyBaseLogger => logger,
     debug: noop,
     error: noop,
@@ -13,7 +15,8 @@ function createMockLogger(): FastifyBaseLogger {
     silent: noop,
     trace: noop,
     warn: noop,
-  } as unknown as FastifyBaseLogger;
+    ...overrides,
+  };
 
   return logger;
 }

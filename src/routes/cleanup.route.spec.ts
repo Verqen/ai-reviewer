@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { IReviewRunRepository } from "~/domain/ports/review-run.repository.port";
 import type { ISnapshotRepository } from "~/domain/ports/snapshot.repository.port";
+import { createMockReviewRunRepository } from "~/test-utils/mock-review-run-repository";
+import { createMockSnapshotRepository } from "~/test-utils/mock-snapshot-repository";
 
 import { cleanupRoute } from "./cleanup.route";
 
@@ -40,12 +42,12 @@ function buildRepos() {
   return {
     deleteCompletedOrFailedBefore,
     deleteOldSnapshotsBefore,
-    reviewRunRepo: {
+    reviewRunRepo: createMockReviewRunRepository({
       deleteCompletedOrFailedBefore,
-    } as unknown as IReviewRunRepository,
-    snapshotRepo: {
+    }),
+    snapshotRepo: createMockSnapshotRepository({
       deleteOldSnapshotsBefore,
-    } as unknown as ISnapshotRepository,
+    }),
   };
 }
 

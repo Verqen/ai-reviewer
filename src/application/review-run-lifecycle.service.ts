@@ -68,14 +68,10 @@ class ReviewRunLifecycleService {
         return { outcome: "skipped", reason: "completed_duplicate" };
       }
       if (existingRun?.status === "in_progress") {
-        const stuckResult = await this.handleInProgressRun(
-          existingRun,
-          mrIid,
-          projectId,
-        );
-        if (stuckResult.outcome === "skipped") {
-          return stuckResult;
-        }
+        return await this.handleInProgressRun(existingRun, params);
+      }
+      if (existingRun?.status === "failed") {
+        return await this.restartFailedRun(existingRun, params);
       }
     }
     let reviewRun: ReviewRun;
@@ -103,16 +99,49 @@ class ReviewRunLifecycleService {
     return { outcome: "started", reviewRun };
   }
 
+  private async restartFailedRun(
+    existingRun: ReviewRun,
+    params: StartPipelineRunParams,
+  ): Promise<StartPipelineRunResult> {
+    const { isIncremental, mrIid, previousRunId, projectId, triggerType } =
+      params;
+    const restarted = await this.infraRepoPorts.reviewRunRepo.restartFailedRun({
+      id: existingRun.id,
+      isIncremental,
+      previousRunId,
+      startedAt: new Date(),
+    });
+    if (!restarted) {
+      this.logger.info(
+        { mrIid, projectId, runId: existingRun.id, triggerType },
+        "Failed run was already picked up by another worker, skipping",
+      );
+      return { outcome: "skipped", reason: "already_in_progress" };
+    }
+    this.logger.warn(
+      {
+        mrIid,
+        previousErrorMessage: existingRun.errorMessage,
+        projectId,
+        runId: existingRun.id,
+        triggerType,
+      },
+      "Retrying a review whose previous attempt failed",
+    );
+    return { outcome: "started", reviewRun: restarted };
+  }
+
   private async handleInProgressRun(
     existingRun: ReviewRun,
-    mrIid: number,
-    projectId: number,
-  ): Promise<{ outcome: "proceeded" } | StartPipelineRunResult> {
+    params: StartPipelineRunParams,
+  ): Promise<StartPipelineRunResult> {
+    const { mrIid, projectId } = params;
     const stuckAfterMs = this.pipelineConfig.envs.RUN_STUCK_AFTER_MS;
     const aliveSinceMs = (
       existingRun.startedAt ?? existingRun.queuedAt
     ).getTime();
-    const ageMs = Date.now() - aliveSinceMs;
+    const now = Date.now();
+    const ageMs = now - aliveSinceMs;
 
     if (ageMs < stuckAfterMs) {
       this.logger.info(
@@ -124,34 +153,30 @@ class ReviewRunLifecycleService {
 
     this.logger.warn(
       { ageMs, mrIid, projectId, runId: existingRun.id, stuckAfterMs },
-      "Reclaiming stuck review run — marking failed before starting new attempt",
+      "Reclaiming stuck review run — restarting its attempt in place",
     );
-    const reclaimed = await this.infraRepoPorts.reviewRunRepo.failStuckRun(
-      existingRun.id,
-      {
-        errorMessage: `reclaimed: stuck in_progress for ${String(ageMs)}ms (threshold ${String(stuckAfterMs)}ms)`,
-        timestamp: new Date(),
-      },
-    );
+    const reclaimed = await this.infraRepoPorts.reviewRunRepo.reclaimStuckRun({
+      id: existingRun.id,
+      isIncremental: params.isIncremental,
+      previousRunId: params.previousRunId,
+      startedAt: new Date(now),
+      stuckBefore: new Date(now - stuckAfterMs),
+    });
     if (!reclaimed) {
       this.logger.info(
         { mrIid, projectId, runId: existingRun.id },
-        "Stuck run left in_progress by another worker, skipping",
+        "Stuck run claimed by another worker, skipping",
       );
       return { outcome: "skipped", reason: "already_in_progress" };
     }
-    return { outcome: "proceeded" };
+    return { outcome: "started", reviewRun: reclaimed };
   }
 
   async markRunFailed(reviewRunId: string, err: unknown): Promise<void> {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    await this.infraRepoPorts.reviewRunRepo.updateStatus(
-      reviewRunId,
-      "failed",
-      new Date(),
-    );
-    await this.infraRepoPorts.reviewRunRepo.updateStats(reviewRunId, {
+    await this.infraRepoPorts.reviewRunRepo.failRun(reviewRunId, {
       errorMessage,
+      timestamp: new Date(),
     });
   }
 }

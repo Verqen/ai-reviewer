@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { CommentResolutionService } from "~/application/comment-resolution.service";
-import type { ReviewConfigLoader } from "~/application/review-config.loader";
+import { ReviewConfigLoader } from "~/application/review-config.loader";
 import { ReviewContextBuilderService } from "~/application/review-context-builder.service";
 import { ReviewFindingPublisherService } from "~/application/review-finding-publisher.service";
-import type { ReviewHistoryService } from "~/application/review-history.service";
 import { ReviewRunCompletionService } from "~/application/review-run-completion.service";
 import { ReviewRunLifecycleService } from "~/application/review-run-lifecycle.service";
+import { OPENROUTER_TRIAGE_MODEL } from "~/config/models";
 import { PipelineConfig } from "~/config/pipeline.config";
+import { CostBudget } from "~/domain/cost-budget";
 import type { DiffFile } from "~/domain/types/code-host.types";
 import type {
   IReviewPass,
@@ -19,7 +19,9 @@ import { MemoryCache } from "~/infrastructure/cache/memory-cache";
 import { PromptTokenBudgetExceededError } from "~/infrastructure/llm/estimate-prompt-tokens";
 import { PipelineOrchestrator } from "~/pipeline/pipeline.orchestrator";
 import { buildReplyCompletionInstruction } from "~/review/reply-completion-instruction";
+import { CLARIFICATION_REPLY_COST_CEILING } from "~/review/review-narrow-finding-clarification";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockCommentResolutionService } from "~/test-utils/mock-comment-resolution-service";
 import {
   createMockInfraRepoPorts,
   createMockReviewRun,
@@ -32,11 +34,15 @@ import {
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockPipelineMetrics } from "~/test-utils/mock-pipeline-metrics";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
+import { createMockReviewConfigLoader } from "~/test-utils/mock-review-config-loader";
+import { createMockReviewHistoryService } from "~/test-utils/mock-review-history-service";
 
 import { ReviewService } from "./review.service";
 
 const COMMENT_RESPONSE_FALLBACK_TEXT =
   "Could not generate a reply. Please refine your question and reference a specific code location.";
+const COMMENT_RESPONSE_COST_CEILING_REPLY =
+  "Could not generate a reply: the configured cost ceiling for this operation has been reached.";
 
 const MINIMAL_DIFF: DiffFile = {
   diff: "@@ -1,2 +1,3 @@\n context\n+added line\n-removed line\n",
@@ -113,32 +119,6 @@ function createPipelineConfig(
   }
 
   return config;
-}
-
-function createMockReviewConfigLoader(): ReviewConfigLoader {
-  return {
-    load: () => Promise.resolve(createMockReviewConfig()),
-  } as unknown as ReviewConfigLoader;
-}
-
-function createMockReviewHistoryService(): ReviewHistoryService {
-  return {
-    getPendingFindings: () => Promise.resolve([]),
-    loadPriorFindings: () =>
-      Promise.resolve({ addressed: [], dismissed: [], pending: [] }),
-    loadPriorFindingsByFile: () =>
-      Promise.resolve({
-        addressed: new Map(),
-        dismissed: new Map(),
-        pending: new Map(),
-      }),
-  } as unknown as ReviewHistoryService;
-}
-
-function createMockCommentResolutionService(): CommentResolutionService {
-  return {
-    resolveStaleFindings: () => Promise.resolve({ addressed: [], pending: [] }),
-  } as unknown as CommentResolutionService;
 }
 
 type TestOrchestratorOptions = {
@@ -413,9 +393,9 @@ describe("ReviewService", () => {
         pathRules: [{ extraRules: commentRule, path: "**" }],
       }),
     );
-    const reviewConfigLoader = {
+    const reviewConfigLoader = createMockReviewConfigLoader({
       load: loadReviewConfig,
-    } as unknown as ReviewConfigLoader;
+    });
     const llm = createMockLlmClient({ defaultContent: "ok" });
     const infraRepoPorts = createMockInfraRepoPorts();
     const cache = new MemoryCache<boolean>();
@@ -460,7 +440,7 @@ describe("ReviewService", () => {
     const cache = new MemoryCache<boolean>();
     const pipelineConfig = createPipelineConfig("info");
     const logger = createMockLogger();
-    const reviewConfigLoader = {
+    const reviewConfigLoader = createMockReviewConfigLoader({
       load: vi.fn().mockResolvedValue(
         createMockReviewConfig({
           modelOverrides: { review: false, triage: true },
@@ -471,7 +451,7 @@ describe("ReviewService", () => {
           },
         }),
       ),
-    } as unknown as ReviewConfigLoader;
+    });
     const orchestrator = createTestOrchestrator({
       cache,
       codeHost,
@@ -569,9 +549,9 @@ describe("ReviewService", () => {
         models: { premium: null, review: "review-model", triage: triajeModel },
       }),
     );
-    const reviewConfigLoader = {
+    const reviewConfigLoader = createMockReviewConfigLoader({
       load: loadReviewConfig,
-    } as unknown as ReviewConfigLoader;
+    });
     const llm = createMockLlmClient({ defaultContent: "ok" });
     const infraRepoPorts = createMockInfraRepoPorts();
     const cache = new MemoryCache<boolean>();
@@ -1011,15 +991,14 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
       id: "finding-2",
       lineNumber: 5,
     };
-    const reviewHistoryService = {
-      ...createMockReviewHistoryService(),
+    const reviewHistoryService = createMockReviewHistoryService({
       loadPriorFindings: () =>
         Promise.resolve({
           addressed: [],
           dismissed: [],
           pending: [buildPendingFindingForThread(), otherFinding],
         }),
-    } as unknown as ReviewHistoryService;
+    });
     const service = new ReviewService(
       codeHost,
       llm,
@@ -1043,5 +1022,203 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
     expect(userMessage?.content).toContain("src/other.ts");
     expect(userMessage?.content).toContain("Other findings on this MR");
     expect(userMessage?.content).toContain("Prior finding on other file");
+  });
+});
+
+describe("ReviewService cost ceiling", () => {
+  class RecordingCostBudget extends CostBudget {
+    readonly recordedCosts: number[] = [];
+
+    override record(usd: number): void {
+      this.recordedCosts.push(usd);
+      super.record(usd);
+    }
+  }
+
+  function createReplyModelLoader(triageModel: string): ReviewConfigLoader {
+    const loader = new ReviewConfigLoader(
+      createMockCodeHost(),
+      createMockLogger(),
+    );
+    vi.spyOn(loader, "load").mockResolvedValue(
+      createMockReviewConfig({
+        modelOverrides: { review: false, triage: true },
+        models: {
+          premium: null,
+          review: "review-model",
+          triage: triageModel,
+        },
+      }),
+    );
+    return loader;
+  }
+
+  function createServiceUnderTest(options: {
+    codeHost: ReturnType<typeof createMockCodeHost>;
+    llm: ReturnType<typeof createMockLlmClient>;
+    logger: ReturnType<typeof createMockLogger>;
+    reviewConfigLoader: ReviewConfigLoader;
+  }): ReviewService {
+    const infraRepoPorts = createMockInfraRepoPorts();
+    const pipelineConfig = createPipelineConfig("info");
+    const orchestrator = createTestOrchestrator({
+      cache: new MemoryCache<boolean>(),
+      codeHost: options.codeHost,
+      config: pipelineConfig,
+      infraRepoPorts,
+      logger: options.logger,
+      passes: [createAggregationPass()],
+    });
+    return new ReviewService(
+      options.codeHost,
+      options.llm,
+      orchestrator,
+      pipelineConfig,
+      options.reviewConfigLoader,
+      createMockLlmConfig(),
+      createMockOpenRouterConfig(),
+      infraRepoPorts.snapshotRepo,
+      createMockReviewHistoryService(),
+      options.logger,
+    );
+  }
+
+  it("records the cost of a tool-enabled comment reply on the operation budget", async () => {
+    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
+    const llm = createMockLlmClient({
+      responses: [
+        {
+          content: "ok",
+          toolCalls: [],
+          usage: { completionTokens: 500, promptTokens: 20_000 },
+        },
+      ],
+    });
+    const service = createServiceUnderTest({
+      codeHost,
+      llm,
+      logger: createMockLogger(),
+      reviewConfigLoader: createReplyModelLoader(OPENROUTER_TRIAGE_MODEL),
+    });
+    const costBudget = new RecordingCostBudget(10);
+
+    await service.respondToComment(
+      1,
+      42,
+      { newLine: 1, newPath: "src/index.ts", note: "What about this line?" },
+      costBudget,
+    );
+
+    expect(llm.calls.chatCompletionWithTools).toHaveLength(1);
+    expect(costBudget.recordedCosts).toHaveLength(1);
+    expect(costBudget.spent).toBeGreaterThan(0);
+  });
+
+  it("records the cost of a tool-less comment reply on the operation budget", async () => {
+    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
+    const llm = createMockLlmClient({ defaultContent: "ok" });
+    const service = createServiceUnderTest({
+      codeHost,
+      llm,
+      logger: createMockLogger(),
+      reviewConfigLoader: createReplyModelLoader("gpt-oss:120b-cloud"),
+    });
+    const costBudget = new RecordingCostBudget(10);
+
+    await service.respondToComment(
+      1,
+      42,
+      { newLine: 1, newPath: "src/index.ts", note: "What about this line?" },
+      costBudget,
+    );
+
+    expect(llm.calls.chatCompletion).toHaveLength(1);
+    expect(costBudget.recordedCosts).toHaveLength(1);
+  });
+
+  it("posts the ceiling notice without calling the LLM when the comment budget is exhausted", async () => {
+    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
+    const llm = createMockLlmClient({ defaultContent: "ok" });
+    const logger = createMockLogger();
+    const warn = vi.spyOn(logger, "warn");
+    const service = createServiceUnderTest({
+      codeHost,
+      llm,
+      logger,
+      reviewConfigLoader: createReplyModelLoader(OPENROUTER_TRIAGE_MODEL),
+    });
+
+    await service.respondToComment(
+      1,
+      42,
+      { newLine: 1, newPath: "src/index.ts", note: "What about this line?" },
+      new CostBudget(0),
+    );
+
+    expect(llm.calls.chatCompletion).toHaveLength(0);
+    expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
+    expect(codeHost.calls.postNote[0]?.[2]).toBe(
+      COMMENT_RESPONSE_COST_CEILING_REPLY,
+    );
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("skips the tool-less comment reply when the budget is exhausted", async () => {
+    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
+    const llm = createMockLlmClient({ defaultContent: "ok" });
+    const service = createServiceUnderTest({
+      codeHost,
+      llm,
+      logger: createMockLogger(),
+      reviewConfigLoader: createReplyModelLoader("gpt-oss:120b-cloud"),
+    });
+
+    await service.respondToComment(
+      1,
+      42,
+      { newLine: 1, newPath: "src/index.ts", note: "What about this line?" },
+      new CostBudget(0),
+    );
+
+    expect(llm.calls.chatCompletion).toHaveLength(0);
+    expect(codeHost.calls.postNote[0]?.[2]).toBe(
+      COMMENT_RESPONSE_COST_CEILING_REPLY,
+    );
+  });
+
+  it("returns the ceiling notice for a finding thread clarification when the budget is exhausted", async () => {
+    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
+    const llm = createMockLlmClient({ defaultContent: "ok" });
+    const service = createServiceUnderTest({
+      codeHost,
+      llm,
+      logger: createMockLogger(),
+      reviewConfigLoader: createReplyModelLoader(OPENROUTER_TRIAGE_MODEL),
+    });
+
+    const reply = await service.respondToFindingThreadClarification(
+      1,
+      42,
+      {
+        category: "best_practice",
+        comment: "This branch is unreachable",
+        confidence: 0.9,
+        filePath: "src/index.ts",
+        id: "finding-1",
+        lineNumber: 1,
+        lineType: "added",
+        model: "review-model",
+        passName: "file-review",
+        resolution: "pending",
+        reviewRunId: "run-1",
+        severity: "warning",
+      },
+      "How do I fix it?",
+      new CostBudget(0),
+    );
+
+    expect(reply).toBe(CLARIFICATION_REPLY_COST_CEILING);
+    expect(llm.calls.chatCompletion).toHaveLength(0);
+    expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
   });
 });

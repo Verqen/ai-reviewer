@@ -1,4 +1,8 @@
-import { buildCanonicalMrReviewJobKey } from "~/application/review-job-key";
+import {
+  buildCanonicalMrReviewJobKey,
+  buildCommentResponseJobKey,
+  buildThreadResponseJobKey,
+} from "~/application/review-job-key";
 import type { WebhookEvent } from "~/domain/types/code-host.types";
 import type { ReviewJob } from "~/domain/types/job.types";
 import type { CommentContext } from "~/domain/types/review.types";
@@ -18,18 +22,21 @@ async function handleNote(
     return { kind: "ignored" };
   }
   if (event.discussionId) {
-    const findings = await deps.reviewFindingRepo.findByProjectAndMr(
-      event.projectId,
-      event.mrIid,
-    );
-    const isBotDiscussion = findings.some(
-      (f) => f.hostDiscussionId === event.discussionId,
-    );
+    const isBotDiscussion =
+      await deps.reviewFindingRepo.existsByHostDiscussionId(
+        event.projectId,
+        event.mrIid,
+        event.discussionId,
+      );
     if (isBotDiscussion) {
       if (!isBotMentioned(event.note, botUsername)) {
         return { kind: "ignored" };
       }
-      const threadKey = `thread_response:${event.projectId}:${event.mrIid}:${event.discussionId}`;
+      const threadKey = buildThreadResponseJobKey(
+        event.projectId,
+        event.mrIid,
+        event.discussionId,
+      );
       if (deps.queue.isPending(threadKey)) {
         return { kind: "conflict", reason: "response_in_progress" };
       }
@@ -80,7 +87,11 @@ async function handleNote(
     oldLine: event.position?.oldLine,
     oldPath: event.position?.oldPath,
   };
-  const noteKey = `comment_response:${event.projectId}:${event.mrIid}:${context.discussionId ?? "general"}`;
+  const noteKey = buildCommentResponseJobKey(
+    event.projectId,
+    event.mrIid,
+    context.discussionId,
+  );
   if (deps.queue.isPending(noteKey)) {
     return { kind: "conflict", reason: "response_in_progress" };
   }

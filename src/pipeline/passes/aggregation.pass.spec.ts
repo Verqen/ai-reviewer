@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DismissedPattern } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
-import type { Finding } from "~/domain/types/review.types";
+import type { Finding, ReviewFinding } from "~/domain/types/review.types";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
 
@@ -775,7 +775,7 @@ describe("AggregationPass", () => {
         priorFindingsByFile: {
           addressed: new Map(),
           dismissed: new Map(),
-          pending: new Map([
+          pending: new Map<string, ReviewFinding[]>([
             [
               "src/cookies.ts",
               [
@@ -784,7 +784,7 @@ describe("AggregationPass", () => {
                   id: "existing",
                   resolution: "pending",
                   reviewRunId: "old-run",
-                } as never,
+                },
               ],
             ],
           ]),
@@ -839,7 +839,7 @@ describe("AggregationPass", () => {
         priorFindingsByFile: {
           addressed: new Map(),
           dismissed: new Map(),
-          pending: new Map([
+          pending: new Map<string, ReviewFinding[]>([
             [
               "src/cookies.ts",
               [
@@ -849,7 +849,7 @@ describe("AggregationPass", () => {
                   lineExcerpt: "secure: false,",
                   resolution: "pending",
                   reviewRunId: "old-run",
-                } as never,
+                },
               ],
             ],
           ]),
@@ -904,7 +904,7 @@ describe("AggregationPass", () => {
         priorFindingsByFile: {
           addressed: new Map(),
           dismissed: new Map(),
-          pending: new Map([
+          pending: new Map<string, ReviewFinding[]>([
             [
               "src/a.ts",
               [
@@ -913,7 +913,7 @@ describe("AggregationPass", () => {
                   id: "existing",
                   resolution: "pending",
                   reviewRunId: "old-run",
-                } as never,
+                },
               ],
             ],
           ]),
@@ -960,7 +960,7 @@ describe("AggregationPass", () => {
         priorFindingsByFile: {
           addressed: new Map(),
           dismissed: new Map(),
-          pending: new Map([
+          pending: new Map<string, ReviewFinding[]>([
             [
               "src/a.ts",
               [
@@ -969,7 +969,7 @@ describe("AggregationPass", () => {
                   id: "existing",
                   resolution: "pending",
                   reviewRunId: "old-run",
-                } as never,
+                },
               ],
             ],
           ]),

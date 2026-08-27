@@ -9,7 +9,11 @@ import type { ReviewJob } from "~/domain/types/job.types";
 import { MemoryCache } from "~/infrastructure/cache/memory-cache";
 import { JobQueue } from "~/infrastructure/queue/job-queue";
 import type { IReviewService } from "~/review/review.types";
+import { createMockBaselineService } from "~/test-utils/mock-baseline-service";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockIncrementalReviewService } from "~/test-utils/mock-incremental-review-service";
+import { createMockReviewRunRepository } from "~/test-utils/mock-review-run-repository";
+import { createMockSnapshotRepository } from "~/test-utils/mock-snapshot-repository";
 
 import { webhookRoute } from "./webhook.route";
 
@@ -86,7 +90,7 @@ function buildMockReviewService(): IReviewService & {
 }
 
 function buildMockReviewRunRepo(): IReviewRunRepository {
-  return {
+  return createMockReviewRunRepository({
     create: vi.fn(),
     findById: vi.fn().mockResolvedValue(undefined),
     findByIdentity: vi.fn().mockResolvedValue(undefined),
@@ -94,13 +98,13 @@ function buildMockReviewRunRepo(): IReviewRunRepository {
     findLatestByProjectAndMr: vi.fn().mockResolvedValue(undefined),
     updateStats: vi.fn().mockResolvedValue(undefined),
     updateStatus: vi.fn().mockResolvedValue(undefined),
-  } as unknown as IReviewRunRepository;
+  });
 }
 
 function buildMockIncrementalReviewService(): IncrementalReviewService {
-  return {
+  return createMockIncrementalReviewService({
     run: vi.fn().mockResolvedValue(undefined),
-  } as unknown as IncrementalReviewService;
+  });
 }
 
 function buildApp(options: {
@@ -121,18 +125,19 @@ function buildApp(options: {
 
   const reviewFindingRepo = {
     createMany: () => Promise.resolve([]),
+    existsByHostDiscussionId: () => Promise.resolve(false),
     findByProjectAndMr: () => Promise.resolve([]),
     findByRunId: () => Promise.resolve([]),
     updateResolution: () => Promise.resolve(),
     updateResolutionMany: () => Promise.resolve(),
   };
 
-  const baselineService = {
+  const baselineService = createMockBaselineService({
     bootstrap: vi.fn().mockResolvedValue(undefined),
     update: vi.fn().mockResolvedValue(undefined),
-  };
+  });
 
-  const snapshotRepo = {
+  const snapshotRepo = createMockSnapshotRepository({
     copySnapshotEntries: vi.fn(),
     deleteCommit: vi.fn(),
     deleteOldSnapshotsBefore: vi.fn(),
@@ -145,10 +150,10 @@ function buildApp(options: {
     setBaselineState: vi.fn(),
     storeBlobs: vi.fn(),
     storeSnapshot: vi.fn(),
-  };
+  });
 
   app.register(webhookRoute, {
-    baselineService: baselineService as never,
+    baselineService,
     botUsername: options.botUsername ?? "ai",
     cache,
     codeHost,
@@ -158,7 +163,7 @@ function buildApp(options: {
     reviewer,
     reviewFindingRepo,
     reviewRunRepo,
-    snapshotRepo: snapshotRepo as never,
+    snapshotRepo,
     webhookConfig: buildMockWebhookConfig(options.secret),
   });
 

@@ -1,4 +1,4 @@
-import { readRuntimeEnv } from "~/config/runtime.env";
+import { readRuntimeEnv, type EnvRecord } from "~/config/runtime.env";
 
 const LANGUAGE_ALIASES: Record<string, string> = {
   de: "German",
@@ -23,8 +23,8 @@ function normalizeLanguage(raw: string): string {
   return lookup ?? trimmed;
 }
 
-function getReviewLanguage(): string {
-  const raw = readRuntimeEnv().REVIEW_LANGUAGE;
+function getReviewLanguage(source: EnvRecord = process.env): string {
+  const raw = readRuntimeEnv(source).REVIEW_LANGUAGE;
   return raw ? normalizeLanguage(raw) : DEFAULT_REVIEW_LANGUAGE;
 }
 

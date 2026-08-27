@@ -15,10 +15,9 @@ const LlmConfigSchema = z.object({
 type LlmConfigSchema = z.infer<typeof LlmConfigSchema>;
 
 class LlmConfig extends Config<LlmConfigSchema> {
-  constructor() {
-    super(() => LlmConfigSchema.parse(process.env));
+  constructor(envs?: LlmConfigSchema) {
+    super(() => envs ?? LlmConfigSchema.parse(process.env));
   }
 }
 
-export { LlmConfig };
-export type { LlmConfigSchema };
+export { LlmConfig, LlmConfigSchema };

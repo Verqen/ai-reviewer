@@ -1,4 +1,8 @@
+import type { FastifyBaseLogger } from "fastify";
+
+import { computeCostUsd } from "~/config/llm-pricing";
 import { getReviewLanguage } from "~/config/review-language";
+import type { CostBudget } from "~/domain/cost-budget";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { ChatMessage } from "~/domain/types/llm.types";
 import type { ReviewFinding } from "~/domain/types/review.types";
@@ -12,13 +16,37 @@ const CLARIFICATION_REPLY_MAX_TOKENS = 400;
 const CLARIFICATION_REPLY_TEMPERATURE = 0;
 const CLARIFICATION_REPLY_FALLBACK =
   "Could not generate a reply due to context limits. Please refine the question and tie it directly to the discussed line.";
+const CLARIFICATION_REPLY_COST_CEILING =
+  "Could not generate a reply: the configured cost ceiling for this operation has been reached.";
+
+interface NarrowFindingClarificationInput {
+  costBudget: CostBudget;
+  costModel: string;
+  developerNote: string;
+  finding: ReviewFinding;
+  language?: string | undefined;
+  llm: ILlmClient;
+  logger: FastifyBaseLogger;
+}
 
 async function runNarrowFindingClarification(
-  llm: ILlmClient,
-  finding: ReviewFinding,
-  developerNote: string,
-  language: string = getReviewLanguage(),
+  input: NarrowFindingClarificationInput,
 ): Promise<string> {
+  const { costBudget, costModel, developerNote, finding, llm, logger } = input;
+  const language = input.language ?? getReviewLanguage();
+
+  if (costBudget.isExhausted()) {
+    logger.warn(
+      {
+        findingId: finding.id,
+        limitUsd: costBudget.limit,
+        spentUsd: costBudget.spent,
+      },
+      "Cost ceiling reached: skipping narrow finding clarification",
+    );
+    return CLARIFICATION_REPLY_COST_CEILING;
+  }
+
   const location = finding.endLineNumber
     ? `${finding.filePath}:${finding.lineNumber}-${finding.endLineNumber}`
     : `${finding.filePath}:${finding.lineNumber}`;
@@ -66,9 +94,21 @@ async function runNarrowFindingClarification(
     temperature: CLARIFICATION_REPLY_TEMPERATURE,
   });
 
+  costBudget.record(
+    computeCostUsd(costModel, {
+      inputTokens: response.usage.promptTokens,
+      outputTokens: response.usage.completionTokens,
+    }),
+  );
+
   const content = response.content?.trim();
   if (!content) return CLARIFICATION_REPLY_FALLBACK;
   return content;
 }
 
-export { runNarrowFindingClarification };
+export {
+  CLARIFICATION_REPLY_COST_CEILING,
+  CLARIFICATION_REPLY_FALLBACK,
+  runNarrowFindingClarification,
+};
+export type { NarrowFindingClarificationInput };

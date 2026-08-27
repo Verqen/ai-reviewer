@@ -4,7 +4,9 @@ import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { ReviewFinding } from "~/domain/types/review.types";
 import type { ParsedFileDiff } from "~/review/diff-parser";
+import { createMockCodeHost } from "~/test-utils/mock-code-host";
 import { createMockLogger } from "~/test-utils/mock-logger";
+import { createMockReviewFindingRepository } from "~/test-utils/mock-review-finding-repository";
 
 import { CommentResolutionService } from "./comment-resolution.service";
 
@@ -51,15 +53,13 @@ function makeMockRepo(): IReviewFindingRepository & {
   const resolutionCalls: Array<[string, string]> = [];
 
   return {
-    createMany: () => Promise.resolve([]),
-    findByProjectAndMr: () => Promise.resolve([]),
-    findByRunId: () => Promise.resolve([]),
-    resolutionCalls,
-    updateResolution: vi.fn((id: string, resolution: string) => {
-      resolutionCalls.push([id, resolution]);
-      return Promise.resolve();
+    ...createMockReviewFindingRepository({
+      updateResolution: (id, resolution) => {
+        resolutionCalls.push([id, resolution]);
+        return Promise.resolve();
+      },
     }),
-    updateResolutionMany: vi.fn(() => Promise.resolve()),
+    resolutionCalls,
   };
 }
 
@@ -71,47 +71,21 @@ function makeMockCodeHost(): ICodeHost & {
   const unresolveDiscussionCalls: string[] = [];
 
   return {
-    approveMergeRequest: () => Promise.resolve(),
-    getCommitRangeDiff: () => Promise.resolve([]),
-    getDefaultBranch: () => Promise.resolve("main"),
-    getDiscussionNotes: () => Promise.resolve([]),
-    getFileContent: () => Promise.resolve(""),
-    getFileTree: () => Promise.resolve([]),
-    getMergeRequestDiff: () => Promise.resolve([]),
-    getMergeRequestInfo: () =>
-      Promise.resolve({
-        description: "",
-        iid: 1,
-        projectId: 1,
-        sourceBranch: "f",
-        targetBranch: "main",
-        title: "t",
-      }),
-    getMergeRequestVersions: () =>
-      Promise.resolve({ baseSha: "b", headSha: "h", startSha: "s" }),
-    listOpenMergeRequests: () => Promise.resolve([]),
-    postInlineComment: () =>
-      Promise.resolve({ discussionId: "d", noteId: "n" }),
-    postNote: () => Promise.resolve({ noteId: "n" }),
-    replyToDiscussion: () => Promise.resolve({ noteId: "n" }),
-    resolveDiscussion: vi.fn(
-      (_projectId: number, _mrIid: number, discussionId: string) => {
-        resolveDiscussionCalls.push(discussionId);
-        return Promise.resolve();
+    ...createMockCodeHost(
+      {},
+      {
+        resolveDiscussion: (_projectId, _mrIid, discussionId) => {
+          resolveDiscussionCalls.push(discussionId);
+          return Promise.resolve();
+        },
+        unresolveDiscussion: (_projectId, _mrIid, discussionId) => {
+          unresolveDiscussionCalls.push(discussionId);
+          return Promise.resolve();
+        },
       },
     ),
     resolveDiscussionCalls,
-    unapprove: () => Promise.resolve(),
-    unresolveDiscussion: vi.fn(
-      (_projectId: number, _mrIid: number, discussionId: string) => {
-        unresolveDiscussionCalls.push(discussionId);
-        return Promise.resolve();
-      },
-    ),
     unresolveDiscussionCalls,
-  } as unknown as ICodeHost & {
-    resolveDiscussionCalls: string[];
-    unresolveDiscussionCalls: string[];
   };
 }
 

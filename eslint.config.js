@@ -38,7 +38,7 @@ export default defineConfig([
       "src/test-utils/**",
     ],
     rules: {
-      "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-console": "error",
     },
   },
   {
@@ -50,12 +50,6 @@ export default defineConfig([
       "scripts/**",
     ],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-member-access": "off",
-      "@typescript-eslint/no-unsafe-call": "off",
-      "@typescript-eslint/no-unsafe-argument": "off",
-      "@typescript-eslint/no-unsafe-return": "off",
       "no-console": "off",
     },
   },

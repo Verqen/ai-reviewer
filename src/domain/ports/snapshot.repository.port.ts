@@ -1,5 +1,8 @@
 import type { PackageRootsInsight } from "~/domain/types/package-roots.types";
 
+const SNAPSHOT_LIST_FILES_MAX_ROWS = 5000;
+const SNAPSHOT_SEARCH_CONTENT_MAX_ROWS = 200;
+
 interface ContentMatch {
   filePath: string;
   matches: string[];
@@ -34,6 +37,7 @@ interface ISnapshotRepository {
     projectId: number,
     commitSha: string,
     pattern?: string,
+    maxRows?: number,
   ): Promise<string[]>;
 
   listPackageRootsFromSnapshot(
@@ -46,6 +50,7 @@ interface ISnapshotRepository {
     commitSha: string,
     pattern: string,
     glob?: string,
+    maxRows?: number,
   ): Promise<ContentMatch[]>;
 
   setBaselineState(
@@ -64,6 +69,7 @@ interface ISnapshotRepository {
   }): Promise<void>;
 }
 
+export { SNAPSHOT_LIST_FILES_MAX_ROWS, SNAPSHOT_SEARCH_CONTENT_MAX_ROWS };
 export type {
   BaselineState,
   ContentMatch,

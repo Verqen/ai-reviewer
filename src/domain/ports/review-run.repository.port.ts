@@ -15,6 +15,26 @@ interface CreateReviewRunInput {
   triggerType: TriggerType;
 }
 
+interface FailReviewRunInput {
+  errorMessage: string;
+  timestamp: Date;
+}
+
+interface ReclaimStuckReviewRunInput {
+  id: string;
+  isIncremental: boolean;
+  previousRunId?: string | undefined;
+  startedAt: Date;
+  stuckBefore: Date;
+}
+
+interface RestartFailedReviewRunInput {
+  id: string;
+  isIncremental: boolean;
+  previousRunId?: string | undefined;
+  startedAt: Date;
+}
+
 interface FindLatestReviewRunOptions {
   includeFailedForBaseline?: boolean | undefined;
 }
@@ -44,6 +64,7 @@ interface IReviewRunRepository {
   ): Promise<void>;
   create(input: CreateReviewRunInput): Promise<ReviewRun>;
   deleteCompletedOrFailedBefore(now: Date): Promise<number>;
+  failRun(id: string, params: FailReviewRunInput): Promise<void>;
   findById(id: string): Promise<ReviewRun | undefined>;
   findByIdentity(
     projectId: number,
@@ -52,16 +73,19 @@ interface IReviewRunRepository {
     baseCommitSha: string,
     triggerType: TriggerType,
   ): Promise<ReviewRun | undefined>;
-  failStuckRun(
-    id: string,
-    params: { errorMessage: string; timestamp: Date },
-  ): Promise<boolean>;
+  failStuckRun(id: string, params: FailReviewRunInput): Promise<boolean>;
   findByProjectAndMr(projectId: number, mrIid: number): Promise<ReviewRun[]>;
   findLatestByProjectAndMr(
     projectId: number,
     mrIid: number,
     triggerType?: TriggerType,
     options?: FindLatestReviewRunOptions,
+  ): Promise<ReviewRun | undefined>;
+  reclaimStuckRun(
+    input: ReclaimStuckReviewRunInput,
+  ): Promise<ReviewRun | undefined>;
+  restartFailedRun(
+    input: RestartFailedReviewRunInput,
   ): Promise<ReviewRun | undefined>;
   updateStats(id: string, stats: UpdateReviewRunStatsInput): Promise<void>;
   updateStatus(
@@ -73,7 +97,10 @@ interface IReviewRunRepository {
 
 export type {
   CreateReviewRunInput,
+  FailReviewRunInput,
   FindLatestReviewRunOptions,
   IReviewRunRepository,
+  ReclaimStuckReviewRunInput,
+  RestartFailedReviewRunInput,
   UpdateReviewRunStatsInput,
 };

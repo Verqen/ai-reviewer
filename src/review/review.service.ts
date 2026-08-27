@@ -6,18 +6,21 @@ import { buildOverlayPathListsFromParsedDiffs } from "~/application/mr-overlay-p
 import { OverlayViewService } from "~/application/overlay-view.service";
 import type { ReviewConfigLoader } from "~/application/review-config.loader";
 import type { ReviewHistoryService } from "~/application/review-history.service";
+import { computeCostUsd } from "~/config/llm-pricing";
 import type { LlmConfig } from "~/config/llm.config";
 import type { OpenRouterConfig } from "~/config/openrouter.config";
 import type { PipelineConfig } from "~/config/pipeline.config";
 import { InfraPortsTokens } from "~/di/infra-ports-tokens";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
+import { resolveDefaultLlmModel } from "~/config/resolve-default-llm-model";
+import { CostBudget } from "~/domain/cost-budget";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
 import type { ISnapshotRepository } from "~/domain/ports/snapshot.repository.port";
 import type { DiffFile, VersionInfo } from "~/domain/types/code-host.types";
-import type { ToolCall } from "~/domain/types/llm.types";
+import type { LlmResponse, ToolCall } from "~/domain/types/llm.types";
 import type {
   CommentContext,
   ReviewFinding,
@@ -49,6 +52,8 @@ const COMMENT_RESPONSE_FALLBACK_TEXT =
 const COMMENT_RESPONSE_FALLBACK_DIFF_CHARS = 20_000;
 const COMMENT_RESPONSE_BUDGET_EXCEEDED_REPLY =
   "The context of your question is too large to process. Please refine the question and point to a specific file or line.";
+const COMMENT_RESPONSE_COST_CEILING_REPLY =
+  "Could not generate a reply: the configured cost ceiling for this operation has been reached.";
 const COMMENT_ASSISTANT_REPLY_MAX_TOKENS = 2000;
 
 const FINDING_THREAD_CLARIFICATION_BASELINE_UNAVAILABLE_LOG =
@@ -98,6 +103,23 @@ class ReviewService implements IReviewService {
     return this.openRouterConfig.envs.OPENROUTER_TRIAGE_MODEL;
   }
 
+  private createOperationCostBudget(): CostBudget {
+    return new CostBudget(this.pipelineConfig.envs.REVIEW_MAX_COST_USD);
+  }
+
+  private recordReplyCost(
+    costBudget: CostBudget,
+    model: string,
+    usage: LlmResponse["usage"],
+  ): void {
+    costBudget.record(
+      computeCostUsd(model, {
+        inputTokens: usage.promptTokens,
+        outputTokens: usage.completionTokens,
+      }),
+    );
+  }
+
   private canUseToolsForReply(model: string): boolean {
     return !MODELS_WITHOUT_TOOLS.some((blocked) => model.includes(blocked));
   }
@@ -144,6 +166,7 @@ class ReviewService implements IReviewService {
   }
 
   private async composeAssistantCommentReply(params: {
+    costBudget: CostBudget;
     maxPromptTokensHard?: number | undefined;
     maxTokens?: number | undefined;
     maxToolRounds: number;
@@ -159,6 +182,7 @@ class ReviewService implements IReviewService {
     versions: VersionInfo;
   }): Promise<string> {
     const {
+      costBudget,
       maxPromptTokensHard,
       maxTokens = COMMENT_ASSISTANT_REPLY_MAX_TOKENS,
       maxToolRounds,
@@ -174,6 +198,18 @@ class ReviewService implements IReviewService {
       versions,
     } = params;
     const toolsAvailable = this.canUseToolsForReply(replyModel);
+    if (costBudget.isExhausted()) {
+      this.logger.warn(
+        {
+          limitUsd: costBudget.limit,
+          mrIid,
+          projectId,
+          spentUsd: costBudget.spent,
+        },
+        "Cost ceiling reached: skipping assistant comment reply",
+      );
+      return COMMENT_RESPONSE_COST_CEILING_REPLY;
+    }
     try {
       let content: string | null = null;
       if (toolsAvailable) {
@@ -250,6 +286,7 @@ class ReviewService implements IReviewService {
             model: replyModel,
           },
         );
+        this.recordReplyCost(costBudget, replyModel, response.usage);
         content = response.content;
       } else {
         const response = await this.llm.chatCompletion(
@@ -265,6 +302,7 @@ class ReviewService implements IReviewService {
             model: replyModel,
           },
         );
+        this.recordReplyCost(costBudget, replyModel, response.usage);
         content = response.content;
       }
       if (content === null) {
@@ -295,6 +333,7 @@ class ReviewService implements IReviewService {
     projectId: number,
     mrIid: number,
     context: CommentContext,
+    costBudget: CostBudget = this.createOperationCostBudget(),
   ): Promise<void> {
     this.logger.info({ mrIid, projectId }, "Responding to @ai comment");
 
@@ -389,6 +428,7 @@ class ReviewService implements IReviewService {
       : userPrompt;
 
     const responseText = await this.composeAssistantCommentReply({
+      costBudget,
       maxTokens: COMMENT_ASSISTANT_REPLY_MAX_TOKENS,
       maxToolRounds,
       mrIid,
@@ -421,6 +461,7 @@ class ReviewService implements IReviewService {
     mrIid: number,
     finding: ReviewFinding,
     developerNote: string,
+    costBudget: CostBudget = this.createOperationCostBudget(),
   ): Promise<string> {
     this.logger.info(
       { findingId: finding.id, mrIid, projectId },
@@ -434,7 +475,17 @@ class ReviewService implements IReviewService {
         { mrIid, projectId },
         FINDING_THREAD_CLARIFICATION_BASELINE_UNAVAILABLE_LOG,
       );
-      return runNarrowFindingClarification(this.llm, finding, developerNote);
+      return runNarrowFindingClarification({
+        costBudget,
+        costModel: resolveDefaultLlmModel(
+          this.llmConfig,
+          this.openRouterConfig,
+        ),
+        developerNote,
+        finding,
+        llm: this.llm,
+        logger: this.logger,
+      });
     }
 
     const [mrInfo, diffs, versions] = await Promise.all([
@@ -513,7 +564,17 @@ class ReviewService implements IReviewService {
         { mrIid, projectId },
         FINDING_THREAD_CLARIFICATION_BASELINE_UNAVAILABLE_LOG,
       );
-      return runNarrowFindingClarification(this.llm, finding, developerNote);
+      return runNarrowFindingClarification({
+        costBudget,
+        costModel: resolveDefaultLlmModel(
+          this.llmConfig,
+          this.openRouterConfig,
+        ),
+        developerNote,
+        finding,
+        llm: this.llm,
+        logger: this.logger,
+      });
     }
 
     const userPrompt = buildFindingThreadClarificationUserPrompt({
@@ -536,6 +597,7 @@ class ReviewService implements IReviewService {
     );
 
     return this.composeAssistantCommentReply({
+      costBudget,
       maxPromptTokensHard:
         this.pipelineConfig.envs.FINDING_THREAD_PROMPT_HARD_LIMIT,
       maxTokens: COMMENT_ASSISTANT_REPLY_MAX_TOKENS,

@@ -1,10 +1,10 @@
 import type { IConfig } from "~/shared/config";
-import type { FastifyBaseLogger } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OpenRouterConfigSchema } from "~/config/openrouter.config";
 import type { ChatMessage } from "~/domain/types/llm.types";
 import { OpenRouterClient } from "~/infrastructure/llm/openrouter/openrouter.client";
+import { createMockLogger } from "~/test-utils/mock-logger";
 
 interface OpenRouterRequestBody {
   max_tokens?: number;
@@ -33,7 +33,7 @@ function createMockConfig(): IConfig<OpenRouterConfigSchema> {
   };
 }
 
-const mockLogger = {
+const mockLogger = createMockLogger({
   child: vi.fn(),
   debug: vi.fn(),
   error: vi.fn(),
@@ -43,7 +43,37 @@ const mockLogger = {
   silent: vi.fn(),
   trace: vi.fn(),
   warn: vi.fn(),
-} as unknown as FastifyBaseLogger;
+});
+
+function successResponse(): {
+  headers: Headers;
+  json: () => Promise<unknown>;
+  ok: boolean;
+} {
+  return {
+    headers: new Headers(),
+    json: () =>
+      Promise.resolve({
+        choices: [{ message: { content: "done", role: "assistant" } }],
+        usage: { completion_tokens: 5, prompt_tokens: 10 },
+      }),
+    ok: true,
+  };
+}
+
+function rateLimitedResponse(retryAfterSeconds: string): {
+  headers: Headers;
+  ok: boolean;
+  status: number;
+  text: () => Promise<string>;
+} {
+  return {
+    headers: new Headers({ "retry-after": retryAfterSeconds }),
+    ok: false,
+    status: 429,
+    text: () => Promise.resolve("rate limited"),
+  };
+}
 
 describe("OpenRouterClient", () => {
   beforeEach(() => {
@@ -51,6 +81,7 @@ describe("OpenRouterClient", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -250,5 +281,87 @@ describe("OpenRouterClient", () => {
     expect(result.usage.completionTokens).toBe(50);
     expect(result.usage.cacheCreationInputTokens).toBe(1200);
     expect(result.usage.cacheReadInputTokens).toBe(3400);
+  });
+
+  it("waits for the Retry-After delay before retrying a 429", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(rateLimitedResponse("3"))
+      .mockResolvedValueOnce(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion([{ content: "hi", role: "user" }]);
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    const result = await pending;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.content).toBe("done");
+  });
+
+  it("retries a transient transport failure and returns the retry result", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new TypeError("fetch failed", {
+          cause: Object.assign(new Error("read ECONNRESET"), {
+            code: "ECONNRESET",
+          }),
+        }),
+      )
+      .mockResolvedValueOnce(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion([{ content: "hi", role: "user" }]);
+
+    await vi.advanceTimersByTimeAsync(5000);
+    const result = await pending;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.content).toBe("done");
+  });
+
+  it("does not retry a transport error that cannot succeed on a repeat", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(new TypeError("Invalid URL scheme"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+
+    await expect(
+      client.chatCompletion([{ content: "hi", role: "user" }]),
+    ).rejects.toThrow("Invalid URL scheme");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the upstream status and body on the thrown error without the api key", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      ok: false,
+      status: 400,
+      text: () => Promise.resolve("model not permitted"),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+
+    const failure = await client
+      .chatCompletion([{ content: "hi", role: "user" }])
+      .catch((error: unknown) =>
+        error instanceof Error ? error.message : String(error),
+      );
+
+    expect(failure).toContain("400");
+    expect(failure).toContain("model not permitted");
+    expect(failure).not.toContain("test-key");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

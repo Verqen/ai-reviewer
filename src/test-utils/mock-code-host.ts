@@ -27,7 +27,10 @@ interface MockCodeHostOptions {
   versions?: VersionInfo;
 }
 
-function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
+function createMockCodeHost(
+  options: MockCodeHostOptions = {},
+  overrides: Partial<ICodeHost> = {},
+): ICodeHost & {
   calls: MockCodeHostCalls;
 } {
   const calls: MockCodeHostCalls = {
@@ -169,6 +172,8 @@ function createMockCodeHost(options: MockCodeHostOptions = {}): ICodeHost & {
       calls.unresolveDiscussion.push([projectId, mrIid, discussionId]);
       return Promise.resolve();
     },
+
+    ...overrides,
   };
 }
 

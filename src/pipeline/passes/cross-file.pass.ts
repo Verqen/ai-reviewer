@@ -1,6 +1,7 @@
 import type { FastifyBaseLogger } from "fastify";
 import { toJSONSchema, z } from "zod";
 
+import { computeCostUsd } from "~/config/llm-pricing";
 import { parseLlmJson } from "~/domain/llm/parse-llm-json";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
@@ -167,6 +168,26 @@ class CrossFilePass implements IReviewPass<Record<string, unknown>> {
   ): Promise<PassResult<Record<string, unknown>>> {
     const { diffs, mrInfo, reviewConfig } = context;
 
+    const costBudget = context.costBudget;
+    if (costBudget?.isExhausted()) {
+      this.logger.warn(
+        {
+          limitUsd: costBudget.limit,
+          mrIid: context.mrIid,
+          projectId: context.projectId,
+          reviewRunId: context.reviewRunId,
+          skipped: "cost_ceiling",
+          spentUsd: costBudget.spent,
+        },
+        "Per-scan cost ceiling reached: skipping cross-file pass, finalizing partial review",
+      );
+      return {
+        findings: [],
+        metadata: { skipped: "cost_ceiling" },
+        tokenUsage: { completionTokens: 0, promptTokens: 0 },
+      };
+    }
+
     const fileReviewResult = priorResults.get("file-review");
     const priorFindings = fileReviewResult?.findings ?? [];
     const totalDiffLines = diffs.reduce(
@@ -281,6 +302,13 @@ class CrossFilePass implements IReviewPass<Record<string, unknown>> {
           promptTokens: response.usage.promptTokens,
         },
       };
+
+      costBudget?.record(
+        computeCostUsd(reviewConfig.models.review, {
+          inputTokens: response.usage.promptTokens,
+          outputTokens: response.usage.completionTokens,
+        }),
+      );
 
       if (response.content === null) {
         this.logger.warn(

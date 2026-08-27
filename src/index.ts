@@ -14,9 +14,18 @@ import { webhookRoute } from "~/routes/webhook.route";
 
 const appConfig = new AppConfig();
 
+const GLOBAL_BODY_LIMIT_BYTES = 262_144;
+const CONNECTION_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 30_000;
+const TRUST_FORWARDED_CLIENT_ADDRESS = false;
+
 const fastify = Fastify({
+  bodyLimit: GLOBAL_BODY_LIMIT_BYTES,
+  connectionTimeout: CONNECTION_TIMEOUT_MS,
   disableRequestLogging: true,
   logger: { level: appConfig.envs.LOG_LEVEL },
+  requestTimeout: REQUEST_TIMEOUT_MS,
+  trustProxy: TRUST_FORWARDED_CLIENT_ADDRESS,
 });
 
 const {

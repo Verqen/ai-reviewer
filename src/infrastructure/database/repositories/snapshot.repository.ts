@@ -7,6 +7,10 @@ import type {
   ContentMatch,
   ISnapshotRepository,
 } from "~/domain/ports/snapshot.repository.port";
+import {
+  SNAPSHOT_LIST_FILES_MAX_ROWS,
+  SNAPSHOT_SEARCH_CONTENT_MAX_ROWS,
+} from "~/domain/ports/snapshot.repository.port";
 import type { PackageRootsInsight } from "~/domain/types/package-roots.types";
 import {
   filePathGlobPatternHasMagic,
@@ -180,6 +184,7 @@ class SnapshotRepository implements ISnapshotRepository {
     projectId: number,
     commitSha: string,
     pattern?: string,
+    maxRows: number = SNAPSHOT_LIST_FILES_MAX_ROWS,
   ): Promise<string[]> {
     let query = this.db
       .selectFrom("snapshot_entry")
@@ -202,9 +207,10 @@ class SnapshotRepository implements ISnapshotRepository {
       }
     }
 
-    query = query.orderBy("file_path", "asc");
-
-    const rows = await query.execute();
+    const rows = await query
+      .orderBy("file_path", "asc")
+      .limit(maxRows)
+      .execute();
 
     return rows.map((r) => r.file_path);
   }
@@ -214,50 +220,62 @@ class SnapshotRepository implements ISnapshotRepository {
     commitSha: string,
     pattern: string,
     glob?: string,
+    maxRows: number = SNAPSHOT_SEARCH_CONTENT_MAX_ROWS,
   ): Promise<ContentMatch[]> {
-    let query = this.db
+    let matchingEntries = this.db
       .selectFrom("snapshot_entry")
       .innerJoin(
         "snapshot_blob",
         "snapshot_blob.hash",
         "snapshot_entry.blob_hash",
       )
-      .select([
-        "snapshot_entry.file_path",
-        sql<string>`convert_from(snapshot_blob.content, 'UTF8')`.as("text"),
-      ])
+      .select(["snapshot_entry.file_path", "snapshot_entry.blob_hash"])
       .where("snapshot_entry.project_id", "=", projectId)
       .where("snapshot_entry.commit_sha", "=", commitSha)
       .where(
-        sql`convert_from(snapshot_blob.content, 'UTF8')`,
-        "like",
-        `%${pattern}%`,
+        sql<SqlBool>`position(convert_to(${pattern}::text, 'UTF8') in snapshot_blob.content) > 0`,
       );
 
     if (glob) {
       if (!filePathGlobPatternHasMagic(glob)) {
-        query = query.where(
+        matchingEntries = matchingEntries.where(
           sql<SqlBool>`starts_with(snapshot_entry.file_path, ${normalizeFilePathForGlob(glob)})`,
         );
       } else {
         const regexSource = getFilePathGlobPosixRegexSource(glob);
         if (regexSource === null) {
-          query = query.where(sql<SqlBool>`false`);
+          matchingEntries = matchingEntries.where(sql<SqlBool>`false`);
         } else {
-          query = query.where(
+          matchingEntries = matchingEntries.where(
             sql<SqlBool>`snapshot_entry.file_path ~ ${regexSource}`,
           );
         }
       }
     }
 
-    const rows = await query.execute();
+    const rows = await this.db
+      .selectFrom(
+        matchingEntries
+          .orderBy("snapshot_entry.file_path", "asc")
+          .limit(maxRows)
+          .as("matched_entry"),
+      )
+      .innerJoin(
+        "snapshot_blob",
+        "snapshot_blob.hash",
+        "matched_entry.blob_hash",
+      )
+      .select([
+        "matched_entry.file_path",
+        sql<string>`convert_from(snapshot_blob.content, 'UTF8')`.as("text"),
+      ])
+      .orderBy("matched_entry.file_path", "asc")
+      .execute();
 
-    return rows.map((row) => {
-      const matches = collectLineNumberedMatches(row.text, pattern);
-
-      return { filePath: row.file_path, matches };
-    });
+    return rows.map((row) => ({
+      filePath: row.file_path,
+      matches: collectLineNumberedMatches(row.text, pattern),
+    }));
   }
 
   async getBaselineState(projectId: number): Promise<BaselineState | null> {
@@ -309,41 +327,25 @@ class SnapshotRepository implements ISnapshotRepository {
     toSha: string,
     excludePaths?: Set<string>,
   ): Promise<number> {
-    const existingEntries = await this.db
-      .selectFrom("snapshot_entry")
-      .select(["file_path", "blob_hash"])
-      .where("project_id", "=", projectId)
-      .where("commit_sha", "=", fromSha)
-      .execute();
+    const excluded = excludePaths ? [...excludePaths] : [];
+    const result = await sql<{ copied_count: number }>`
+      WITH source_entry AS (
+        SELECT file_path, blob_hash
+        FROM snapshot_entry
+        WHERE project_id = ${projectId}
+          AND commit_sha = ${fromSha}
+          AND file_path <> ALL (${excluded}::TEXT[])
+      ),
+      inserted_entry AS (
+        INSERT INTO snapshot_entry (project_id, commit_sha, file_path, blob_hash)
+        SELECT ${projectId}::INTEGER, ${toSha}::TEXT, file_path, blob_hash
+        FROM source_entry
+        ON CONFLICT (project_id, commit_sha, file_path) DO NOTHING
+      )
+      SELECT COUNT(*)::INTEGER AS copied_count FROM source_entry
+    `.execute(this.db);
 
-    const entriesToCopy = excludePaths
-      ? existingEntries.filter((e) => !excludePaths.has(e.file_path))
-      : existingEntries;
-
-    if (entriesToCopy.length === 0) {
-      return 0;
-    }
-
-    for (let i = 0; i < entriesToCopy.length; i += BLOB_BATCH_SIZE) {
-      const batch = entriesToCopy.slice(i, i + BLOB_BATCH_SIZE);
-
-      await this.db
-        .insertInto("snapshot_entry")
-        .values(
-          batch.map((e) => ({
-            blob_hash: e.blob_hash,
-            commit_sha: toSha,
-            file_path: e.file_path,
-            project_id: projectId,
-          })),
-        )
-        .onConflict((oc) =>
-          oc.columns(["project_id", "commit_sha", "file_path"]).doNothing(),
-        )
-        .execute();
-    }
-
-    return entriesToCopy.length;
+    return result.rows[0]?.copied_count ?? 0;
   }
 
   async deleteCommit(projectId: number, commitSha: string): Promise<void> {

@@ -398,6 +398,7 @@ export async function reviewGitHubPullRequest(
   if (partial) {
     logger.warn(
       {
+        limitUsd: costBudget.limit,
         mrIid: pullRequestNumber,
         projectId,
         spentUsd: costBudget.spent,

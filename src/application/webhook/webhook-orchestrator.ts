@@ -19,6 +19,32 @@ function buildEventTelemetry(event: WebhookEvent): Record<string, unknown> {
   return base;
 }
 
+function dispatchEvent(
+  deps: WebhookOrchestratorDeps,
+  event: WebhookEvent,
+): Promise<WebhookOrchestrationResult> {
+  switch (event.type) {
+    case "mr_open":
+    case "mr_undraft":
+      return handleMrOpenOrUndraft(deps, event);
+
+    case "mr_update":
+      return handleMrUpdate(deps, event);
+
+    case "note":
+      return handleNote(deps, event);
+
+    case "push":
+      return handleDefaultBranchPush(deps, event);
+
+    default: {
+      const unhandledEvent: never = event;
+      deps.log.error({ event: unhandledEvent }, "Unhandled webhook event type");
+      return Promise.resolve({ kind: "ignored" });
+    }
+  }
+}
+
 function createWebhookOrchestrator(
   deps: WebhookOrchestratorDeps,
 ): WebhookOrchestrator {
@@ -28,18 +54,7 @@ function createWebhookOrchestrator(
     const startedAt = Date.now();
     const eventMeta = buildEventTelemetry(event);
     deps.log.info(eventMeta, "Webhook event received");
-    let result: WebhookOrchestrationResult;
-    if (event.type === "mr_open" || event.type === "mr_undraft") {
-      result = await handleMrOpenOrUndraft(deps, event);
-    } else if (event.type === "mr_update") {
-      result = await handleMrUpdate(deps, event);
-    } else if (event.type === "note") {
-      result = await handleNote(deps, event);
-    } else if (event.type === "push") {
-      result = await handleDefaultBranchPush(deps, event);
-    } else {
-      result = { kind: "ignored" };
-    }
+    const result = await dispatchEvent(deps, event);
     deps.log.info(
       {
         ...eventMeta,

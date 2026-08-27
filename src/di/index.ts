@@ -7,6 +7,7 @@ import { Context7Config } from "~/config/context7.config";
 import { DatabaseConfig } from "~/config/database.config";
 import { GitHubConfig } from "~/config/github.config";
 import { GitLabConfig } from "~/config/gitlab.config";
+import { hasPricing } from "~/config/llm-pricing";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import { PipelineConfig } from "~/config/pipeline.config";
@@ -82,20 +83,38 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
       ? new OllamaClient(llmConfig, fastifyLogger)
       : new OpenRouterClient(openrouterConfig, fastifyLogger);
 
+  const pipelineConfig = bootstrapInjector.resolve(
+    InjectionTokens.PipelineConfig,
+  );
+  const configuredModels =
+    llmProvider === "ollama"
+      ? [llmConfig.envs.OLLAMA_MODEL, llmConfig.envs.OLLAMA_TRIAGE_MODEL]
+      : [
+          openrouterConfig.envs.OPENROUTER_MODEL,
+          openrouterConfig.envs.OPENROUTER_TRIAGE_MODEL,
+        ];
+  const unpricedModels = [...new Set(configuredModels)].filter(
+    (model) => !hasPricing(model),
+  );
+  if (unpricedModels.length > 0) {
+    fastifyLogger.warn(
+      {
+        costCeilingUsd: pipelineConfig.envs.REVIEW_MAX_COST_USD ?? null,
+        unpricedModels,
+      },
+      "No pricing entry for these models: spend is estimated as zero, so REVIEW_MAX_COST_USD never triggers and the cost metrics stay at zero",
+    );
+  }
+
   const cache: ICache<boolean> = new MemoryCache<boolean>();
   const queue = new JobQueue<ReviewJob>();
   const rateLimiter = new TokenBucket(60, 1);
   const metricsRegistry: Registry = createMetricsRegistry();
   const pipelineMetrics = new PipelineMetrics(metricsRegistry);
 
-  let context7Config: Context7Config | null;
-  try {
-    context7Config = new Context7Config();
-  } catch {
-    context7Config = null;
-  }
+  const context7Config = new Context7Config();
 
-  const docProvider = context7Config?.envs.CONTEXT7_ENABLED
+  const docProvider = context7Config.envs.CONTEXT7_ENABLED
     ? new Context7Provider(context7Config, fastifyLogger)
     : new NoOpDocProvider();
 

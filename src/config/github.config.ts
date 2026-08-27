@@ -29,10 +29,9 @@ const GitHubConfigSchema = z
 type GitHubConfigSchema = z.infer<typeof GitHubConfigSchema>;
 
 class GitHubConfig extends Config<GitHubConfigSchema> {
-  constructor() {
-    super(() => GitHubConfigSchema.parse(process.env));
+  constructor(envs?: GitHubConfigSchema) {
+    super(() => envs ?? GitHubConfigSchema.parse(process.env));
   }
 }
 
-export { GitHubConfig };
-export type { GitHubConfigSchema };
+export { GitHubConfig, GitHubConfigSchema };

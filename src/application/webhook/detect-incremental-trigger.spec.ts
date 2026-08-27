@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
+import { createMockCodeHost } from "~/test-utils/mock-code-host";
 import { createMockLogger } from "~/test-utils/mock-logger";
 
 import { detectIncrementalTrigger } from "./detect-incremental-trigger";
@@ -9,7 +10,7 @@ import { detectIncrementalTrigger } from "./detect-incremental-trigger";
 function makeCodeHost(
   getCommitRangeDiff: ICodeHost["getCommitRangeDiff"],
 ): ICodeHost {
-  return { getCommitRangeDiff } as unknown as ICodeHost;
+  return createMockCodeHost({}, { getCommitRangeDiff });
 }
 
 describe("detectIncrementalTrigger", () => {

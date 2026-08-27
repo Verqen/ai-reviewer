@@ -1,16 +1,22 @@
 import { Config } from "~/shared/config";
 import { z } from "zod";
 
+import { booleanEnv } from "~/config/boolean-env";
+import {
+  DEFAULT_WEBHOOK_MAX_QUEUE_SIZE,
+  MIN_WEBHOOK_MAX_QUEUE_SIZE,
+} from "~/config/constants";
 import { optionalEnv } from "~/config/optional-env";
 
 const WebhookConfigSchema = z
   .object({
-    WEBHOOK_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).default(150),
+    WEBHOOK_MAX_QUEUE_SIZE: z.coerce
+      .number()
+      .int()
+      .min(MIN_WEBHOOK_MAX_QUEUE_SIZE)
+      .default(DEFAULT_WEBHOOK_MAX_QUEUE_SIZE),
     WEBHOOK_SECRET: optionalEnv(z.string()),
-    WEBHOOK_SIGNATURE_REQUIRED: z
-      .enum(["true", "false"])
-      .default("true")
-      .transform((value) => value === "true"),
+    WEBHOOK_SIGNATURE_REQUIRED: booleanEnv(true),
   })
   .refine(
     (envs) =>
@@ -25,10 +31,9 @@ const WebhookConfigSchema = z
 type WebhookConfigSchema = z.infer<typeof WebhookConfigSchema>;
 
 class WebhookConfig extends Config<WebhookConfigSchema> {
-  constructor() {
-    super(() => WebhookConfigSchema.parse(process.env));
+  constructor(envs?: WebhookConfigSchema) {
+    super(() => envs ?? WebhookConfigSchema.parse(process.env));
   }
 }
 
-export { WebhookConfig };
-export type { WebhookConfigSchema };
+export { WebhookConfig, WebhookConfigSchema };

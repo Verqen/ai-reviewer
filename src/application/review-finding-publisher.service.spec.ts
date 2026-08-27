@@ -1,11 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 
-import type { CommentResolutionService } from "~/application/comment-resolution.service";
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
+import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { Finding } from "~/domain/types/review.types";
+import { createMockCommentResolutionService } from "~/test-utils/mock-comment-resolution-service";
+import { createMockInfraRepoPorts } from "~/test-utils/mock-infra-repo-ports";
 import { createMockLogger } from "~/test-utils/mock-logger";
+import { createMockReviewFindingRepository } from "~/test-utils/mock-review-finding-repository";
 
 import { ReviewFindingPublisherService } from "./review-finding-publisher.service";
 
@@ -41,56 +44,27 @@ function makeDiffs(): ParsedFileDiff[] {
 }
 
 function makeInfraRepoPorts(): ReviewInfraRepoPorts & {
-  createManyMock: ReturnType<typeof vi.fn>;
-  updateResolutionManyMock: ReturnType<typeof vi.fn>;
+  createManyMock: Mock<IReviewFindingRepository["createMany"]>;
+  updateResolutionManyMock: Mock<
+    IReviewFindingRepository["updateResolutionMany"]
+  >;
 } {
-  const createManyMock = vi.fn(() => Promise.resolve([]));
-  const updateResolutionManyMock = vi.fn(() => Promise.resolve());
+  const createManyMock = vi
+    .fn<IReviewFindingRepository["createMany"]>()
+    .mockResolvedValue([]);
+  const updateResolutionManyMock = vi
+    .fn<IReviewFindingRepository["updateResolutionMany"]>()
+    .mockResolvedValue(undefined);
+
   return {
+    ...createMockInfraRepoPorts({
+      reviewFindingRepo: createMockReviewFindingRepository({
+        createMany: createManyMock,
+        updateResolutionMany: updateResolutionManyMock,
+      }),
+    }),
     createManyMock,
-    dismissedPatternRepo: {
-      create: () => Promise.reject(new Error("unused")),
-      findByProject: () => Promise.resolve([]),
-      incrementOccurrence: () => Promise.resolve(),
-    },
-    reviewFindingRepo: {
-      createMany: createManyMock,
-      findByProjectAndMr: () => Promise.resolve([]),
-      findByRunId: () => Promise.resolve([]),
-      updateResolution: () => Promise.resolve(),
-      updateResolutionMany: updateResolutionManyMock,
-    },
-    reviewRunRepo: {
-      create: () => Promise.reject(new Error("unused")),
-      findById: () => Promise.resolve(undefined),
-      findByIdentity: () => Promise.resolve(undefined),
-      findByProjectAndMr: () => Promise.resolve([]),
-      findLatestByProjectAndMr: () => Promise.resolve(undefined),
-      updateStats: () => Promise.resolve(),
-      updateStatus: () => Promise.resolve(),
-    },
-    snapshotRepo: {
-      copySnapshotEntries: () => Promise.resolve(0),
-      deleteCommit: () => Promise.resolve(),
-      deleteOldSnapshotsBefore: () => Promise.resolve(0),
-      getBaselineState: () => Promise.resolve(null),
-      getFileContent: () => Promise.resolve(null),
-      listFiles: () => Promise.resolve([]),
-      listPackageRootsFromSnapshot: () =>
-        Promise.resolve({
-          hasTopLevelSrcTree: false,
-          packageRoots: [],
-          packageRootsUsingSrc: [],
-        }),
-      searchContent: () => Promise.resolve([]),
-      setBaselineState: () => Promise.resolve(),
-      storeBlobs: () => Promise.resolve(),
-      storeSnapshot: () => Promise.resolve(),
-    },
     updateResolutionManyMock,
-  } as unknown as ReviewInfraRepoPorts & {
-    createManyMock: ReturnType<typeof vi.fn>;
-    updateResolutionManyMock: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -157,12 +131,6 @@ function makeCodeHost(params: {
   };
 }
 
-function makeCommentResolutionService(): CommentResolutionService {
-  return {
-    resolveStaleFindings: () => Promise.resolve({ addressed: [], pending: [] }),
-  } as unknown as CommentResolutionService;
-}
-
 describe("ReviewFindingPublisherService missing-file validator", () => {
   it("drops finding when referenced import path exists at MR head", async () => {
     const finding = makeFinding(
@@ -175,7 +143,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
     const service = new ReviewFindingPublisherService(
       infra,
       codeHost,
-      makeCommentResolutionService(),
+      createMockCommentResolutionService(),
       createMockLogger(),
     );
 
@@ -202,7 +170,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
     const service = new ReviewFindingPublisherService(
       infra,
       codeHost,
-      makeCommentResolutionService(),
+      createMockCommentResolutionService(),
       createMockLogger(),
     );
 
@@ -229,7 +197,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
     const service = new ReviewFindingPublisherService(
       infra,
       codeHost,
-      makeCommentResolutionService(),
+      createMockCommentResolutionService(),
       createMockLogger(),
     );
 
@@ -257,7 +225,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
     const service = new ReviewFindingPublisherService(
       infra,
       codeHost,
-      makeCommentResolutionService(),
+      createMockCommentResolutionService(),
       createMockLogger(),
     );
     await service.publishInlineFindingsAndStore({
@@ -280,7 +248,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
     const service = new ReviewFindingPublisherService(
       infra,
       codeHost,
-      makeCommentResolutionService(),
+      createMockCommentResolutionService(),
       createMockLogger(),
     );
     await service.publishInlineFindingsAndStore({
@@ -307,7 +275,7 @@ describe("ReviewFindingPublisherService force-push correlation lifecycle", () =>
     const service = new ReviewFindingPublisherService(
       infra,
       codeHost,
-      makeCommentResolutionService(),
+      createMockCommentResolutionService(),
       createMockLogger(),
     );
     await service.repostCorrelatedFindings({

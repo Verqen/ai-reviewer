@@ -1,11 +1,9 @@
 import { Registry } from "prom-client";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { CommentResolutionService } from "~/application/comment-resolution.service";
 import type { ReviewConfigLoader } from "~/application/review-config.loader";
 import { ReviewContextBuilderService } from "~/application/review-context-builder.service";
 import { ReviewFindingPublisherService } from "~/application/review-finding-publisher.service";
-import type { ReviewHistoryService } from "~/application/review-history.service";
 import { ReviewRunCompletionService } from "~/application/review-run-completion.service";
 import { ReviewRunLifecycleService } from "~/application/review-run-lifecycle.service";
 import { PipelineConfig } from "~/config/pipeline.config";
@@ -22,6 +20,7 @@ import { PipelineMetrics } from "~/infrastructure/metrics/pipeline.metrics";
 import { hunkKey } from "~/pipeline/passes/triage.pass";
 import { parseDiff } from "~/review/diff-parser";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockCommentResolutionService } from "~/test-utils/mock-comment-resolution-service";
 import {
   createMockInfraRepoPorts,
   createMockReviewRun,
@@ -33,6 +32,8 @@ import {
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockPipelineMetrics } from "~/test-utils/mock-pipeline-metrics";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
+import { createMockReviewConfigLoader } from "~/test-utils/mock-review-config-loader";
+import { createMockReviewHistoryService } from "~/test-utils/mock-review-history-service";
 
 import { PipelineOrchestrator } from "./pipeline.orchestrator";
 
@@ -55,38 +56,12 @@ function createPipelineConfig(threshold = "info"): PipelineConfig {
   return config;
 }
 
-function createMockReviewConfigLoader(): ReviewConfigLoader {
-  return {
-    load: () => Promise.resolve(createMockReviewConfig()),
-  } as unknown as ReviewConfigLoader;
-}
-
-function createMockReviewHistoryService(): ReviewHistoryService {
-  return {
-    getPendingFindings: () => Promise.resolve([]),
-    loadPriorFindings: () =>
-      Promise.resolve({ addressed: [], dismissed: [], pending: [] }),
-    loadPriorFindingsByFile: () =>
-      Promise.resolve({
-        addressed: new Map(),
-        dismissed: new Map(),
-        pending: new Map(),
-      }),
-  } as unknown as ReviewHistoryService;
-}
-
-function createMockCommentResolutionService(): CommentResolutionService {
-  return {
-    resolveStaleFindings: () => Promise.resolve({ addressed: [], pending: [] }),
-  } as unknown as CommentResolutionService;
-}
-
-function makeAggPass(findings: Finding[] = []): IReviewPass {
+function makeAggPass(findings: Finding[] = []): IReviewPass<AggregationResult> {
   return {
     execute: (
       _ctx: ReviewContext,
       _prior: Map<string, PassResult>,
-    ): Promise<PassResult> => {
+    ): Promise<PassResult<AggregationResult>> => {
       const agg: AggregationResult = {
         allFindings: findings,
         postableFindings: findings,
@@ -95,7 +70,7 @@ function makeAggPass(findings: Finding[] = []): IReviewPass {
       };
       return Promise.resolve({
         findings,
-        metadata: agg as unknown as Record<string, unknown>,
+        metadata: agg,
         tokenUsage: { completionTokens: 0, promptTokens: 0 },
       });
     },
@@ -195,13 +170,12 @@ describe("PipelineOrchestrator", () => {
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
     const cache = new MemoryCache<boolean>();
     const config = createPipelineConfig();
-    const logger = createMockLogger();
     const infoCalls: Array<unknown[]> = [];
-    (logger as unknown as { info: (...args: unknown[]) => void }).info = (
-      ...args: unknown[]
-    ): void => {
-      infoCalls.push(args);
-    };
+    const logger = createMockLogger({
+      info: (...args: unknown[]): void => {
+        infoCalls.push(args);
+      },
+    });
 
     const passes: IReviewPass[] = [
       {
@@ -497,12 +471,9 @@ describe("PipelineOrchestrator", () => {
       }),
     ).rejects.toThrow("Pass exploded");
 
-    const statusCalls = infraRepoPorts.calls.updateStatus;
-    expect(statusCalls.some(([, s]) => s === "failed")).toBe(true);
-
-    const statsCalls = infraRepoPorts.calls.updateStats;
+    const failCalls = infraRepoPorts.calls.failRun;
     expect(
-      statsCalls.some(([, stats]) => stats.errorMessage === "Pass exploded"),
+      failCalls.some(([, params]) => params.errorMessage === "Pass exploded"),
     ).toBe(true);
   });
 
@@ -629,7 +600,7 @@ describe("PipelineOrchestrator", () => {
       },
       name: "capture-model",
     };
-    const configLoader: ReviewConfigLoader = {
+    const configLoader = createMockReviewConfigLoader({
       load: () =>
         Promise.resolve(
           createMockReviewConfig({
@@ -641,7 +612,7 @@ describe("PipelineOrchestrator", () => {
             },
           }),
         ),
-    } as unknown as ReviewConfigLoader;
+    });
     const infraRepoPorts = createMockInfraRepoPorts();
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
     const cache = new MemoryCache<boolean>();

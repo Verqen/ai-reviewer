@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import {
+  OPENROUTER_REVIEW_MODEL,
+  OPENROUTER_TRIAGE_MODEL,
+} from "~/config/models";
+import { CostBudget } from "~/domain/cost-budget";
 import type { DiffLine, ParsedFileDiff } from "~/domain/types/diff.types";
 import type { ReviewContext } from "~/domain/types/pipeline.types";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
@@ -481,5 +486,81 @@ describe("TriagePass", () => {
     const meta = result.metadata;
     expect(meta.totalEstimatedPromptTokens).toBeGreaterThan(0);
     expect(meta.avgBatchEstimatedTokens).toBeGreaterThan(0);
+  });
+});
+
+describe("TriagePass cost ceiling", () => {
+  function triageVerdictsResponse(
+    verdicts: { hunk_id: number; verdict: "needs-review" | "trivial" }[],
+  ): string {
+    return JSON.stringify({ results: verdicts });
+  }
+
+  function buildPricedContext(
+    diffs: ParsedFileDiff[],
+    costBudget: CostBudget,
+  ): ReviewContext {
+    return buildContext(diffs, {
+      costBudget,
+      reviewConfig: createMockReviewConfig({
+        models: {
+          premium: null,
+          review: OPENROUTER_REVIEW_MODEL,
+          triage: OPENROUTER_TRIAGE_MODEL,
+        },
+      }),
+    });
+  }
+
+  it("records the cost of every triage batch on the review cost budget", async () => {
+    const llm = createMockLlmClient({
+      responses: [
+        {
+          content: triageVerdictsResponse([{ hunk_id: 0, verdict: "trivial" }]),
+          toolCalls: [],
+          usage: { completionTokens: 500, promptTokens: 10_000 },
+        },
+      ],
+    });
+    const costBudget = new CostBudget(10);
+    const pass = new TriagePass(llm, createMockLogger());
+
+    await pass.execute(
+      buildPricedContext(
+        [makeDiff("src/a.ts", [line(HEADER_A, "x")])],
+        costBudget,
+      ),
+      new Map(),
+    );
+
+    expect(costBudget.spent).toBeGreaterThan(0);
+  });
+
+  it("skips the triage LLM call and keeps every hunk reviewable when the budget is exhausted", async () => {
+    const llm = createMockLlmClient({
+      defaultContent: triageVerdictsResponse([
+        { hunk_id: 0, verdict: "trivial" },
+      ]),
+    });
+    const logger = createMockLogger();
+    const warn = vi.spyOn(logger, "warn");
+    const costBudget = new CostBudget(0);
+    const pass = new TriagePass(llm, logger);
+
+    const result = await pass.execute(
+      buildPricedContext(
+        [makeDiff("src/a.ts", [line(HEADER_A, "x")])],
+        costBudget,
+      ),
+      new Map(),
+    );
+
+    expect(llm.calls.chatCompletion).toHaveLength(0);
+    expect(result.metadata.trivialKeys.size).toBe(0);
+    expect(result.tokenUsage).toEqual({
+      completionTokens: 0,
+      promptTokens: 0,
+    });
+    expect(warn).toHaveBeenCalled();
   });
 });

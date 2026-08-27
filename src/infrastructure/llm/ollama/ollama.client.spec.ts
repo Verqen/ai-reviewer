@@ -1,10 +1,10 @@
 import type { IConfig } from "~/shared/config";
-import type { FastifyBaseLogger } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { LlmConfigSchema } from "~/config/llm.config";
 import type { ChatMessage } from "~/domain/types/llm.types";
 import { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
+import { createMockLogger } from "~/test-utils/mock-logger";
 
 interface OllamaRequestBody {
   format?: string;
@@ -29,7 +29,7 @@ function createMockConfig(
   };
 }
 
-const mockLogger = {
+const mockLogger = createMockLogger({
   child: vi.fn(),
   debug: vi.fn(),
   error: vi.fn(),
@@ -39,7 +39,22 @@ const mockLogger = {
   silent: vi.fn(),
   trace: vi.fn(),
   warn: vi.fn(),
-} as unknown as FastifyBaseLogger;
+});
+
+function successResponse(): {
+  json: () => Promise<unknown>;
+  ok: boolean;
+} {
+  return {
+    json: () =>
+      Promise.resolve({
+        eval_count: 4,
+        message: { content: "done", role: "assistant" },
+        prompt_eval_count: 6,
+      }),
+    ok: true,
+  };
+}
 
 describe("OllamaClient", () => {
   beforeEach(() => {
@@ -47,6 +62,7 @@ describe("OllamaClient", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -272,5 +288,55 @@ describe("OllamaClient", () => {
       }),
       "Tool loop exhausted before final assistant response",
     );
+  });
+
+  it("waits for the Retry-After delay before retrying a 429", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        headers: new Headers({ "retry-after": "3" }),
+        ok: false,
+        status: 429,
+        text: () => Promise.resolve("busy"),
+      })
+      .mockResolvedValueOnce(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OllamaClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion([{ content: "hi", role: "user" }]);
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    const result = await pending;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.content).toBe("done");
+  });
+
+  it("retries a transient transport failure and returns the retry result", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new TypeError("fetch failed", {
+          cause: Object.assign(new Error("connect ECONNREFUSED"), {
+            code: "ECONNREFUSED",
+          }),
+        }),
+      )
+      .mockResolvedValueOnce(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OllamaClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion([{ content: "hi", role: "user" }]);
+
+    await vi.advanceTimersByTimeAsync(5000);
+    const result = await pending;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.content).toBe("done");
   });
 });

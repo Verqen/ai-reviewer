@@ -1,3 +1,4 @@
+import { buildBootstrapBaselineJobKey } from "~/application/review-job-key";
 import type { IJobQueue } from "~/domain/ports/job-queue.port";
 import type { ISnapshotRepository } from "~/domain/ports/snapshot.repository.port";
 import type { ReviewJob } from "~/domain/types/job.types";
@@ -12,7 +13,7 @@ async function ensureBaseline(
   if (baseline?.status === "ready") {
     return;
   }
-  const bootstrapKey = `bootstrap_baseline:${projectId}`;
+  const bootstrapKey = buildBootstrapBaselineJobKey(projectId);
   if (!queue.isPending(bootstrapKey)) {
     queue.enqueue(
       bootstrapKey,

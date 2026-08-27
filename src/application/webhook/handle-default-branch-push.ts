@@ -1,3 +1,4 @@
+import { buildUpdateBaselineJobKey } from "~/application/review-job-key";
 import type { WebhookEvent } from "~/domain/types/code-host.types";
 import type { ReviewJob } from "~/domain/types/job.types";
 
@@ -28,7 +29,7 @@ async function handleDefaultBranchPush(
       commits.flatMap((c) => [...c.added, ...c.modified, ...c.removed]),
     ),
   ];
-  const baselineKey = `update_baseline:${projectId}`;
+  const baselineKey = buildUpdateBaselineJobKey(projectId);
   if (!deps.queue.isPending(baselineKey)) {
     const baselineJob: ReviewJob = {
       changedFiles,

@@ -1,4 +1,3 @@
-import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
 
 import { LlmConfig } from "~/config/llm.config";
@@ -194,7 +193,7 @@ async function runSuite(
 }
 
 async function main(): Promise<void> {
-  const logger = pino({ level: "warn" }) as unknown as FastifyBaseLogger;
+  const logger = pino({ level: "warn" });
   const llmConfig = new LlmConfig();
   const provider = llmConfig.envs.LLM_PROVIDER;
 

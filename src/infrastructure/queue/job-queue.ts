@@ -18,6 +18,7 @@ class JobQueue<T> implements IJobQueue<T> {
   private readonly activeKeys = new Set<string>();
   private readonly retryingKeys = new Set<string>();
   private readonly pending: QueuedJob<T>[] = [];
+  private readonly retryTimers = new Set<NodeJS.Timeout>();
   private draining = false;
   private drainResolvers: Array<() => void> = [];
   private errorHandler: ErrorHandler | null = null;
@@ -57,6 +58,7 @@ class JobQueue<T> implements IJobQueue<T> {
 
   async drain(): Promise<void> {
     this.draining = true;
+    this.abandonRetryWaits();
 
     if (this.isIdle()) {
       return;
@@ -109,19 +111,39 @@ class JobQueue<T> implements IJobQueue<T> {
           60000;
 
         queued.retriesLeft--;
-
-        await new Promise<void>((resolve) => setTimeout(resolve, delay));
-
-        this.retryingKeys.delete(queued.key);
-        if (!this.draining) {
-          this.queuedKeys.add(queued.key);
-          this.pending.push(queued);
-        }
+        this.scheduleRetry(queued, delay);
       }
     }
 
     this.tick();
     this.checkDrained();
+  }
+
+  private scheduleRetry(queued: QueuedJob<T>, delayMs: number): void {
+    const timer = setTimeout(() => {
+      this.retryTimers.delete(timer);
+      this.retryingKeys.delete(queued.key);
+
+      if (!this.draining) {
+        this.queuedKeys.add(queued.key);
+        this.pending.push(queued);
+        this.tick();
+      }
+
+      this.checkDrained();
+    }, delayMs);
+
+    timer.unref();
+    this.retryTimers.add(timer);
+  }
+
+  private abandonRetryWaits(): void {
+    for (const timer of this.retryTimers) {
+      clearTimeout(timer);
+    }
+
+    this.retryTimers.clear();
+    this.retryingKeys.clear();
   }
 
   private isIdle(): boolean {

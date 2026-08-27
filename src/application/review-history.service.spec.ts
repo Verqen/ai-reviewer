@@ -26,6 +26,7 @@ function makeFinding(overrides: Partial<ReviewFinding> = {}): ReviewFinding {
 function makeFindingRepo(findings: ReviewFinding[]): IReviewFindingRepository {
   return {
     createMany: () => Promise.resolve([]),
+    existsByHostDiscussionId: () => Promise.resolve(false),
     findByProjectAndMr: () => Promise.resolve(findings),
     findByRunId: () => Promise.resolve(findings),
     updateResolution: () => Promise.resolve(),

@@ -3,6 +3,11 @@ import { z } from "zod";
 
 const AppConfigSchema = z.object({
   CLEANUP_RETENTION_DAYS: z.coerce.number().int().min(1).default(90),
+  CLEANUP_TOKEN: z
+    .string()
+    .min(32)
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   HOST: z.string().default("127.0.0.1"),
   LOG_LEVEL: z.string().default("info"),
   PORT: z.coerce.number().default(3000),

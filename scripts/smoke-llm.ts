@@ -1,21 +1,3 @@
-/**
- * Smoke-test for the current LLM provider.
- *
- * Checks three things:
- *   1. chatCompletion (no tools) — fast, cheap.
- *   2. chatCompletionWithTools — function-calling (required by cross-file pass
- *      and @ai-mention thread tools). Models that hang in a tool-loop show up
- *      immediately on the timer.
- *   3. JSON-schema response (required by triage and file-review passes).
- *
- * Usage:
- *   pnpm run smoke:llm
- *   pnpm run smoke:llm:ollama
- *
- * Env vars are loaded from .env. Runs all three probes sequentially against the
- * review model and the triage model (if different).
- */
-
 import type { FastifyBaseLogger } from "fastify";
 import { pino } from "pino";
 

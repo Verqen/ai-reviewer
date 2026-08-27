@@ -1,35 +1,3 @@
-/**
- * Scan a repository locally: take a real git diff between two refs, run the full
- * review pipeline (triage → file-review → cross-file → aggregation) with a real
- * LLM, print per-pass token breakdown and final findings.
- *
- * No code-host API, no Postgres, no webhook. Reads file content via `git show`.
- * Findings are printed, NOT posted anywhere. This is the offline demo of the
- * engine — the same passes the webhook server runs in production.
- *
- * Examples:
- *   # Scan the current repo, feature branch against main
- *   pnpm run scan -- --base main --head HEAD
- *
- *   # Scan an arbitrary repository on disk
- *   pnpm run scan -- --repo /path/to/sample-repo --base main --head HEAD
- *
- *   # Use Ollama instead of OpenRouter (no third-party LLM call)
- *   LLM_PROVIDER=ollama pnpm run scan -- --repo /path/to/sample-repo
- *
- * Flags:
- *   --repo <path>    path to the git repository to scan (default: cwd)
- *   --base <ref>     git ref to diff from (default: main)
- *   --head <ref>     git ref to diff to (default: HEAD)
- *   --max-files <n>  cap files reviewed (default: 30, prevents huge runs)
- *   --no-cross-file  skip cross-file pass
- *   --no-triage      skip triage pass
- *
- * Required env (from .env):
- *   OPENROUTER_API_KEY (if LLM_PROVIDER=openrouter)
- *   OLLAMA_BASE_URL    (if LLM_PROVIDER=ollama)
- */
-
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

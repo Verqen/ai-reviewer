@@ -2,10 +2,9 @@
 
 ## Prometheus
 
-`prometheus.yml` is a minimal scrape-config template for the `/metrics`
-endpoint exposed by the ai-reviewer Fastify server (default port `3000`).
-Use it as a reference — the real Prometheus config is maintained centrally by
-the ops team.
+`prometheus.yml` is a scrape-config for the `/metrics` endpoint exposed by the
+Fastify server (default port `3000`). Point a Prometheus instance at it, or
+merge the job into an existing configuration.
 
 Metrics surfaced at `GET /metrics`:
 
@@ -26,5 +25,5 @@ Metrics surfaced at `GET /metrics`:
 
 ## Grafana
 
-Dashboards are managed in a separate ops repository and provisioned
-automatically — nothing to commit here.
+No dashboards are committed here. The metrics above are plain counters,
+gauges and one histogram, so any dashboard is a few panels over them.

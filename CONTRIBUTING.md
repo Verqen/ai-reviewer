@@ -37,7 +37,7 @@ pnpm test:integration
 ## Code style
 
 - Strict TypeScript (extends `@tsconfig/strictest`). No `any`, no `as unknown as`.
-- No inline doc comments restating what the code does. Only `WHY` comments.
+- No comments in code. Zero `//`, `/* */` or JSDoc anywhere under `src/`, `scripts/` or the tests. If something seems to need a comment, restructure it: clearer names, smaller functions, explicit types.
 - Self-documenting names. English only in code.
 - Production code uses the injected pino logger, not `console.*`.
 

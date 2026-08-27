@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-import {
-  OPENROUTER_REVIEW_MODEL,
-  OPENROUTER_TRIAGE_MODEL,
-} from "~/config/models";
-
 const SeverityThresholdSchema = z.enum([
   "critical",
   "attention",
@@ -36,14 +31,10 @@ const ReviewPipelineConfigSchema = z.object({
   models: z
     .object({
       premium: z.string().nullable().default(null),
-      review: z.string().default(OPENROUTER_REVIEW_MODEL),
-      triage: z.string().default(OPENROUTER_TRIAGE_MODEL),
+      review: z.string().nullable().default(null),
+      triage: z.string().nullable().default(null),
     })
-    .default({
-      premium: null,
-      review: OPENROUTER_REVIEW_MODEL,
-      triage: OPENROUTER_TRIAGE_MODEL,
-    }),
+    .default({ premium: null, review: null, triage: null }),
   pathRules: z
     .array(
       z.object({
@@ -62,6 +53,11 @@ const ReviewPipelineConfigSchema = z.object({
 });
 
 const ResolvedReviewPipelineConfigSchema = ReviewPipelineConfigSchema.extend({
+  models: z.object({
+    premium: z.string().nullable().default(null),
+    review: z.string(),
+    triage: z.string(),
+  }),
   severityThreshold: SeverityThresholdSchema,
 });
 

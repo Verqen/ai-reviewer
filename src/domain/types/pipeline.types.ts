@@ -1,5 +1,5 @@
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
-import type { CostBudget } from "~/pipeline/cost-budget";
+import type { CostBudget } from "~/domain/cost-budget";
 import type {
   MergeRequestInfo,
   VersionInfo,

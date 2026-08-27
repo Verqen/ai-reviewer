@@ -9,6 +9,7 @@ import type { ReviewHistoryService } from "~/application/review-history.service"
 import type { LlmConfig } from "~/config/llm.config";
 import type { OpenRouterConfig } from "~/config/openrouter.config";
 import type { PipelineConfig } from "~/config/pipeline.config";
+import { InfraPortsTokens } from "~/di/infra-ports-tokens";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
@@ -64,7 +65,7 @@ class ReviewService implements IReviewService {
     ReviewTokens.ReviewConfigLoader,
     InjectionTokens.LlmConfig,
     InjectionTokens.OpenRouterConfig,
-    InjectionTokens.SnapshotRepo,
+    InfraPortsTokens.SnapshotRepo,
     ReviewTokens.ReviewHistoryService,
     InjectionTokens.Logger,
   ] as const;
@@ -85,7 +86,10 @@ class ReviewService implements IReviewService {
   private resolveTriageModelForReply(
     repoConfig: Awaited<ReturnType<ReviewConfigLoader["load"]>>,
   ): string {
-    if (repoConfig.modelOverrides?.triage) {
+    if (
+      repoConfig.modelOverrides?.triage &&
+      repoConfig.models.triage !== null
+    ) {
       return repoConfig.models.triage;
     }
     if (this.llmConfig.envs.LLM_PROVIDER === "ollama") {

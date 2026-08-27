@@ -98,10 +98,7 @@ export { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 export { OpenRouterClient } from "~/infrastructure/llm/openrouter/openrouter.client";
 export { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
 
-export {
-  GitLabCodeHost,
-  GitLabNotFoundError,
-} from "~/infrastructure/code-host/gitlab/gitlab.code-host";
+export { GitLabCodeHost } from "~/infrastructure/code-host/gitlab/gitlab.code-host";
 
 export { AppConfig } from "~/config/app.config";
 export { LlmConfig } from "~/config/llm.config";

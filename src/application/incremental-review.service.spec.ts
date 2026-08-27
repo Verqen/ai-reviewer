@@ -7,7 +7,7 @@ import { PipelineConfig } from "~/config/pipeline.config";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { DiffFile } from "~/domain/types/code-host.types";
 import type { ReviewFinding } from "~/domain/types/review.types";
-import { GitLabNotFoundError } from "~/infrastructure/code-host/gitlab/gitlab.code-host";
+import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 import { PipelineMetrics } from "~/infrastructure/metrics/pipeline.metrics";
 import type { PipelineOrchestrator } from "~/pipeline/pipeline.orchestrator";
 import { createMockLogger } from "~/test-utils/mock-logger";
@@ -762,7 +762,7 @@ describe("IncrementalReviewService", () => {
       const codeHost = makeCodeHost({
         commitRangeDiffs: [],
         mrDiffs: [mrFile],
-        throwOnCommitRange: new GitLabNotFoundError("missing ref"),
+        throwOnCommitRange: new CodeHostNotFoundError("missing ref"),
       });
       const infraRepoPorts = makeInfraRepoPorts();
       const orchestrator = makeOrchestrator();

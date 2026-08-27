@@ -1,35 +1,15 @@
 import { Counter, Gauge, Histogram, type Registry } from "prom-client";
 
 import { computeCostUsd } from "~/config/llm-pricing";
-import type { SkipCategory } from "~/pipeline/passes/skip-filter";
+import type {
+  IPipelineMetrics,
+  LlmCallObservation,
+  RunCompletionObservation,
+  SkipReason,
+  TriageParseOutcome,
+} from "~/domain/ports/pipeline-metrics.port";
 
-type ReviewPhase = "cross-file" | "file-review" | "triage";
-
-type RunStatus = "completed" | "failed" | "skipped";
-
-type SkipReason = SkipCategory;
-
-type TriageParseOutcome =
-  | "json_merged"
-  | "json_strict"
-  | "parse_failed"
-  | "prose_fallback";
-
-interface LlmCallObservation {
-  cachedInputTokens?: number;
-  inputTokens: number;
-  model: string;
-  outputTokens: number;
-  phase: ReviewPhase;
-}
-
-interface RunCompletionObservation {
-  durationMs: number;
-  status: RunStatus;
-  triggerType: string;
-}
-
-class PipelineMetrics {
+class PipelineMetrics implements IPipelineMetrics {
   private readonly cacheHitRate: Gauge<string>;
   private readonly costUsd: Counter<string>;
   private readonly filesSkipped: Counter<string>;
@@ -185,11 +165,3 @@ class PipelineMetrics {
 }
 
 export { PipelineMetrics };
-export type {
-  LlmCallObservation,
-  ReviewPhase,
-  RunCompletionObservation,
-  RunStatus,
-  SkipReason,
-  TriageParseOutcome,
-};

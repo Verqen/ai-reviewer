@@ -190,7 +190,7 @@ class ReviewContextBuilderService {
   }
 
   private resolveReviewModel(repoConfig: LoadedReviewPipelineConfig): string {
-    if (repoConfig.modelOverrides.review) {
+    if (repoConfig.modelOverrides.review && repoConfig.models.review !== null) {
       return repoConfig.models.review;
     }
     if (this.llmConfig.envs.LLM_PROVIDER === "ollama") {
@@ -200,7 +200,7 @@ class ReviewContextBuilderService {
   }
 
   private resolveTriageModel(repoConfig: LoadedReviewPipelineConfig): string {
-    if (repoConfig.modelOverrides.triage) {
+    if (repoConfig.modelOverrides.triage && repoConfig.models.triage !== null) {
       return repoConfig.models.triage;
     }
     if (this.llmConfig.envs.LLM_PROVIDER === "ollama") {

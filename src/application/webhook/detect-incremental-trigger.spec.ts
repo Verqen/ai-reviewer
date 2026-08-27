@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ICodeHost } from "~/domain/ports/code-host.port";
-import { GitLabNotFoundError } from "~/infrastructure/code-host/gitlab/gitlab.code-host";
+import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 import { createMockLogger } from "~/test-utils/mock-logger";
 
 import { detectIncrementalTrigger } from "./detect-incremental-trigger";
@@ -60,7 +60,7 @@ describe("detectIncrementalTrigger", () => {
 
   it("returns 'force_push' when base SHA unchanged and previous SHA is unreachable (404)", async () => {
     const codeHost = makeCodeHost(
-      vi.fn().mockRejectedValue(new GitLabNotFoundError("not found")),
+      vi.fn().mockRejectedValue(new CodeHostNotFoundError("not found")),
     );
     const result = await detectIncrementalTrigger(
       codeHost,

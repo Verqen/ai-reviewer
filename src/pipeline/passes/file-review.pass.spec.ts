@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
 import type { IDocProvider } from "~/domain/ports/doc-provider.port";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
-import { CostBudget } from "~/pipeline/cost-budget";
+import { CostBudget } from "~/domain/cost-budget";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";

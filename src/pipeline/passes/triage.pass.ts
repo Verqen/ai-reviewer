@@ -12,9 +12,9 @@ import type {
 } from "~/domain/types/pipeline.types";
 import { estimatePromptTokens } from "~/infrastructure/llm/estimate-prompt-tokens";
 import type {
-  PipelineMetrics,
+  IPipelineMetrics,
   TriageParseOutcome,
-} from "~/infrastructure/metrics/pipeline.metrics";
+} from "~/domain/ports/pipeline-metrics.port";
 import { parseProseTriageResponse } from "~/pipeline/passes/triage.prose-fallback";
 import {
   buildTriageSystemPrompt,
@@ -251,7 +251,7 @@ class TriagePass implements IReviewPass<TriagePassMetadata> {
     private readonly llm: ILlmClient,
     private readonly logger: FastifyBaseLogger,
     private readonly promptHardLimit?: number,
-    private readonly metrics?: PipelineMetrics,
+    private readonly metrics?: IPipelineMetrics,
   ) {}
 
   private observeOutcome(model: string, outcome: TriageParseOutcome): void {

@@ -21,13 +21,11 @@ import {
   type TriggerType,
 } from "~/domain/types/review.types";
 import type {
-  PipelineMetrics,
+  IPipelineMetrics,
   ReviewPhase,
-} from "~/infrastructure/metrics/pipeline.metrics";
-import {
-  getPrimarySkipReason,
-  type SkipCategory,
-} from "~/pipeline/passes/skip-filter";
+} from "~/domain/ports/pipeline-metrics.port";
+import type { SkipCategory } from "~/domain/types/skip.types";
+import { getPrimarySkipReason } from "~/pipeline/passes/skip-filter";
 import {
   applyTriageFilter,
   type TriagePassMetadata,
@@ -110,7 +108,7 @@ export class PipelineOrchestrator {
     private readonly reviewFindingPublisherService: ReviewFindingPublisherService,
     private readonly reviewRunCompletionService: ReviewRunCompletionService,
     private readonly passes: IReviewPass[],
-    private readonly metrics: PipelineMetrics,
+    private readonly metrics: IPipelineMetrics,
     private readonly logger: FastifyBaseLogger,
   ) {}
 

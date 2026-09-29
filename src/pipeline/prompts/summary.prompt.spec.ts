@@ -23,7 +23,7 @@ function buildFinding(overrides: Partial<Finding> = {}): Finding {
 
 function buildParams(overrides: Partial<SummaryParams> = {}): SummaryParams {
   return {
-    allFindings: [],
+    acceptedFindings: [],
     catalogVersion: "2026.10.1",
     overview: "AI review complete — no issues found.",
     postableFindings: [],
@@ -50,7 +50,7 @@ describe("buildSummaryNote", () => {
       buildFinding({ lineNumber: 3, severity: "warning" }),
     ];
     const note = buildSummaryNote(
-      buildParams({ allFindings: findings, postableFindings: findings }),
+      buildParams({ acceptedFindings: findings, postableFindings: findings }),
     );
     expect(note).toContain("| Critical | 1 |");
     expect(note).toContain("| Attention | 1 |");
@@ -88,7 +88,7 @@ describe("buildSummaryNote", () => {
         severity: "info",
       }),
     ];
-    const note = buildSummaryNote(buildParams({ allFindings: findings }));
+    const note = buildSummaryNote(buildParams({ acceptedFindings: findings }));
     expect(note).toContain("### File Findings");
     expect(note).toContain("[CRITICAL]");
     expect(note).toContain("src/auth.ts:42");
@@ -106,7 +106,7 @@ describe("buildSummaryNote", () => {
         severity: "warning",
       }),
     );
-    const note = buildSummaryNote(buildParams({ allFindings: findings }));
+    const note = buildSummaryNote(buildParams({ acceptedFindings: findings }));
     const matches = note.match(/\[WARNING\]/g);
     expect(matches).toHaveLength(10);
   });
@@ -115,7 +115,7 @@ describe("buildSummaryNote", () => {
     const longComment = `x`.repeat(200);
     const note = buildSummaryNote(
       buildParams({
-        allFindings: [
+        acceptedFindings: [
           buildFinding({ comment: longComment, severity: "critical" }),
         ],
       }),
@@ -127,7 +127,7 @@ describe("buildSummaryNote", () => {
   it("normalizes multiline comments to single line in summary list", () => {
     const note = buildSummaryNote(
       buildParams({
-        allFindings: [
+        acceptedFindings: [
           buildFinding({
             comment: "First line.\nSecond line.\nThird.",
             severity: "warning",
@@ -187,7 +187,7 @@ describe("buildSummaryNote", () => {
       }),
     );
     const note = buildSummaryNote(
-      buildParams({ allFindings: [...fileFindings, ...crossFindings] }),
+      buildParams({ acceptedFindings: [...fileFindings, ...crossFindings] }),
     );
     expect(note).toContain("### File Findings");
     expect(note).toContain("### Architecture Findings");
@@ -207,7 +207,7 @@ describe("buildSummaryNote", () => {
 
   it("counts matches by rule and states the catalog version", () => {
     const note = buildSummaryNote({
-      allFindings: [
+      acceptedFindings: [
         buildFinding({ ruleId: "R-013" }),
         buildFinding({ lineNumber: 2, ruleId: "R-013" }),
         buildFinding({
@@ -242,7 +242,9 @@ describe("buildSummaryNote", () => {
   it("prefixes each listed finding with its rule id", () => {
     const note = buildSummaryNote(
       buildParams({
-        allFindings: [buildFinding({ comment: "Listed", severity: "warning" })],
+        acceptedFindings: [
+          buildFinding({ comment: "Listed", severity: "warning" }),
+        ],
       }),
     );
     expect(note).toContain("1. **R-013** [WARNING] `src/a.ts:1` - Listed");

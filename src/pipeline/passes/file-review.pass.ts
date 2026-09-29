@@ -172,6 +172,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
     );
     let totalUserPromptChars = 0;
     const pathsSkippedCostCeiling: string[] = [];
+    const failedPaths = new Set<string>();
     let totalToolCalls = 0;
     let totalToolRounds = 0;
     let totalRequestedToolRounds = 0;
@@ -341,6 +342,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
           if (responsePhaseA.content === null) {
             allFilesFailed = false;
             fileReviewCounters.filesAbortedNoFinal++;
+            failedPaths.add(diff.newPath);
             this.logger.warn(
               {
                 codebaseToolsEnabled,
@@ -423,6 +425,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
               if (responsePhaseB.content === null) {
                 allFilesFailed = false;
                 fileReviewCounters.filesParseFailed++;
+                failedPaths.add(diff.newPath);
                 this.logger.warn(
                   {
                     file: diff.newPath,
@@ -528,6 +531,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
                 } else {
                   allFilesFailed = false;
                   fileReviewCounters.filesParseFailed++;
+                  failedPaths.add(diff.newPath);
                   this.logger.warn(
                     {
                       errors: parsed.error.issues.slice(0, 3),
@@ -541,6 +545,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
             }
           }
         } catch (err) {
+          failedPaths.add(diff.newPath);
           if (err instanceof PromptTokenBudgetExceededError) {
             allFilesFailed = false;
             fileReviewCounters.filesSkippedBudget++;
@@ -617,6 +622,9 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
           diffs.length > 0 ? totalUserPromptChars / diffs.length : 0,
         costCeilingHit: fileReviewCounters.filesSkippedCostCeiling > 0,
         filesSkippedCostCeiling: fileReviewCounters.filesSkippedCostCeiling,
+        pathsFailed: diffs
+          .map((diff) => diff.newPath)
+          .filter((path) => failedPaths.has(path)),
         pathsSkippedCostCeiling,
         filesWithTools: fileReviewCounters.filesWithTools,
         totalRequestedToolRounds,

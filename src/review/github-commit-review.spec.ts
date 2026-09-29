@@ -513,6 +513,56 @@ describe("reviewRepositoryCommit comparison with an earlier run", () => {
     expect(summary).not.toContain("First run");
   });
 
+  it("treats a file whose review failed in one pass as not fully reviewed", async () => {
+    const llm = fakeLlm((filePath, call) => {
+      if (filePath === "src/a.ts" && call === 2) {
+        throw new Error("extraction failed");
+      }
+      return [finding(filePath)];
+    });
+
+    const { host, result } = await run(
+      [
+        source("src/a.ts"),
+        source("src/b.ts"),
+        { content: Buffer.from("{}"), path: "pnpm-lock.yaml" },
+      ],
+      llm,
+      100,
+      400,
+      {
+        ...baseline,
+        findings: [
+          {
+            filePath: "src/a.ts",
+            fingerprint: "0123456789abcdef0123456789abcdef",
+            line: 2,
+            ruleId: "R-014",
+          },
+          {
+            filePath: "pnpm-lock.yaml",
+            fingerprint: "fedcba9876543210fedcba9876543210",
+            line: 1,
+            ruleId: "R-014",
+          },
+        ],
+      },
+    );
+
+    expect(result.partial).toBe(true);
+    expect(result.filesTotal).toBe(2);
+    expect(result.filesReviewed).toBe(1);
+    expect(result.comparison).toMatchObject({
+      new: 1,
+      notComparable: 3,
+      persisting: 0,
+      resolved: [],
+    });
+    const summary = host.completions[0]?.summary ?? "";
+    expect(summary).toContain("Partial result");
+    expect(summary).toContain("Reviewed 1 of 2 files");
+  });
+
   it("refuses a baseline of an unknown catalog version before creating a check run", async () => {
     const llm = fakeLlm((filePath) => [finding(filePath)]);
 

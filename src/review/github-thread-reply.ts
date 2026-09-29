@@ -1,9 +1,8 @@
 import type { FastifyBaseLogger } from "fastify";
 
 import { GitHubConfig } from "~/config/github.config";
-import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
-import { buildRuleThreadReply } from "~/domain/rule-catalog/thread-reply";
+import { buildFindingThreadReply } from "~/domain/rule-catalog/thread-reply";
 import {
   createGitHubOctokit,
   GitHubCodeHost,
@@ -36,12 +35,11 @@ export async function answerThreadWithCodeHost(
   codeHost: Pick<GitHubCodeHost, "getRepoId" | "replyToDiscussion">,
   options: Omit<AnswerReviewThreadOptions, "installationId" | "logger">,
 ): Promise<AnswerReviewThreadResult> {
-  const rule =
-    options.finding.ruleId === null
-      ? undefined
-      : findCatalogRule(options.finding.ruleId);
-  if (rule === undefined) return { answer: "", posted: false };
-  const answer = buildRuleThreadReply(rule, options.catalogUrl);
+  const answer = buildFindingThreadReply(
+    options.finding.ruleId,
+    options.catalogUrl,
+  );
+  if (answer === "") return { answer, posted: false };
   const projectId = await codeHost.getRepoId(options.owner, options.repo);
   await codeHost.replyToDiscussion(
     projectId,

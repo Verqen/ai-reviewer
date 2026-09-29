@@ -3,6 +3,9 @@ import { pino } from "pino";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
+import { buildCatalogFinding } from "~/domain/rule-catalog/catalog-finding";
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
+import type { CatalogRule } from "~/domain/rule-catalog/rule-catalog.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { ToolCall } from "~/domain/types/llm.types";
 import type { ReviewContext } from "~/domain/types/pipeline.types";
@@ -12,6 +15,15 @@ import { CrossFilePass } from "~/pipeline/passes/cross-file.pass";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
 
 const CORE_FILE = "src/utils/calc.ts";
+const PRIOR_FINDING_RULE_ID = "R-013";
+
+function requireCatalogRule(id: string): CatalogRule {
+  const rule = findCatalogRule(id);
+  if (rule === undefined) {
+    throw new Error(`Rule ${id} is not in the catalog`);
+  }
+  return rule;
+}
 const DEP_A = "src/a.ts";
 const DEP_B = "src/b.ts";
 const DEP_C = "src/c.ts";
@@ -213,19 +225,14 @@ async function main(): Promise<void> {
       "file-review",
       {
         findings: [
-          {
-            category: "correctness",
-            comment:
-              "Critical behaviour change in add(): subtraction instead of addition affects every caller.",
+          buildCatalogFinding(requireCatalogRule(PRIOR_FINDING_RULE_ID), {
             confidence: 0.95,
             filePath: CORE_FILE,
             lineNumber: 3,
             lineType: "added",
             model: "acceptance",
             passName: "file-review",
-            ruleId: "R-013",
-            severity: "critical",
-          },
+          }),
         ],
         metadata: {},
         tokenUsage: { completionTokens: 0, promptTokens: 0 },

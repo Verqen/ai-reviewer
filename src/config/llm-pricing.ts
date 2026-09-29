@@ -16,13 +16,13 @@ const PRICING: Readonly<Record<string, ModelPricing>> = {
     outputPerMTokens: 15,
   },
   [OPENROUTER_TRIAGE_MODEL]: {
-    cachedInputPerMTokens: 0.04,
-    inputPerMTokens: 0.2,
-    outputPerMTokens: 1.1,
+    cachedInputPerMTokens: 0.06,
+    inputPerMTokens: 0.3,
+    outputPerMTokens: 1.2,
   },
   "deepseek/deepseek-chat": {
-    cachedInputPerMTokens: 0.2574,
-    inputPerMTokens: 0.2574,
+    cachedInputPerMTokens: 0.32,
+    inputPerMTokens: 0.32,
     outputPerMTokens: 1.0287,
   },
 };

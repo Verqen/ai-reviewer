@@ -20,6 +20,8 @@ import {
 } from "~/review/github-commit-review";
 import { createMockLogger } from "~/test-utils/mock-logger";
 
+const PINS = { [OPENROUTER_REVIEW_MODEL]: "anthropic" };
+
 const COMMIT_SHA = "0123456789abcdef0123456789abcdef01234567";
 
 interface FakeCodeHost extends CommitReviewCodeHost {
@@ -74,6 +76,7 @@ function fakeCodeHost(entries: readonly ArchiveEntry[]): FakeCodeHost {
 interface FakeLlm extends ILlmClient {
   analysisPrompts: string[];
   extractionSystemPrompts: string[];
+  options: (LlmOptions | undefined)[];
 }
 
 function textOf(message: ChatMessage | undefined): string {
@@ -101,6 +104,7 @@ function fakeLlm(
       messages: ChatMessage[],
       options?: LlmOptions,
     ): Promise<LlmResponse> {
+      llm.options.push(options);
       const schema = JSON.stringify(options?.responseSchema ?? {});
       if (schema.includes("hunk_id")) {
         return Promise.resolve(response(JSON.stringify({ results: [] })));
@@ -119,11 +123,18 @@ function fakeLlm(
         response(JSON.stringify({ findings: crossFileFindings })),
       );
     },
-    chatCompletionWithTools(messages: ChatMessage[]): Promise<LlmResponse> {
+    chatCompletionWithTools(
+      messages: ChatMessage[],
+      _tools: unknown,
+      _executor: unknown,
+      options?: LlmOptions,
+    ): Promise<LlmResponse> {
+      llm.options.push(options);
       llm.analysisPrompts.push(textOf(messages[1]));
       return Promise.resolve(response("## Analysis\nRisk on L1."));
     },
     extractionSystemPrompts: [],
+    options: [],
   };
   return llm;
 }
@@ -167,6 +178,7 @@ async function run(
         review: OPENROUTER_REVIEW_MODEL,
         triage: OPENROUTER_REVIEW_MODEL,
       },
+      providerPins: PINS,
     },
     {
       catalogUrl: "https://verqen.dev/rules",
@@ -181,6 +193,51 @@ async function run(
 }
 
 describe("reviewRepositoryCommit", () => {
+  it("calls the model at temperature 0, without reasoning, on the pinned provider only", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+
+    await run([source("src/a.ts")], llm);
+
+    expect(llm.options.length).toBeGreaterThan(0);
+    for (const options of llm.options) {
+      expect(options).toMatchObject({
+        provider: { allowFallbacks: false, order: ["anthropic"] },
+        temperature: 0,
+      });
+      expect(options?.reasoning).toBeUndefined();
+    }
+  });
+
+  it("refuses a model without a pinned provider before creating a check run", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+    const host = fakeCodeHost([source("src/a.ts")]);
+
+    await expect(
+      reviewRepositoryCommit(
+        {
+          codeHost: host,
+          llm,
+          logger: createMockLogger(),
+          models: {
+            review: OPENROUTER_REVIEW_MODEL,
+            triage: OPENROUTER_REVIEW_MODEL,
+          },
+          providerPins: {},
+        },
+        {
+          commitSha: COMMIT_SHA,
+          maxCostUsd: 100,
+          maxReviewableFiles: 400,
+          owner: "owner",
+          repo: "repo",
+        },
+      ),
+    ).rejects.toThrow(/pinned provider/);
+
+    expect(host.created).toEqual([]);
+    expect(llm.options).toEqual([]);
+  });
+
   it("reviews the tree at the commit and publishes a neutral check run on it", async () => {
     const llm = fakeLlm((filePath) => [finding(filePath)]);
 
@@ -337,6 +394,7 @@ describe("reviewRepositoryCommit check run lifecycle", () => {
         review: OPENROUTER_REVIEW_MODEL,
         triage: OPENROUTER_REVIEW_MODEL,
       },
+      providerPins: PINS,
     };
   }
 
@@ -454,6 +512,7 @@ describe("repository size limit", () => {
             review: OPENROUTER_REVIEW_MODEL,
             triage: OPENROUTER_REVIEW_MODEL,
           },
+          providerPins: PINS,
         },
         {
           commitSha: COMMIT_SHA,
@@ -495,6 +554,7 @@ describe("repository size limit", () => {
               review: OPENROUTER_REVIEW_MODEL,
               triage: OPENROUTER_REVIEW_MODEL,
             },
+            providerPins: PINS,
           },
           {
             commitSha: COMMIT_SHA,

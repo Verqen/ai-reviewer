@@ -31,6 +31,7 @@ import type {
   VersionInfo,
 } from "~/domain/types/code-host.types";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
+import type { Severity } from "~/domain/types/review.types";
 
 const RepoCoordinatesSchema = z.object({
   name: z.string(),
@@ -53,6 +54,46 @@ const ReviewThreadsSchema = z.object({
     }),
   }),
 });
+
+const CHECK_RUN_ANNOTATIONS_PER_REQUEST = 50;
+
+type CheckAnnotationLevel = "failure" | "notice" | "warning";
+
+const ANNOTATION_LEVEL_BY_SEVERITY: Record<Severity, CheckAnnotationLevel> = {
+  attention: "failure",
+  critical: "failure",
+  info: "notice",
+  nitpick: "notice",
+  warning: "warning",
+};
+
+interface CheckRunAnnotation {
+  line: number;
+  message: string;
+  path: string;
+  severity: Severity;
+  title: string;
+}
+
+interface CheckRunCompletion {
+  annotations: readonly CheckRunAnnotation[];
+  conclusion: "cancelled" | "neutral";
+  summary: string;
+  title: string;
+}
+
+interface CreatedCheckRun {
+  id: number;
+  url: string;
+}
+
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const batches: T[][] = [];
+  for (let start = 0; start < items.length; start += size) {
+    batches.push(items.slice(start, start + size));
+  }
+  return batches.length > 0 ? batches : [[]];
+}
 
 function isNotFound(error: unknown): boolean {
   return (
@@ -452,6 +493,56 @@ class GitHubCodeHost implements ICodeHost {
     return this.postNote(projectId, mrIid, body);
   }
 
+  async createCheckRun(
+    projectId: number,
+    params: { headSha: string; name: string },
+  ): Promise<CreatedCheckRun> {
+    const { owner, repo } = await this.resolveRepo(projectId);
+    const response = await this.octokit.rest.checks.create({
+      head_sha: params.headSha,
+      name: params.name,
+      owner,
+      repo,
+      status: "in_progress",
+    });
+    return { id: response.data.id, url: response.data.html_url ?? "" };
+  }
+
+  async updateCheckRun(
+    projectId: number,
+    checkRunId: number,
+    completion: CheckRunCompletion,
+  ): Promise<void> {
+    const { owner, repo } = await this.resolveRepo(projectId);
+    const batches = chunk(
+      completion.annotations,
+      CHECK_RUN_ANNOTATIONS_PER_REQUEST,
+    );
+    for (const [index, batch] of batches.entries()) {
+      const isLast = index === batches.length - 1;
+      await this.octokit.rest.checks.update({
+        check_run_id: checkRunId,
+        owner,
+        repo,
+        output: {
+          annotations: batch.map((annotation) => ({
+            annotation_level: ANNOTATION_LEVEL_BY_SEVERITY[annotation.severity],
+            end_line: annotation.line,
+            message: annotation.message,
+            path: annotation.path,
+            start_line: annotation.line,
+            title: annotation.title,
+          })),
+          summary: completion.summary,
+          title: completion.title,
+        },
+        ...(isLast
+          ? { conclusion: completion.conclusion, status: "completed" as const }
+          : {}),
+      });
+    }
+  }
+
   async resolveDiscussion(
     projectId: number,
     mrIid: number,
@@ -620,6 +711,7 @@ async function listInstallationRepositories(
   }));
 }
 
+export type { CheckRunAnnotation, CheckRunCompletion, CreatedCheckRun };
 export {
   createGitHubOctokit,
   createGitHubOctokitFromToken,

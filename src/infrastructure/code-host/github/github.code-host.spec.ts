@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import type { GitHubConfigSchema } from "~/config/github.config";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
+import type { Severity } from "~/domain/types/review.types";
+import type { CheckRunAnnotation } from "~/infrastructure/code-host/github/github.code-host";
 import {
   GitHubCodeHost,
   listInstallationRepositories,
@@ -21,6 +23,16 @@ type RouteHandler = (
   path: string,
   init: RequestInit | undefined,
 ) => RouteResponse | undefined;
+
+interface CheckRunPatchBody {
+  conclusion?: string;
+  output: {
+    annotations: Record<string, unknown>[];
+    summary: string;
+    title: string;
+  };
+  status?: string;
+}
 
 interface RecordedCall {
   body: unknown;
@@ -399,6 +411,145 @@ describe("GitHubCodeHost", () => {
         id: 2,
         isPrivate: false,
       },
+    ]);
+  });
+});
+
+describe("GitHubCodeHost check runs", () => {
+  function annotation(
+    index: number,
+    severity: Severity = "warning",
+  ): CheckRunAnnotation {
+    return {
+      line: index + 1,
+      message: `Finding ${String(index)}`,
+      path: "src/a.ts",
+      severity,
+      title: "bug",
+    };
+  }
+
+  function checkRunHost(): ReturnType<typeof buildHost> {
+    return buildHost((method, path) => {
+      if (path === "/repositories/42") return repoResponse;
+      if (method === "POST" && path === "/repos/owner/repo/check-runs") {
+        return {
+          body: {
+            html_url: "https://github.com/owner/repo/runs/9",
+            id: 9,
+          },
+          status: 201,
+        };
+      }
+      if (method === "PATCH" && path === "/repos/owner/repo/check-runs/9") {
+        return { body: { id: 9 } };
+      }
+      return undefined;
+    });
+  }
+
+  it("creates an in-progress check run on the given commit", async () => {
+    const { calls, host } = checkRunHost();
+
+    const created = await host.createCheckRun(42, {
+      headSha: "abc123",
+      name: "Verqen",
+    });
+
+    expect(created).toEqual({
+      id: 9,
+      url: "https://github.com/owner/repo/runs/9",
+    });
+    expect(calls.find((call) => call.method === "POST")?.body).toEqual({
+      head_sha: "abc123",
+      name: "Verqen",
+      status: "in_progress",
+    });
+  });
+
+  it("sends 120 annotations in three batches and completes only on the last", async () => {
+    const { calls, host } = checkRunHost();
+
+    await host.updateCheckRun(42, 9, {
+      annotations: Array.from({ length: 120 }, (_, index) => annotation(index)),
+      conclusion: "neutral",
+      summary: "summary",
+      title: "title",
+    });
+
+    const patches = calls
+      .filter((call) => call.method === "PATCH")
+      .map((call) => call.body as CheckRunPatchBody);
+    expect(patches.map((body) => body.output.annotations.length)).toEqual([
+      50, 50, 20,
+    ]);
+    expect(patches.map((body) => body.conclusion)).toEqual([
+      undefined,
+      undefined,
+      "neutral",
+    ]);
+    expect(patches.map((body) => body.status)).toEqual([
+      undefined,
+      undefined,
+      "completed",
+    ]);
+    expect(patches.every((body) => body.output.summary === "summary")).toBe(
+      true,
+    );
+  });
+
+  it("completes the check run in a single call when there are no annotations", async () => {
+    const { calls, host } = checkRunHost();
+
+    await host.updateCheckRun(42, 9, {
+      annotations: [],
+      conclusion: "neutral",
+      summary: "summary",
+      title: "title",
+    });
+
+    const patches = calls.filter((call) => call.method === "PATCH");
+    expect(patches).toHaveLength(1);
+    expect(patches[0]?.body).toMatchObject({
+      conclusion: "neutral",
+      status: "completed",
+    });
+  });
+
+  it("maps finding severity to the check annotation level", async () => {
+    const { calls, host } = checkRunHost();
+    const severities: Severity[] = [
+      "critical",
+      "attention",
+      "warning",
+      "info",
+      "nitpick",
+    ];
+
+    await host.updateCheckRun(42, 9, {
+      annotations: severities.map((severity, index) =>
+        annotation(index, severity),
+      ),
+      conclusion: "neutral",
+      summary: "summary",
+      title: "title",
+    });
+
+    const body = calls.find((call) => call.method === "PATCH")
+      ?.body as CheckRunPatchBody;
+    expect(body.output.annotations).toEqual([
+      {
+        annotation_level: "failure",
+        end_line: 1,
+        message: "Finding 0",
+        path: "src/a.ts",
+        start_line: 1,
+        title: "bug",
+      },
+      expect.objectContaining({ annotation_level: "failure", start_line: 2 }),
+      expect.objectContaining({ annotation_level: "warning", start_line: 3 }),
+      expect.objectContaining({ annotation_level: "notice", start_line: 4 }),
+      expect.objectContaining({ annotation_level: "notice", start_line: 5 }),
     ]);
   });
 });

@@ -104,9 +104,10 @@ function response(content: string): LlmResponse {
 }
 
 function fakeLlm(
-  findingFor: (filePath: string) => object[],
+  findingFor: (filePath: string, call: number) => object[],
   crossFileFindings: readonly object[] = [],
 ): FakeLlm {
+  const extractionCalls = new Map<string, number>();
   const llm: FakeLlm = {
     analysisPrompts: [],
     chatCompletion(
@@ -124,8 +125,10 @@ function fakeLlm(
           textOf(messages[1]),
         );
         const filePath = target?.[1] ?? "";
+        const call = (extractionCalls.get(filePath) ?? 0) + 1;
+        extractionCalls.set(filePath, call);
         return Promise.resolve(
-          response(JSON.stringify({ findings: findingFor(filePath) })),
+          response(JSON.stringify({ findings: findingFor(filePath, call) })),
         );
       }
       return Promise.resolve(
@@ -366,8 +369,10 @@ describe("reviewRepositoryCommit", () => {
     );
 
     expect(result.filesTotal).toBe(1);
-    expect(llm.analysisPrompts).toHaveLength(1);
-    expect(llm.analysisPrompts[0]).toContain("src/kept.ts");
+    expect(llm.analysisPrompts).toHaveLength(3);
+    for (const prompt of llm.analysisPrompts) {
+      expect(prompt).toContain("src/kept.ts");
+    }
   });
 
   it("reviews a 1500-line file as three separate chunks", async () => {
@@ -375,11 +380,31 @@ describe("reviewRepositoryCommit", () => {
 
     const { result } = await run([source("src/big.ts", 1500)], llm);
 
-    expect(llm.analysisPrompts).toHaveLength(3);
+    expect(llm.analysisPrompts).toHaveLength(9);
     expect(llm.analysisPrompts[0]).toContain("L1 + ");
     expect(llm.analysisPrompts[1]).toContain("L601 + ");
     expect(llm.analysisPrompts[2]).toContain("L1500 + ");
     expect(result.filesReviewed).toBe(1);
+  });
+
+  it("publishes only findings detected in at least two of three passes", async () => {
+    const llm = fakeLlm((filePath, call) => {
+      if (filePath === "src/a.ts") return call <= 2 ? [finding(filePath)] : [];
+      return call === 3 ? [finding(filePath)] : [];
+    });
+
+    const { host, result } = await run(
+      [source("src/a.ts"), source("src/b.ts")],
+      llm,
+    );
+
+    expect(result.findings.map((reported) => reported.filePath)).toEqual([
+      "src/a.ts",
+    ]);
+    expect(host.completions[0]?.annotations).toHaveLength(1);
+    expect(host.completions[0]?.summary).toContain(
+      "Each finding was detected in at least 2 of 3 independent passes over the same code.",
+    );
   });
 
   it("marks the run partial and counts only reviewed files when the budget runs out", async () => {

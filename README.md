@@ -80,7 +80,7 @@ Hexagonal, DDD-light, enforced by structure rather than by convention.
 - `src/domain/` — ports and types. No infrastructure imports, and `CostBudget` lives here because a spend ceiling is a domain rule, not an adapter detail.
 - `src/application/` — use cases: webhook orchestration, baseline, snapshots, overlays, run lifecycle, learning, thread management.
 - `src/pipeline/` — pass orchestrator, prompts, tools, doc context.
-- `src/review/` — diff parser, anchor validators, suggestion sanitizer, threading, scoring.
+- `src/review/` — diff parser, anchor validators, suggestion sanitizer, threading.
 - `src/infrastructure/` — code-host adapters (GitLab, GitHub), LLM adapters (OpenRouter, Ollama), Kysely repositories, queue, metrics, rate limiter.
 - `src/di/` — composition root. Every injected class declares `static inject = [...] as const` matching its constructor order; wiring is a compile-time error when it is wrong.
 

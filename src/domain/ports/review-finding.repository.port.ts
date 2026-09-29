@@ -14,7 +14,7 @@ interface CreateReviewFindingInput extends Omit<
   hostDiscussionId?: string | undefined;
   hostNoteId?: string | undefined;
   reviewRunId: string;
-  ruleId?: RuleId | undefined;
+  ruleId: RuleId;
 }
 
 interface IReviewFindingRepository {

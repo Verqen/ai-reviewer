@@ -11,6 +11,7 @@ import type {
   ReviewFinding,
   Severity,
 } from "~/domain/types/review.types";
+import { toRuleId } from "~/domain/rule-catalog/rule-catalog";
 import type { Database } from "~/infrastructure/database/types";
 
 function rowToReviewFinding(row: {
@@ -26,7 +27,7 @@ function rowToReviewFinding(row: {
   severity: string;
   category: string;
   comment: string;
-  suggestion: string | null;
+  rule_id: string | null;
   original_snippet: string | null;
   confidence: number;
   host_discussion_id: string | null;
@@ -60,8 +61,8 @@ function rowToReviewFinding(row: {
     resolvedAt: row.resolved_at ?? undefined,
     resolvedBy: row.resolved_by ?? undefined,
     reviewRunId: row.review_run_id,
+    ruleId: toRuleId(row.rule_id),
     severity: row.severity as Severity,
-    suggestion: row.suggestion ?? undefined,
   };
 }
 
@@ -98,8 +99,8 @@ class ReviewFindingRepository implements IReviewFindingRepository {
           pass_name: f.passName,
           resolution: "pending",
           review_run_id: f.reviewRunId,
+          rule_id: f.ruleId,
           severity: f.severity,
-          suggestion: f.suggestion ?? null,
         })),
       )
       .returningAll()

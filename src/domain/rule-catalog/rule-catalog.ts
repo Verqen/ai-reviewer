@@ -31,6 +31,10 @@ function findCatalogRule(id: string): CatalogRule | undefined {
   return RULES_BY_ID.get(id);
 }
 
+function toRuleId(value: string | null): RuleId | undefined {
+  return value === null ? undefined : findCatalogRule(value)?.id;
+}
+
 function catalogRulesForScope(scope: RuleScope): readonly CatalogRule[] {
   return CATALOG_RULES.filter((rule) => rule.scope === scope);
 }
@@ -42,4 +46,5 @@ export {
   catalogRulesForScope,
   findCatalogRule,
   getRuleCatalog,
+  toRuleId,
 };

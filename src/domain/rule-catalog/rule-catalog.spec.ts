@@ -8,6 +8,7 @@ import {
   catalogRulesForScope,
   findCatalogRule,
   getRuleCatalog,
+  toRuleId,
 } from "~/domain/rule-catalog/rule-catalog";
 import { computeCatalogFingerprint } from "~/domain/rule-catalog/rule-catalog.fingerprint";
 import { RULE_CATEGORIES } from "~/domain/rule-catalog/rule-catalog.types";
@@ -84,5 +85,11 @@ describe("rule catalog", () => {
     expect(computeCatalogFingerprint(edited)).not.toBe(
       computeCatalogFingerprint(catalog.rules),
     );
+  });
+
+  it("reads a stored rule id only when it is in the catalog", () => {
+    expect(toRuleId("R-013")).toBe("R-013");
+    expect(toRuleId("bug")).toBeUndefined();
+    expect(toRuleId(null)).toBeUndefined();
   });
 });

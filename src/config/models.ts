@@ -5,6 +5,7 @@ const OPENROUTER_PINNED_PROVIDERS: Readonly<Record<string, string>> = {
   [OPENROUTER_REVIEW_MODEL]: "anthropic",
   [OPENROUTER_TRIAGE_MODEL]: "minimax/fp8",
   "deepseek/deepseek-chat": "deepinfra/fp4",
+  "qwen/qwen3-235b-a22b-2507": "novita/fp8",
 };
 
 const OLLAMA_MODEL = "qwen3:8b";

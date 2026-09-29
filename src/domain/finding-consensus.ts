@@ -1,3 +1,5 @@
+import { compareCodePoints } from "~/domain/code-point-order";
+
 interface ConsensusCandidate {
   filePath: string;
   fingerprint: string;
@@ -16,11 +18,6 @@ class InvalidQuorumError extends Error {
       `Quorum ${String(quorum)} is not a whole number between 1 and ${String(passes)} passes`,
     );
   }
-}
-
-function compareCodePoints(left: string, right: string): number {
-  if (left < right) return -1;
-  return left > right ? 1 : 0;
 }
 
 function byLocation(

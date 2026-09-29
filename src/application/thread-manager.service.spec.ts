@@ -136,6 +136,34 @@ describe("ThreadManagerService", () => {
     expect(learnFromReplyFn).toHaveBeenCalled();
   });
 
+  it.each([
+    ["false_positive", "Recorded as a false positive."],
+    ["accepted_debt", "Recorded; resolving this thread."],
+    ["dispute", "Recorded; resolving this thread."],
+    ["agreement", "Recorded."],
+  ] as const)(
+    "replies to a %s reply with a fixed neutral acknowledgement",
+    async (intent, expectedReply) => {
+      classifyIntentFn.mockResolvedValue({ intent, reason: "reason" });
+      const replyToDiscussionSpy = vi.spyOn(codeHost, "replyToDiscussion");
+
+      await buildService().handleReply({
+        authorUsername: "dev-user",
+        discussionId: "disc-1",
+        mrIid: 1,
+        noteBody: "reply",
+        projectId: 1,
+      });
+
+      expect(replyToDiscussionSpy).toHaveBeenCalledWith(
+        1,
+        1,
+        "disc-1",
+        expectedReply,
+      );
+    },
+  );
+
   it("posts ack reply and resolves thread for agreement intent", async () => {
     classifyIntentFn.mockResolvedValue({
       intent: "agreement",
@@ -159,7 +187,7 @@ describe("ThreadManagerService", () => {
       1,
       1,
       "disc-1",
-      expect.stringMatching(/Acknowledged/i),
+      "Recorded.",
     );
     expect(resolveDiscussionSpy).toHaveBeenCalledWith(1, 1, "disc-1");
     expect(learnFromReplyFn).not.toHaveBeenCalled();

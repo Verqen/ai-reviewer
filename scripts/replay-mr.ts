@@ -31,7 +31,6 @@ import { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 import { parseDiff } from "~/review/diff-parser";
 import { formatFindingComment } from "~/review/finding-comment";
 import { buildPosition } from "~/review/finding-inline-position";
-import { computeProductionReadinessScore } from "~/review/scoring.service";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
 
 const argv = process.argv.slice(2);
@@ -514,18 +513,6 @@ function printSummary(
     }
   } else {
     process.stderr.write(`\n  no findings produced\n`);
-  }
-
-  const scoreResult = computeProductionReadinessScore(allFindings);
-  process.stderr.write(
-    `\n═══ PRODUCTION-READINESS SCORE ═══\n` +
-      `  ${String(scoreResult.score)}/100   grade ${scoreResult.grade}\n`,
-  );
-  for (const entry of scoreResult.breakdown) {
-    process.stderr.write(
-      `  ${entry.category.padEnd(22)} ${String(entry.subscore).padStart(3)}/100  ` +
-        `weight ${String(Math.round(entry.weight * 100))}%  (${String(entry.findingCount)} finding(s))\n`,
-    );
   }
 
   const isVisible = (sev: string): boolean =>

@@ -54,14 +54,6 @@ export { CrossFilePass } from "~/pipeline/passes/cross-file.pass";
 export { AggregationPass } from "~/pipeline/passes/aggregation.pass";
 export { getPrimarySkipReason } from "~/pipeline/passes/skip-filter";
 
-export { computeProductionReadinessScore } from "~/review/scoring.service";
-export type {
-  CategoryBreakdown,
-  Grade,
-  ProductionReadinessScore,
-  ScoreCategory,
-} from "~/review/scoring.service";
-
 export {
   listGitHubInstallationRepositories,
   resolveGitHubPullRequestHead,

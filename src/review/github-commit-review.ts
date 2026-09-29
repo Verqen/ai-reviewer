@@ -39,6 +39,8 @@ import {
   assertReviewableFileLimit,
   RepositoryTooLargeError,
 } from "~/review/repository-size";
+import type { ProviderPins } from "~/review/reproducible-llm";
+import { createReproducibleLlm } from "~/review/reproducible-llm";
 import { buildWholeFileDiffs } from "~/review/whole-file-diff";
 
 const CHECK_RUN_NAME = "Verqen";
@@ -98,6 +100,7 @@ interface CommitReviewDependencies {
   llm: ILlmClient;
   logger: FastifyBaseLogger;
   models: ReviewModels;
+  providerPins: ProviderPins | null;
 }
 
 const FileReviewCoverageSchema = z.object({
@@ -290,6 +293,14 @@ async function reviewRepositoryCommit(
   const { commitSha } = options;
   assertCostCeilingEnforceable(dependencies.models, options.maxCostUsd);
   assertReviewableFileLimit(options.maxReviewableFiles);
+  const reproducible: CommitReviewDependencies = {
+    ...dependencies,
+    llm: createReproducibleLlm(
+      dependencies.llm,
+      dependencies.models,
+      dependencies.providerPins,
+    ),
+  };
 
   const projectId = await codeHost.getRepoId(options.owner, options.repo);
   const archive = await codeHost.getRepositoryArchive(projectId, commitSha);
@@ -306,7 +317,7 @@ async function reviewRepositoryCommit(
   });
 
   try {
-    const review = await reviewTree(dependencies, options, projectId, prepared);
+    const review = await reviewTree(reproducible, options, projectId, prepared);
     await codeHost.updateCheckRun(projectId, checkRun.id, {
       annotations: review.findings.map((finding) =>
         toAnnotation(finding, options.catalogUrl),
@@ -324,7 +335,7 @@ async function reviewRepositoryCommit(
     });
     return { ...review, checkRunUrl: checkRun.url };
   } catch (error) {
-    await closeCheckRunAsCancelled(dependencies, projectId, checkRun.id);
+    await closeCheckRunAsCancelled(reproducible, projectId, checkRun.id);
     throw error;
   }
 }
@@ -364,8 +375,14 @@ async function reviewGitHubCommit(
   const githubConfig = new GitHubConfig();
   const octokit = createGitHubOctokit(githubConfig, options.installationId);
   const codeHost = new GitHubCodeHostAdapter(octokit, githubConfig, logger);
-  const { llm, models } = createReviewLlm(logger, options.maxCostUsd);
-  return reviewRepositoryCommit({ codeHost, llm, logger, models }, options);
+  const { llm, models, providerPins } = createReviewLlm(
+    logger,
+    options.maxCostUsd,
+  );
+  return reviewRepositoryCommit(
+    { codeHost, llm, logger, models, providerPins },
+    options,
+  );
 }
 
 export {

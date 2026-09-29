@@ -104,7 +104,7 @@ describe("llm-pricing", () => {
           },
         ],
       ]);
-      expect(computeReviewRunCostUsd(passes, MODELS)).toBeCloseTo(18.2);
+      expect(computeReviewRunCostUsd(passes, MODELS)).toBeCloseTo(18.3);
     });
 
     it("uses the per-model breakdown when a pass records one", () => {
@@ -137,8 +137,8 @@ describe("llm-pricing", () => {
   describe("deepseek/deepseek-chat", () => {
     it("is priced at the OpenRouter rate so its spend counts toward the ceiling", () => {
       expect(getModelPricing("deepseek/deepseek-chat")).toEqual({
-        cachedInputPerMTokens: 0.2574,
-        inputPerMTokens: 0.2574,
+        cachedInputPerMTokens: 0.32,
+        inputPerMTokens: 0.32,
         outputPerMTokens: 1.0287,
       });
     });

@@ -37,12 +37,18 @@ interface LlmResponse {
   };
 }
 
+interface ProviderRouting {
+  allowFallbacks: boolean;
+  order: readonly string[];
+}
+
 interface LlmOptions {
   jsonMode?: boolean | undefined;
   maxPromptTokensHard?: number | undefined;
   maxTokens?: number | undefined;
   maxToolRounds?: number | undefined;
   model?: string | undefined;
+  provider?: ProviderRouting | undefined;
   reasoning?:
     | {
         effort?: "low" | "medium" | "high" | undefined;
@@ -59,6 +65,7 @@ export type {
   ChatMessage,
   LlmOptions,
   LlmResponse,
+  ProviderRouting,
   TextBlock,
   ToolCall,
   ToolDefinition,

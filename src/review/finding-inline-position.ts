@@ -7,7 +7,6 @@ import type { Finding } from "~/domain/types/review.types";
 
 interface InlinePositionResult {
   position: InlinePosition;
-  snappedFromLine?: number;
 }
 
 function findExactMatch(

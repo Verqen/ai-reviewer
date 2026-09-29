@@ -1,4 +1,4 @@
-import { DEFAULT_PRODUCT_NAME } from "~/domain/product-name";
+import { resolveProductName } from "~/domain/product-name";
 import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import type { CatalogRule } from "~/domain/rule-catalog/rule-catalog.types";
 
@@ -18,7 +18,7 @@ function buildRuleThreadReply(
 function buildFindingThreadReply(
   ruleId: string | undefined | null,
   catalogUrl: string | undefined,
-  productName: string = DEFAULT_PRODUCT_NAME,
+  productName?: string,
 ): string {
   const rule =
     ruleId === undefined || ruleId === null
@@ -26,15 +26,15 @@ function buildFindingThreadReply(
       : findCatalogRule(ruleId);
   return rule === undefined
     ? ""
-    : buildRuleThreadReply(rule, catalogUrl, productName);
+    : buildRuleThreadReply(rule, catalogUrl, resolveProductName(productName));
 }
 
 function buildMentionReply(
   catalogUrl: string | undefined,
-  productName: string = DEFAULT_PRODUCT_NAME,
+  productName?: string,
 ): string {
   const link = catalogUrl === undefined ? "" : ` Rule catalog: ${catalogUrl}`;
-  return `${serviceStatement(productName)}.${link}`;
+  return `${serviceStatement(resolveProductName(productName))}.${link}`;
 }
 
 export { buildFindingThreadReply, buildMentionReply };

@@ -4,5 +4,10 @@ interface ProductNameOption {
   productName?: string | undefined;
 }
 
-export { DEFAULT_PRODUCT_NAME };
+function resolveProductName(productName: string | undefined): string {
+  const trimmed = productName?.trim() ?? "";
+  return trimmed === "" ? DEFAULT_PRODUCT_NAME : trimmed;
+}
+
+export { DEFAULT_PRODUCT_NAME, resolveProductName };
 export type { ProductNameOption };

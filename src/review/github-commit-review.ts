@@ -35,7 +35,10 @@ import {
   createReviewLlm,
   runReviewPasses,
 } from "~/review/review-pass-run";
-import { RepositoryTooLargeError } from "~/review/repository-size";
+import {
+  assertReviewableFileLimit,
+  RepositoryTooLargeError,
+} from "~/review/repository-size";
 import { buildWholeFileDiffs } from "~/review/whole-file-diff";
 
 const CHECK_RUN_NAME = "Verqen";
@@ -286,6 +289,7 @@ async function reviewRepositoryCommit(
   const { codeHost } = dependencies;
   const { commitSha } = options;
   assertCostCeilingEnforceable(dependencies.models, options.maxCostUsd);
+  assertReviewableFileLimit(options.maxReviewableFiles);
 
   const projectId = await codeHost.getRepoId(options.owner, options.repo);
   const archive = await codeHost.getRepositoryArchive(projectId, commitSha);

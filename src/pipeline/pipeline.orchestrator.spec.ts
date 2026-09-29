@@ -510,7 +510,7 @@ describe("PipelineOrchestrator", () => {
 
   it("posts inline comments for postable findings", async () => {
     const finding: Finding = {
-      category: "bug",
+      category: "correctness",
       comment: "Test finding",
       confidence: 0.9,
       filePath: "src/index.ts",
@@ -518,6 +518,7 @@ describe("PipelineOrchestrator", () => {
       lineType: "added",
       model: "test",
       passName: "aggregation",
+      ruleId: "R-013",
       severity: "warning",
     };
 

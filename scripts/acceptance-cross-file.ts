@@ -214,7 +214,7 @@ async function main(): Promise<void> {
       {
         findings: [
           {
-            category: "bug",
+            category: "correctness",
             comment:
               "Critical behaviour change in add(): subtraction instead of addition affects every caller.",
             confidence: 0.95,
@@ -223,6 +223,7 @@ async function main(): Promise<void> {
             lineType: "added",
             model: "acceptance",
             passName: "file-review",
+            ruleId: "R-013",
             severity: "critical",
           },
         ],

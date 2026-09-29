@@ -14,7 +14,7 @@ import { ReviewFindingPublisherService } from "./review-finding-publisher.servic
 
 function makeFinding(comment: string): Finding {
   return {
-    category: "bug",
+    category: "correctness",
     comment,
     confidence: 0.9,
     filePath: "src/app.ts",
@@ -22,6 +22,7 @@ function makeFinding(comment: string): Finding {
     lineType: "added",
     model: "test-model",
     passName: "file-review",
+    ruleId: "R-013",
     severity: "warning",
   };
 }

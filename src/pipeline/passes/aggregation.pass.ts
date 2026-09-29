@@ -8,7 +8,11 @@ import type {
   PassResult,
   ReviewContext,
 } from "~/domain/types/pipeline.types";
-import type { Finding, Severity } from "~/domain/types/review.types";
+import type {
+  Finding,
+  ReviewFinding,
+  Severity,
+} from "~/domain/types/review.types";
 import { matchFilePathGlob } from "~/glob/match-file-path-glob";
 import { escalateVibeCodingSeverity } from "~/pipeline/prompts/vibe-coding-patterns";
 import { findingsMatch, type MatchableFinding } from "~/review/finding-match";
@@ -248,7 +252,7 @@ class AggregationPass implements IReviewPass<AggregationResult> {
         ...item.finding,
         lineNumber: item.newLineNumber,
       })) ?? [];
-    const repostedByFile = new Map<string, Finding[]>();
+    const repostedByFile = new Map<string, ReviewFinding[]>();
     for (const reposted of repostedFindings) {
       const list = repostedByFile.get(reposted.filePath) ?? [];
       list.push(reposted);

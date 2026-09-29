@@ -8,6 +8,10 @@ import {
   buildFileReviewExtractionSystemBlocks,
   buildFileReviewExtractionUserPrompt,
 } from "./file-review.prompt";
+import {
+  buildRuleCatalogInstruction,
+  buildRuleIdList,
+} from "./rule-catalog.prompt";
 import { formatCommentWithSuggestion } from "./suggestion-formatter";
 
 function analysisSystemText(projectRules: string | null = null): string {
@@ -39,11 +43,12 @@ describe("buildFileReviewAnalysisSystemBlocks", () => {
     expect(analysisSystemText()).toContain("L<number> markers");
   });
 
-  it("requires tool verification before missing-file claims", () => {
+  it("embeds the file-scope rule catalog in place of a free-form rubric", () => {
     const text = analysisSystemText();
-    expect(text).toContain(
-      "Never claim that an imported file does not exist unless you first verify it with repository tools",
-    );
+    expect(text).toContain(buildRuleCatalogInstruction("file"));
+    expect(text).not.toContain("Severity rubric");
+    expect(text).not.toContain("Category vocabulary");
+    expect(text).not.toContain("suggestion");
   });
 
   it("forces output language (default English)", () => {
@@ -61,12 +66,6 @@ describe("buildFileReviewAnalysisSystemBlocks", () => {
     );
     const text = blocks.map((b) => b.text).join("\n");
     expect(text).toContain("You MUST write the entire analysis in Russian.");
-  });
-
-  it("includes DDD boundaries and runtime-impacting focus", () => {
-    const text = analysisSystemText();
-    expect(text).toContain("architecture boundaries (DDD/hexagonal)");
-    expect(text).toContain("runtime-impacting issues");
   });
 
   it("includes analysis discipline for checkable line-anchored output", () => {
@@ -116,33 +115,30 @@ describe("buildFileReviewExtractionSystemBlocks", () => {
     );
   });
 
-  it("includes suggestion field instructions via schema", () => {
+  it("asks for a rule id and an anchor, never for severity, category or a suggestion", () => {
     const text = extractionSystemText();
-    expect(text).toContain("suggestion");
+    expect(text).toContain("rule_id");
     expect(text).toContain("original_snippet");
+    expect(text).not.toContain("severity");
+    expect(text).not.toContain("category");
+    expect(text).not.toContain("suggestion");
   });
 
-  it("instructs to include suggestion only when confidence >= 0.8", () => {
-    expect(extractionSystemText()).toContain("confidence >= 0.8");
-  });
-
-  it("keeps rationale in comment and patch-only content in suggestion", () => {
-    const text = extractionSystemText();
-    expect(text).toContain("Keep rationale strictly in comment");
-    expect(text).toContain(
-      "suggestion must contain only replacement code lines",
+  it("restricts rule_id to the file-scope catalog ids", () => {
+    expect(extractionSystemText()).toContain(
+      `rule_id MUST be one of: ${buildRuleIdList("file")}. A match with any other rule_id is discarded.`,
     );
   });
 
-  it("allows empty suggestion value for deletion-only fixes", () => {
+  it("asks for no prose and no code in the matches", () => {
     expect(extractionSystemText()).toContain(
-      "suggestion may be an empty string to produce deletion-only apply suggestion",
+      "Output no prose, no explanation and no code",
     );
   });
 
   it("instructs grounded extraction only", () => {
     const text = extractionSystemText();
-    expect(text).toContain("ONLY issues clearly grounded");
+    expect(text).toContain("ONLY matches clearly grounded");
     expect(text).toContain("Do not invent");
   });
 
@@ -152,10 +148,6 @@ describe("buildFileReviewExtractionSystemBlocks", () => {
     expect(text).toContain("line_type");
     expect(text).toContain("end_line");
     expect(text).not.toContain("start_line");
-  });
-
-  it("includes verified_repo_path marker rule", () => {
-    expect(extractionSystemText()).toContain("[verified_repo_path:");
   });
 });
 
@@ -326,35 +318,5 @@ describe("formatCommentWithSuggestion", () => {
     );
     expect(result).toContain("```suggestion:-0+0");
     expect(result).toContain("better code");
-  });
-});
-
-describe("buildFileReviewExtractionSystemBlocks with suggestions omitted", () => {
-  function omittedText(): string {
-    return buildFileReviewExtractionSystemBlocks(true, "English", "omitted")
-      .map((b) => b.text)
-      .join("\n");
-  }
-
-  it("does not ask for replacement code", () => {
-    const text = omittedText();
-    expect(text).not.toContain("confidence >= 0.8");
-    expect(text).not.toContain(
-      "suggestion must contain only replacement code lines",
-    );
-    expect(text).not.toContain("deletion-only apply suggestion");
-    expect(text).not.toContain("every finding comment and suggestion");
-  });
-
-  it("instructs the model to leave suggestion null and keep code out of the comment", () => {
-    const text = omittedText();
-    expect(text).toContain("Always set suggestion to null");
-    expect(text).toContain("Never include replacement code");
-  });
-
-  it("keeps the allowed-suggestions prompt unchanged by default", () => {
-    expect(
-      buildFileReviewExtractionSystemBlocks(true, "English", "allowed"),
-    ).toEqual(buildFileReviewExtractionSystemBlocks(true, "English"));
   });
 });

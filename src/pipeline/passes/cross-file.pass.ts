@@ -3,6 +3,10 @@ import { toJSONSchema, z } from "zod";
 
 import { computeCostUsd } from "~/config/llm-pricing";
 import { parseLlmJson } from "~/domain/llm/parse-llm-json";
+import {
+  buildCatalogFinding,
+  resolveCatalogRule,
+} from "~/domain/rule-catalog/catalog-finding";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
@@ -23,22 +27,20 @@ import { formatParsedDiffForPromptWithBudget } from "~/review/diff-parser";
 import { validateFindingPositionInHunk } from "~/review/finding-position-validation";
 
 const CrossFileFindingSchema = z.object({
-  category: z.string().default("architecture"),
-  comment: z.string(),
-  confidence: z.number().default(0.8),
+  confidence: z.number().min(0).max(1),
   file_path: z.string(),
-  line_number: z.number().int().default(1),
-  line_type: z.enum(["added", "removed", "context"]).catch("added"),
-  severity: z
-    .enum(["critical", "attention", "warning", "info", "nitpick"])
-    .catch("info"),
+  line_number: z.number().int(),
+  line_type: z.enum(["added", "removed", "context"]),
+  rule_id: z.string(),
 });
 
 const CrossFileResponseSchema = z.object({
-  findings: z.array(CrossFileFindingSchema),
+  findings: z.array(z.unknown()),
 });
 
-const CROSS_FILE_JSON_SCHEMA = toJSONSchema(CrossFileResponseSchema);
+const CROSS_FILE_JSON_SCHEMA = toJSONSchema(
+  z.object({ findings: z.array(CrossFileFindingSchema) }),
+);
 
 const IN_DIFF_CONTEXT_BUDGET_CHARS = 6_000;
 const CROSS_FILE_COMPACT_DIFF_BUDGET_CHARS = 10_000;
@@ -66,10 +68,7 @@ function buildFindingSummaries(priorFindings: Finding[]): string {
   for (const [file, findings] of byFile) {
     const summaries = findings
       .slice(0, 3)
-      .map(
-        (f) =>
-          `  [${f.severity}/${f.category}] L${f.lineNumber}: ${f.comment.slice(0, 80)}`,
-      )
+      .map((f) => `  [${f.ruleId}] L${f.lineNumber}: ${f.comment.slice(0, 80)}`)
       .join("\n");
     lines.push(`${file}:\n${summaries}`);
   }
@@ -343,73 +342,77 @@ class CrossFilePass implements IReviewPass<Record<string, unknown>> {
       }
 
       const allowedPaths = new Set(diffs.map((d) => d.newPath));
-      const findings: Finding[] = parsed.data.findings
-        .filter((item) => {
-          if (allowedPaths.has(item.file_path)) return true;
+      const logContext = {
+        mrIid: context.mrIid,
+        pass: "cross-file",
+        projectId: context.projectId,
+        reviewRunId: context.reviewRunId,
+      };
+      const findings: Finding[] = [];
+      for (const candidate of parsed.data.findings) {
+        const parsedItem = CrossFileFindingSchema.safeParse(candidate);
+        if (!parsedItem.success) {
           this.logger.warn(
-            {
-              mrIid: context.mrIid,
-              off_diff_path: item.file_path,
-              pass: "cross-file",
-              projectId: context.projectId,
-              reviewRunId: context.reviewRunId,
-            },
+            { ...logContext, errors: parsedItem.error.issues.slice(0, 3) },
+            "Dropping malformed finding",
+          );
+          continue;
+        }
+        const item = parsedItem.data;
+        if (!allowedPaths.has(item.file_path)) {
+          this.logger.warn(
+            { ...logContext, off_diff_path: item.file_path },
             "Dropping off-diff finding",
           );
-          return false;
-        })
-        .filter((item) => {
-          if (anchoredPaths.has(item.file_path)) return true;
+          continue;
+        }
+        const resolution = resolveCatalogRule(item.rule_id, "cross-file");
+        if (resolution.kind === "dropped") {
           this.logger.warn(
-            {
-              filePath: item.file_path,
-              mrIid: context.mrIid,
-              pass: "cross-file",
-              projectId: context.projectId,
-              reviewRunId: context.reviewRunId,
-            },
+            { ...logContext, reason: resolution.reason, ruleId: item.rule_id },
+            "Dropping finding outside the rule catalog",
+          );
+          continue;
+        }
+        if (!anchoredPaths.has(item.file_path)) {
+          this.logger.warn(
+            { ...logContext, filePath: item.file_path },
             "Dropping finding: file not in compact MR diff section",
           );
-          return false;
-        })
-        .filter((item) => {
-          const fileDiff = diffByPath.get(item.file_path);
-          if (!fileDiff) {
-            return false;
-          }
-          const positionValidation = validateFindingPositionInHunk(
-            item,
-            fileDiff,
-          );
-          if (positionValidation.valid) {
-            return true;
-          }
+          continue;
+        }
+        const fileDiff = diffByPath.get(item.file_path);
+        if (!fileDiff) {
+          continue;
+        }
+        const positionValidation = validateFindingPositionInHunk(
+          item,
+          fileDiff,
+        );
+        if (!positionValidation.valid) {
           this.logger.warn(
             {
+              ...logContext,
               filePath: item.file_path,
               lineNumber: item.line_number,
               lineType: item.line_type,
-              mrIid: context.mrIid,
-              pass: "cross-file",
-              projectId: context.projectId,
               reason: positionValidation.reason,
-              reviewRunId: context.reviewRunId,
             },
             "Dropping off-hunk finding",
           );
-          return false;
-        })
-        .map((item) => ({
-          category: item.category,
-          comment: item.comment,
-          confidence: item.confidence,
-          filePath: item.file_path,
-          lineNumber: item.line_number,
-          lineType: item.line_type,
-          model: reviewConfig.models.review,
-          passName: "cross-file",
-          severity: item.severity,
-        }));
+          continue;
+        }
+        findings.push(
+          buildCatalogFinding(resolution.rule, {
+            confidence: item.confidence,
+            filePath: item.file_path,
+            lineNumber: item.line_number,
+            lineType: item.line_type,
+            model: reviewConfig.models.review,
+            passName: "cross-file",
+          }),
+        );
+      }
 
       this.logger.info(
         {

@@ -1,23 +1,23 @@
 import { getReviewLanguage } from "~/config/review-language";
 import type { MergeRequestInfo } from "~/domain/types/code-host.types";
-import type { FindingSuggestions } from "~/domain/types/pipeline.types";
 import type { TextBlock } from "~/domain/types/llm.types";
 import { buildAnalysisDisciplineInstruction } from "~/pipeline/prompts/file-review-analysis-discipline";
 import {
   UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
   wrapUntrusted,
 } from "~/pipeline/prompts/injection-defense";
-import { buildVibeCodingPatternsInstruction } from "~/pipeline/prompts/vibe-coding-patterns";
 import {
   buildJsonOutputInstructions,
   injectProjectRules,
 } from "~/pipeline/prompts/prompt-utils";
+import {
+  buildRuleCatalogInstruction,
+  buildRuleIdList,
+} from "~/pipeline/prompts/rule-catalog.prompt";
 
 const FILE_REVIEW_FINDINGS_SCHEMA_EXAMPLE = JSON.stringify({
   findings: [
     {
-      category: "bug",
-      comment: "Description of the issue",
       confidence: 0.9,
       end_line: null,
       file_path: "src/example.ts",
@@ -25,8 +25,7 @@ const FILE_REVIEW_FINDINGS_SCHEMA_EXAMPLE = JSON.stringify({
       line_type: "added",
       old_path: null,
       original_snippet: null,
-      severity: "warning",
-      suggestion: null,
+      rule_id: "R-013",
     },
   ],
 });
@@ -42,17 +41,10 @@ function buildFileReviewAnalysisSystemBlocks(
     "You are reviewing one file diff.",
     "Phase 1 (analysis only): output structured markdown or prose.",
     "Cover risks, open questions, and hypotheses tied to the diff; cite lines using L<number> markers from the diff when relevant.",
-    "Focus on runtime-impacting issues: correctness, security, performance, architecture boundaries (DDD/hexagonal), and contract/type regressions.",
-    buildVibeCodingPatternsInstruction(),
+    buildRuleCatalogInstruction("file"),
     "Use tools only when needed to verify imports/contracts before stating a risk.",
-    "Severity rubric (use exactly these 5 levels in the extraction phase): critical = data loss, security breach, crash, broken auth/permissions, or production outage; attention = high-confidence bug or contract break with concrete user-visible impact; warning = likely defect, incorrect handling of an edge case, or non-trivial maintainability/perf risk grounded in the diff; info = useful observation or minor risk that does not require action; nitpick = pure polish or style preference.",
-    "Pick the lowest level that still describes the real risk. When uncertain between two levels, prefer the lower one.",
-    "Style-only or polish issues MUST be info or nitpick — never warning/attention/critical.",
-    "Category vocabulary (prefer one of these lowercase tokens; reuse the same token across findings of the same kind so deduplication works): bug, security, performance, architecture, types, contract, error_handling, concurrency, validation, observability, dx, style, best_practice. Do not invent synonyms.",
     "Confidence rubric (0..1): 0.5 = plausible hypothesis grounded in the diff but not verified; 0.7 = consistent with diff and one corroborating signal (tool output, type, neighbouring code); 0.9 = directly demonstrable from diff lines or verified tool output. Use 0.9+ only when you can cite the line or tool result that proves it.",
     "Do not output JSON, fenced JSON code blocks, or a machine-targeted findings list intended for an API.",
-    "Never claim that an imported file does not exist unless you first verify it with repository tools.",
-    "If you conclude an import path is missing after verification, name the verified repo-relative path you checked in plain language.",
     "Report only issues caused by the current diff or direct interactions.",
     buildAnalysisDisciplineInstruction(language),
     `You MUST write the entire analysis in ${language}.`,
@@ -69,47 +61,24 @@ function buildFileReviewAnalysisSystemBlocks(
   return [block];
 }
 
-function buildSuggestionInstructions(
-  suggestions: FindingSuggestions,
-): string[] {
-  if (suggestions === "omitted") {
-    return [
-      "Keep rationale strictly in comment. Always set suggestion to null.",
-      "Never include replacement code, patches or fenced code blocks in comment; describe the problem and where it is, not how to fix it.",
-    ];
-  }
-  return [
-    "Keep rationale strictly in comment. suggestion must contain only replacement code lines (patch content) with no explanation text.",
-    "Provide suggestion only when confidence >= 0.8 and fix is unambiguous; never for removed lines.",
-    "When the fix is deleting the selected range, suggestion may be an empty string to produce deletion-only apply suggestion (allowed only with line_type added or context).",
-  ];
-}
-
 function buildFileReviewExtractionSystemBlocks(
   applyCacheControl: boolean,
   language: string = getReviewLanguage(),
-  suggestions: FindingSuggestions = "allowed",
 ): TextBlock[] {
   const text = [
-    `You convert a prior ${language} code-review analysis into a machine-readable findings list.`,
-    "Include ONLY issues clearly grounded in the analysis text in the user message. Do not invent or expand new issues.",
-    "Each finding MUST use file_path exactly equal to the target file path given in the user message.",
-    "The user message includes an allowable anchors table for this diff: each finding MUST use line_number and line_type that match exactly one row in that table for that file_path.",
-    "Do not mix a line_number from one anchor row with a line_type from another; if no row fits, omit the finding.",
+    `You convert a prior ${language} code-review analysis into a machine-readable list of rule matches.`,
+    "Include ONLY matches clearly grounded in the analysis text in the user message. Do not invent or expand new matches.",
+    "Each match MUST use file_path exactly equal to the target file path given in the user message.",
+    "The user message includes an allowable anchors table for this diff: each match MUST use line_number and line_type that match exactly one row in that table for that file_path.",
+    "Do not mix a line_number from one anchor row with a line_type from another; if no row fits, omit the match.",
     "If end_line is provided, both line_number and end_line MUST each match a row in the same table, exist in the same diff hunk, and form a valid inclusive range.",
-    "If no exact in-hunk position exists, omit that finding.",
-    "Use fields exactly: file_path, old_path (optional), line_number, end_line optional, line_type, confidence (0..1), category, severity, comment, original_snippet optional.",
+    "If no exact in-hunk position exists, omit that match.",
+    "Use fields exactly: rule_id, file_path, old_path (optional), line_number, end_line (optional), line_type, confidence (0..1), original_snippet (optional).",
+    `rule_id MUST be one of: ${buildRuleIdList("file")}. A match with any other rule_id is discarded.`,
     'line_type MUST be one of: "added", "removed", "context".',
-    'severity MUST be one of: "critical", "attention", "warning", "info", "nitpick". Apply the rubric stated in the analysis-phase system prompt; map polish/style to "info" or "nitpick" only.',
-    "category SHOULD reuse one of the documented tokens (bug, security, performance, architecture, types, contract, error_handling, concurrency, validation, observability, dx, style, best_practice). Stick to lowercase snake_case; do not introduce synonyms — duplicate detection depends on stable categories.",
     "confidence MUST follow the rubric in the analysis-phase prompt (0.5 hypothesis / 0.7 corroborated / 0.9 directly demonstrable).",
-    ...buildSuggestionInstructions(suggestions),
-    "Never emit a missing-import-path finding unless the analysis explicitly documents tool verification.",
-    "For every missing-file import finding, include a marker in comment: [verified_repo_path: <repo-relative-path>] matching the analysis.",
+    "Output no prose, no explanation and no code: the text of every match comes from the rule catalog.",
     buildJsonOutputInstructions(FILE_REVIEW_FINDINGS_SCHEMA_EXAMPLE),
-    suggestions === "omitted"
-      ? `You MUST write every finding comment in ${language}.`
-      : `You MUST write every finding comment and suggestion in ${language}.`,
   ].join("\n");
   const block: TextBlock = applyCacheControl
     ? { cacheControl: { ttl: "1h", type: "ephemeral" }, text, type: "text" }

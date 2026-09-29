@@ -7,7 +7,7 @@ import { ReviewTokens } from "~/di/review-tokens";
 import type { ICache } from "~/domain/ports/cache.port";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { ReviewPipelineConfig } from "~/domain/types/config.types";
-import type { Finding } from "~/domain/types/review.types";
+import type { Finding, ReviewFinding } from "~/domain/types/review.types";
 import { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -26,7 +26,7 @@ type CompleteSuccessfulRunParams = {
   mrIid: number;
   postableFindings: Finding[];
   projectId: number;
-  repostedFindings: Finding[];
+  repostedFindings: ReviewFinding[];
   reviewConfig: ReviewPipelineConfig;
   reviewRunId: string;
   suppressedCount: number;

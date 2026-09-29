@@ -473,6 +473,47 @@ describe("repository size limit", () => {
     expect(calls.completion).toBe(0);
   });
 
+  it.each([0, -1, Number.NaN, 1.5])(
+    "refuses a file limit of %s before any network call",
+    async (maxReviewableFiles) => {
+      const llm = fakeLlm((filePath) => [finding(filePath)]);
+      const host = fakeCodeHost([source("src/a.ts")]);
+      let repoIdRequests = 0;
+      const getRepoId = host.getRepoId.bind(host);
+      host.getRepoId = (owner, repo) => {
+        repoIdRequests++;
+        return getRepoId(owner, repo);
+      };
+
+      await expect(
+        reviewRepositoryCommit(
+          {
+            codeHost: host,
+            llm,
+            logger: createMockLogger(),
+            models: {
+              review: OPENROUTER_REVIEW_MODEL,
+              triage: OPENROUTER_REVIEW_MODEL,
+            },
+          },
+          {
+            commitSha: COMMIT_SHA,
+            maxCostUsd: 100,
+            maxReviewableFiles,
+            owner: "owner",
+            repo: "repo",
+          },
+        ),
+      ).rejects.toThrow(
+        `maxReviewableFiles must be a positive integer, got ${String(maxReviewableFiles)}`,
+      );
+
+      expect(repoIdRequests).toBe(0);
+      expect(host.created).toEqual([]);
+      expect(llm.analysisPrompts).toEqual([]);
+    },
+  );
+
   it("counts only reviewable files", async () => {
     const host = fakeCodeHost([
       source("src/a.ts"),

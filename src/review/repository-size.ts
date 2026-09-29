@@ -11,4 +11,12 @@ class RepositoryTooLargeError extends Error {
   }
 }
 
-export { RepositoryTooLargeError };
+function assertReviewableFileLimit(maxReviewableFiles: number): void {
+  if (!Number.isInteger(maxReviewableFiles) || maxReviewableFiles < 1) {
+    throw new Error(
+      `maxReviewableFiles must be a positive integer, got ${String(maxReviewableFiles)}`,
+    );
+  }
+}
+
+export { assertReviewableFileLimit, RepositoryTooLargeError };

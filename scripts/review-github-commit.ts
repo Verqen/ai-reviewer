@@ -29,10 +29,18 @@ async function main(): Promise<void> {
   const installationId = parseNumber("--installation");
   const catalogUrl = parseString("--catalog-url");
   const maxCostUsd = parseNumber("--max-cost") ?? DEFAULT_MAX_COST_USD;
+  const maxFilesArgument = parseString("--max-files");
   const maxReviewableFiles =
-    parseNumber("--max-files") ?? DEFAULT_MAX_REVIEWABLE_FILES;
+    maxFilesArgument === undefined
+      ? DEFAULT_MAX_REVIEWABLE_FILES
+      : Number(maxFilesArgument);
 
-  if (owner === undefined || repo === undefined) {
+  if (
+    owner === undefined ||
+    repo === undefined ||
+    !Number.isInteger(maxReviewableFiles) ||
+    maxReviewableFiles < 1
+  ) {
     process.stderr.write(`${USAGE}\n`);
     process.exit(1);
   }

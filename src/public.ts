@@ -77,6 +77,8 @@ export {
 } from "~/review/github-commit-review";
 export { RepositoryTooLargeError } from "~/review/repository-size";
 export type {
+  CommitReviewBaseline,
+  CommitReviewComparison,
   CommitReviewFinding,
   GitHubCommitReviewOptions,
   GitHubCommitReviewResult,
@@ -97,6 +99,7 @@ export { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 
 export {
   RULE_CATALOG_VERSION,
+  UnknownCatalogVersionError,
   findCatalogRule,
   getRuleCatalog,
 } from "~/domain/rule-catalog/rule-catalog";

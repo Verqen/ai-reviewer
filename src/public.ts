@@ -1,3 +1,5 @@
+export { DEFAULT_PRODUCT_NAME } from "~/domain/product-name";
+export type { ProductNameOption } from "~/domain/product-name";
 export type {
   CommentContext,
   CommentResolution,

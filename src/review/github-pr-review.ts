@@ -3,6 +3,10 @@ import type { FastifyBaseLogger } from "fastify";
 import { GitHubConfig } from "~/config/github.config";
 import { computeReviewRunCostUsd } from "~/config/llm-pricing";
 import { readRuntimeEnv } from "~/config/runtime.env";
+import {
+  DEFAULT_PRODUCT_NAME,
+  type ProductNameOption,
+} from "~/domain/product-name";
 import { RULE_CATALOG_VERSION } from "~/domain/rule-catalog/rule-catalog";
 import type {
   RuleCategory,
@@ -52,7 +56,7 @@ export interface PriorThreadRef {
   hostDiscussionId: string;
 }
 
-export interface GitHubPullRequestReviewOptions {
+export interface GitHubPullRequestReviewOptions extends ProductNameOption {
   owner: string;
   repo: string;
   pullRequestNumber: number;
@@ -81,18 +85,20 @@ export interface ReviewedFinding {
   hostNoteId: string | null;
 }
 
-export function buildPullRequestSummaryHeading(params: {
-  incremental: boolean;
-  partial: boolean;
-  reviewedFileCount: number;
-}): string {
+export function buildPullRequestSummaryHeading(
+  params: {
+    incremental: boolean;
+    partial: boolean;
+    reviewedFileCount: number;
+  } & ProductNameOption,
+): string {
   const partialNote = params.partial
     ? "\n\n> **Large change — partial check.** The per-scan cost ceiling was reached. Cross-file analysis was skipped for this run."
     : "";
   const incrementalNote = params.incremental
     ? `\n\n> _Incremental check: only the ${String(params.reviewedFileCount)} file(s) changed since the last review were re-analyzed; prior findings on unchanged files still stand._`
     : "";
-  return `## Verqen check${partialNote}${incrementalNote}`;
+  return `## ${params.productName ?? DEFAULT_PRODUCT_NAME} check${partialNote}${incrementalNote}`;
 }
 
 export interface GitHubPullRequestReviewResult {
@@ -421,6 +427,7 @@ export async function reviewGitHubPullRequest(
     const summaryBody = `${buildPullRequestSummaryHeading({
       incremental,
       partial,
+      productName: options.productName,
       reviewedFileCount: reviewedFilePaths.size,
     })}\n\n${buildSummaryNote({
       acceptedFindings,
@@ -429,6 +436,7 @@ export async function reviewGitHubPullRequest(
       includeCostFooter: showCostFooter,
       overview,
       postableFindings: postable,
+      productName: options.productName,
       suppressedCount,
       tokenCostUsd,
       tokenUsageByModel,

@@ -385,7 +385,7 @@ function buildPendingFindingForThread(
 describe("ReviewService.respondToComment", () => {
   it("replies in the discussion with the fixed mention text", async () => {
     const { codeHost, service } = createReplyServiceUnderTest(
-      "https://verqen.dev/rules",
+      "https://rules.example.com/rules",
     );
 
     await service.respondToComment(1, 42, {
@@ -396,7 +396,7 @@ describe("ReviewService.respondToComment", () => {
     });
 
     expect(codeHost.calls.replyToDiscussion).toEqual([
-      [1, 42, "disc-9", buildMentionReply("https://verqen.dev/rules")],
+      [1, 42, "disc-9", buildMentionReply("https://rules.example.com/rules")],
     ]);
     expect(codeHost.calls.postNote).toHaveLength(0);
     expect(codeHost.calls.getMergeRequestDiff).toHaveLength(0);
@@ -417,7 +417,7 @@ describe("ReviewService.respondToComment", () => {
 describe("ReviewService.respondToFindingThreadClarification", () => {
   it("returns the fixed rule text for a finding with a catalog rule", async () => {
     const { codeHost, service } = createReplyServiceUnderTest(
-      "https://verqen.dev/rules",
+      "https://rules.example.com/rules",
     );
     const reply = await service.respondToFindingThreadClarification(
       1,
@@ -426,13 +426,15 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
     );
 
     expect(reply).toBe(
-      buildFindingThreadReply("R-013", "https://verqen.dev/rules"),
+      buildFindingThreadReply("R-013", "https://rules.example.com/rules"),
     );
     expect(codeHost.calls.getMergeRequestDiff).toHaveLength(0);
   });
 
   it("returns an empty reply for a finding without a catalog rule", async () => {
-    const { service } = createReplyServiceUnderTest("https://verqen.dev/rules");
+    const { service } = createReplyServiceUnderTest(
+      "https://rules.example.com/rules",
+    );
 
     const reply = await service.respondToFindingThreadClarification(
       1,

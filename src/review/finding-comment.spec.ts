@@ -14,7 +14,7 @@ describe("formatFindingComment", () => {
           ruleId: "R-013",
           severity: "attention",
         },
-        "https://verqen.dev/rules",
+        "https://rules.example.com/rules",
       ),
     ).toBe(
       [
@@ -22,7 +22,7 @@ describe("formatFindingComment", () => {
         "",
         "This identifier is referenced here but is not declared in scope or imported.",
         "",
-        "Rule: https://verqen.dev/rules#R-013",
+        "Rule: https://rules.example.com/rules#R-013",
       ].join("\n"),
     );
   });

@@ -1,6 +1,7 @@
 import type { FastifyBaseLogger } from "fastify";
 
 import { GitHubConfig } from "~/config/github.config";
+import type { ProductNameOption } from "~/domain/product-name";
 import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
 import { buildFindingThreadReply } from "~/domain/rule-catalog/thread-reply";
 import {
@@ -15,7 +16,7 @@ export interface ReviewThreadFinding {
   ruleId: RuleId | null;
 }
 
-export interface AnswerReviewThreadOptions {
+export interface AnswerReviewThreadOptions extends ProductNameOption {
   catalogUrl?: string | undefined;
   finding: ReviewThreadFinding;
   installationId?: number | undefined;
@@ -38,6 +39,7 @@ export async function answerThreadWithCodeHost(
   const answer = buildFindingThreadReply(
     options.finding.ruleId,
     options.catalogUrl,
+    options.productName,
   );
   if (answer === "") return { answer, posted: false };
   const projectId = await codeHost.getRepoId(options.owner, options.repo);

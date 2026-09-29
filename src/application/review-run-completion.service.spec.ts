@@ -158,7 +158,7 @@ describe("ReviewRunCompletionService.completeSuccessfulRun", () => {
       codeHost,
       new MemoryCache<boolean>(),
       createMockLogger(),
-      "https://verqen.dev/rules",
+      "https://rules.example.com/rules",
     );
 
     await service.completeSuccessfulRun({
@@ -179,7 +179,7 @@ describe("ReviewRunCompletionService.completeSuccessfulRun", () => {
     });
 
     expect(codeHost.calls.postNote[0]?.[2]).toContain(
-      `Rule catalog ${RULE_CATALOG_VERSION}: https://verqen.dev/rules`,
+      `Rule catalog ${RULE_CATALOG_VERSION}: https://rules.example.com/rules`,
     );
   });
 });

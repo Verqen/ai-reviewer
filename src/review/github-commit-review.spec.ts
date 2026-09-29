@@ -178,6 +178,7 @@ async function run(
   maxCostUsd = 100,
   maxReviewableFiles = 400,
   baseline?: CommitReviewBaseline,
+  productName?: string,
 ): Promise<{
   host: FakeCodeHost;
   result: Awaited<ReturnType<typeof reviewRepositoryCommit>>;
@@ -195,11 +196,12 @@ async function run(
       providerPins: PINS,
     },
     {
-      catalogUrl: "https://verqen.dev/rules",
+      catalogUrl: "https://rules.example.com/rules",
       commitSha: COMMIT_SHA,
       maxCostUsd,
       maxReviewableFiles,
       ...(baseline === undefined ? {} : { baseline }),
+      ...(productName === undefined ? {} : { productName }),
       owner: "owner",
       repo: "repo",
     },
@@ -253,6 +255,21 @@ describe("reviewRepositoryCommit", () => {
     expect(llm.options).toEqual([]);
   });
 
+  it("names the check run with the given product name", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+
+    const { host } = await run(
+      [source("src/a.ts")],
+      llm,
+      100,
+      400,
+      undefined,
+      "Acme",
+    );
+
+    expect(host.created[0]?.name).toBe("Acme");
+  });
+
   it("reviews the tree at the commit and publishes a neutral check run on it", async () => {
     const llm = fakeLlm((filePath) => [finding(filePath)]);
 
@@ -264,9 +281,9 @@ describe("reviewRepositoryCommit", () => {
     expect(host.archiveRefs).toEqual([COMMIT_SHA]);
     expect(host.created).toEqual([
       {
-        detailsUrl: "https://verqen.dev/rules",
+        detailsUrl: "https://rules.example.com/rules",
         headSha: COMMIT_SHA,
-        name: "Verqen",
+        name: "AI Reviewer",
       },
     ]);
     expect(host.completions).toHaveLength(1);
@@ -278,7 +295,7 @@ describe("reviewRepositoryCommit", () => {
           "A value that can be absent is dereferenced here without a check.",
         path: "src/a.ts",
         rawDetails:
-          "Condition: A value that can be null, undefined or empty is dereferenced without a check.\nRule: https://verqen.dev/rules#R-014",
+          "Condition: A value that can be null, undefined or empty is dereferenced without a check.\nRule: https://rules.example.com/rules#R-014",
         severity: "attention",
         title: "R-014 · Access to a possibly absent value without a guard",
       },
@@ -288,7 +305,7 @@ describe("reviewRepositoryCommit", () => {
           "A value that can be absent is dereferenced here without a check.",
         path: "src/b.ts",
         rawDetails:
-          "Condition: A value that can be null, undefined or empty is dereferenced without a check.\nRule: https://verqen.dev/rules#R-014",
+          "Condition: A value that can be null, undefined or empty is dereferenced without a check.\nRule: https://rules.example.com/rules#R-014",
         severity: "attention",
         title: "R-014 · Access to a possibly absent value without a guard",
       },

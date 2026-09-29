@@ -584,14 +584,32 @@ describe("reviewRepositoryCommit comparison with an earlier run", () => {
 
   it("refuses a baseline of an unknown catalog version before creating a check run", async () => {
     const llm = fakeLlm((filePath) => [finding(filePath)]);
+    const host = fakeCodeHost([source("src/a.ts")]);
 
     await expect(
-      run([source("src/a.ts")], llm, 100, 400, {
-        ...baseline,
-        catalogVersion: "1999.1.1",
-      }),
+      reviewRepositoryCommit(
+        {
+          codeHost: host,
+          llm,
+          logger: createMockLogger(),
+          models: {
+            review: OPENROUTER_REVIEW_MODEL,
+            triage: OPENROUTER_REVIEW_MODEL,
+          },
+          providerPins: PINS,
+        },
+        {
+          baseline: { ...baseline, catalogVersion: "1999.1.1" },
+          commitSha: COMMIT_SHA,
+          maxCostUsd: 100,
+          maxReviewableFiles: 400,
+          owner: "owner",
+          repo: "repo",
+        },
+      ),
     ).rejects.toThrow(UnknownCatalogVersionError);
 
+    expect(host.created).toEqual([]);
     expect(llm.options).toEqual([]);
   });
 });

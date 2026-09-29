@@ -82,6 +82,7 @@ interface GitHubCommitReviewOptions {
   maxReviewableFiles: number;
   catalogUrl?: string | undefined;
   baseline?: CommitReviewBaseline | undefined;
+  models?: ReviewModels | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -467,6 +468,13 @@ async function countGitHubReviewableFiles(options: {
   return countRepositoryReviewableFiles(codeHost, options);
 }
 
+function resolveOrderModels(
+  envModels: ReviewModels,
+  orderModels: ReviewModels | undefined,
+): ReviewModels {
+  return orderModels ?? envModels;
+}
+
 async function reviewGitHubCommit(
   options: GitHubCommitReviewOptions,
 ): Promise<GitHubCommitReviewResult> {
@@ -474,12 +482,18 @@ async function reviewGitHubCommit(
   const githubConfig = new GitHubConfig();
   const octokit = createGitHubOctokit(githubConfig, options.installationId);
   const codeHost = new GitHubCodeHostAdapter(octokit, githubConfig, logger);
-  const { llm, models, providerPins } = createReviewLlm(
+  const reviewLlm = createReviewLlm(
     logger,
-    options.maxCostUsd,
+    options.models === undefined ? options.maxCostUsd : undefined,
   );
   return reviewRepositoryCommit(
-    { codeHost, llm, logger, models, providerPins },
+    {
+      codeHost,
+      llm: reviewLlm.llm,
+      logger,
+      models: resolveOrderModels(reviewLlm.models, options.models),
+      providerPins: reviewLlm.providerPins,
+    },
     options,
   );
 }
@@ -489,6 +503,7 @@ export {
   countRepositoryReviewableFiles,
   resolveDefaultBranchHead,
   resolveGitHubDefaultBranchHead,
+  resolveOrderModels,
   reviewGitHubCommit,
   reviewRepositoryCommit,
 };

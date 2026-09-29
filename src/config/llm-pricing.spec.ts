@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { OPENROUTER_PINNED_PROVIDERS } from "~/config/models";
+import { OPENROUTER_PINNED_PROVIDERS, ORDER_RUN_MODEL } from "~/config/models";
 import {
   assertCostCeilingEnforceable,
   computeCostUsd,
@@ -239,6 +239,14 @@ describe("llm-pricing", () => {
       expect(OPENROUTER_PINNED_PROVIDERS["qwen/qwen3-235b-a22b-2507"]).toBe(
         "novita/fp8",
       );
+    });
+
+    it("is the only pinned model and the model of order runs", () => {
+      expect(OPENROUTER_PINNED_PROVIDERS).toEqual({
+        "qwen/qwen3-235b-a22b-2507": "novita/fp8",
+      });
+      expect(ORDER_RUN_MODEL).toBe("qwen/qwen3-235b-a22b-2507");
+      expect(hasPricing(ORDER_RUN_MODEL)).toBe(true);
     });
   });
 });

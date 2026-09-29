@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
+  assertCostCeilingEnforceable,
   computeCostUsd,
   computeReviewRunCostUsd,
   getModelPricing,
   hasPricing,
   type PassTokenUsage,
+  reportModelPricing,
+  UnpricedModelError,
 } from "./llm-pricing";
 
 const MODELS = {
@@ -128,6 +131,93 @@ describe("llm-pricing", () => {
 
     it("is zero for an empty run", () => {
       expect(computeReviewRunCostUsd(new Map(), MODELS)).toBe(0);
+    });
+  });
+
+  describe("deepseek/deepseek-chat", () => {
+    it("is priced at the OpenRouter rate so its spend counts toward the ceiling", () => {
+      expect(getModelPricing("deepseek/deepseek-chat")).toEqual({
+        cachedInputPerMTokens: 0.2574,
+        inputPerMTokens: 0.2574,
+        outputPerMTokens: 1.0287,
+      });
+    });
+  });
+
+  describe("assertCostCeilingEnforceable", () => {
+    it("refuses a ceiling when the review model has no price", () => {
+      expect(() => {
+        assertCostCeilingEnforceable(
+          { review: "vendor/unpriced", triage: MODELS.triage },
+          20,
+        );
+      }).toThrow(UnpricedModelError);
+    });
+
+    it("names every unpriced model in the refusal", () => {
+      expect(() => {
+        assertCostCeilingEnforceable(
+          { review: "vendor/a", triage: "vendor/b" },
+          20,
+        );
+      }).toThrow(/vendor\/a, vendor\/b/);
+    });
+
+    it("refuses a ceiling when only the triage model has no price", () => {
+      expect(() => {
+        assertCostCeilingEnforceable(
+          { review: MODELS.review, triage: "vendor/unpriced" },
+          20,
+        );
+      }).toThrow(UnpricedModelError);
+    });
+
+    it("allows unpriced models when no ceiling is set", () => {
+      expect(() => {
+        assertCostCeilingEnforceable(
+          { review: "vendor/unpriced", triage: "vendor/unpriced" },
+          undefined,
+        );
+      }).not.toThrow();
+    });
+
+    it("allows a ceiling when every model is priced", () => {
+      expect(() => {
+        assertCostCeilingEnforceable(MODELS, 20);
+      }).not.toThrow();
+    });
+  });
+
+  describe("reportModelPricing", () => {
+    it("refuses to start when a ceiling is set and a model has no price", () => {
+      const warn = vi.fn();
+
+      expect(() => {
+        reportModelPricing(["vendor/unpriced", MODELS.triage], 5, { warn });
+      }).toThrow(UnpricedModelError);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("only warns about unpriced models when no ceiling is set", () => {
+      const warn = vi.fn();
+
+      reportModelPricing(["vendor/unpriced", "vendor/unpriced"], undefined, {
+        warn,
+      });
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(
+        { unpricedModels: ["vendor/unpriced"] },
+        expect.stringContaining("estimated as zero"),
+      );
+    });
+
+    it("stays silent when every model is priced", () => {
+      const warn = vi.fn();
+
+      reportModelPricing([MODELS.review, MODELS.triage], 5, { warn });
+
+      expect(warn).not.toHaveBeenCalled();
     });
   });
 });

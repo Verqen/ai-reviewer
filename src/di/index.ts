@@ -6,7 +6,7 @@ import { createInjector } from "typed-inject";
 import { DatabaseConfig } from "~/config/database.config";
 import { GitHubConfig } from "~/config/github.config";
 import { GitLabConfig } from "~/config/gitlab.config";
-import { hasPricing } from "~/config/llm-pricing";
+import { reportModelPricing } from "~/config/llm-pricing";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import { PipelineConfig } from "~/config/pipeline.config";
@@ -90,18 +90,11 @@ function buildDiContainer(fastifyLogger: FastifyBaseLogger) {
           openrouterConfig.envs.OPENROUTER_MODEL,
           openrouterConfig.envs.OPENROUTER_TRIAGE_MODEL,
         ];
-  const unpricedModels = [...new Set(configuredModels)].filter(
-    (model) => !hasPricing(model),
+  reportModelPricing(
+    configuredModels,
+    pipelineConfig.envs.REVIEW_MAX_COST_USD,
+    fastifyLogger,
   );
-  if (unpricedModels.length > 0) {
-    fastifyLogger.warn(
-      {
-        costCeilingUsd: pipelineConfig.envs.REVIEW_MAX_COST_USD ?? null,
-        unpricedModels,
-      },
-      "No pricing entry for these models: spend is estimated as zero, so REVIEW_MAX_COST_USD never triggers and the cost metrics stay at zero",
-    );
-  }
 
   const cache: ICache<boolean> = new MemoryCache<boolean>();
   const queue = new JobQueue<ReviewJob>();

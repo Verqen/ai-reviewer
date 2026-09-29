@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 
+import { assertCostCeilingEnforceable } from "~/config/llm-pricing";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import type { CostBudget } from "~/domain/cost-budget";
@@ -40,7 +41,7 @@ const noopDismissedPatternRepo: IDismissedPatternRepository = {
   incrementOccurrence: () => Promise.resolve(),
 };
 
-function createReviewLlm(logger: FastifyBaseLogger): ReviewLlm {
+function buildReviewLlm(logger: FastifyBaseLogger): ReviewLlm {
   const llmConfig = new LlmConfig();
   if (llmConfig.envs.LLM_PROVIDER === "ollama") {
     return {
@@ -59,6 +60,15 @@ function createReviewLlm(logger: FastifyBaseLogger): ReviewLlm {
       triage: openRouterConfig.envs.OPENROUTER_TRIAGE_MODEL,
     },
   };
+}
+
+function createReviewLlm(
+  logger: FastifyBaseLogger,
+  maxCostUsd: number | undefined,
+): ReviewLlm {
+  const reviewLlm = buildReviewLlm(logger);
+  assertCostCeilingEnforceable(reviewLlm.models, maxCostUsd);
+  return reviewLlm;
 }
 
 function buildOverlay(

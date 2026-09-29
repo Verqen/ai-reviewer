@@ -2,7 +2,10 @@ import type { FastifyBaseLogger } from "fastify";
 import { z } from "zod";
 
 import { GitHubConfig } from "~/config/github.config";
-import { computeReviewRunCostUsd } from "~/config/llm-pricing";
+import {
+  assertCostCeilingEnforceable,
+  computeReviewRunCostUsd,
+} from "~/config/llm-pricing";
 import { CostBudget } from "~/domain/cost-budget";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
@@ -277,6 +280,7 @@ async function reviewRepositoryCommit(
 ): Promise<GitHubCommitReviewResult> {
   const { codeHost } = dependencies;
   const { commitSha } = options;
+  assertCostCeilingEnforceable(dependencies.models, options.maxCostUsd);
 
   const projectId = await codeHost.getRepoId(options.owner, options.repo);
   const checkRun = await codeHost.createCheckRun(projectId, {
@@ -312,7 +316,7 @@ async function reviewGitHubCommit(
   const githubConfig = new GitHubConfig();
   const octokit = createGitHubOctokit(githubConfig, options.installationId);
   const codeHost = new GitHubCodeHostAdapter(octokit, githubConfig, logger);
-  const { llm, models } = createReviewLlm(logger);
+  const { llm, models } = createReviewLlm(logger, options.maxCostUsd);
   return reviewRepositoryCommit({ codeHost, llm, logger, models }, options);
 }
 

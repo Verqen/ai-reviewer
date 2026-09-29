@@ -76,6 +76,9 @@ export {
   reviewGitHubCommit,
 } from "~/review/github-commit-review";
 export { RepositoryTooLargeError } from "~/review/repository-size";
+export { UnpinnedModelError } from "~/review/reproducible-llm";
+export type { ReviewModels } from "~/review/review-pass-run";
+export { ORDER_RUN_MODEL } from "~/config/models";
 export type {
   CommitReviewBaseline,
   CommitReviewComparison,

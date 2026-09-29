@@ -21,6 +21,7 @@ import type {
 import {
   countRepositoryReviewableFiles,
   resolveDefaultBranchHead,
+  resolveOrderModels,
   reviewRepositoryCommit,
 } from "~/review/github-commit-review";
 import { createMockLogger } from "~/test-utils/mock-logger";
@@ -840,5 +841,22 @@ describe("resolveDefaultBranchHead", () => {
       repoId: 42,
     });
     expect(lookups).toEqual(["42:trunk"]);
+  });
+});
+
+describe("resolveOrderModels", () => {
+  const envModels = { review: "env/review", triage: "env/triage" };
+
+  it("keeps the environment models when the order names none", () => {
+    expect(resolveOrderModels(envModels, undefined)).toEqual(envModels);
+  });
+
+  it("replaces the environment models with the models of the order", () => {
+    const orderModels = {
+      review: "qwen/qwen3-235b-a22b-2507",
+      triage: "qwen/qwen3-235b-a22b-2507",
+    };
+
+    expect(resolveOrderModels(envModels, orderModels)).toEqual(orderModels);
   });
 });

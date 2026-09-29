@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { GitHubConfig } from "~/config/github.config";
 import { computeReviewRunCostUsd } from "~/config/llm-pricing";
 import { readRuntimeEnv } from "~/config/runtime.env";
+import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
 import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
 import type {
   AggregationResult,
@@ -44,7 +45,7 @@ export interface PriorThreadRef {
   filePath: string;
   line: number;
   lineType: LineType;
-  category: string;
+  ruleId: RuleId | null;
   severity: Severity;
   hostDiscussionId: string;
 }
@@ -110,7 +111,7 @@ const PRIOR_THREAD_LINE_TOLERANCE = 3;
 
 function priorThreadToReviewFinding(thread: PriorThreadRef): ReviewFinding {
   return {
-    category: thread.category,
+    category: "correctness",
     comment: "",
     confidence: 1,
     filePath: thread.filePath,
@@ -122,6 +123,7 @@ function priorThreadToReviewFinding(thread: PriorThreadRef): ReviewFinding {
     passName: "prior",
     resolution: "pending",
     reviewRunId: "prior",
+    ruleId: thread.ruleId ?? undefined,
     severity: thread.severity,
   };
 }
@@ -298,7 +300,7 @@ export async function reviewGitHubPullRequest(
     ? previousThreads
         .filter((thread) => !reviewedFilePaths.has(thread.filePath))
         .map((thread) => ({
-          category: thread.category,
+          category: "correctness",
           severity: thread.severity,
         }))
     : [];
@@ -415,16 +417,16 @@ export async function reviewGitHubPullRequest(
       const stillPresent = allFindings.some((finding) =>
         findingsMatch(
           {
-            category: finding.category,
             filePath: finding.filePath,
             lineNumber: finding.lineNumber,
             lineType: finding.lineType,
+            ruleId: finding.ruleId,
           },
           {
-            category: thread.category,
             filePath: thread.filePath,
             lineNumber: thread.line,
             lineType: thread.lineType,
+            ruleId: thread.ruleId ?? undefined,
           },
           PRIOR_THREAD_LINE_TOLERANCE,
         ),

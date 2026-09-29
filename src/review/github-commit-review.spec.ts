@@ -90,7 +90,10 @@ function response(content: string): LlmResponse {
   };
 }
 
-function fakeLlm(findingFor: (filePath: string) => object[]): FakeLlm {
+function fakeLlm(
+  findingFor: (filePath: string) => object[],
+  crossFileFindings: readonly object[] = [],
+): FakeLlm {
   const llm: FakeLlm = {
     analysisPrompts: [],
     chatCompletion(
@@ -111,7 +114,9 @@ function fakeLlm(findingFor: (filePath: string) => object[]): FakeLlm {
           response(JSON.stringify({ findings: findingFor(filePath) })),
         );
       }
-      return Promise.resolve(response(JSON.stringify({ findings: [] })));
+      return Promise.resolve(
+        response(JSON.stringify({ findings: crossFileFindings })),
+      );
     },
     chatCompletionWithTools(messages: ChatMessage[]): Promise<LlmResponse> {
       llm.analysisPrompts.push(textOf(messages[1]));
@@ -245,6 +250,31 @@ describe("reviewRepositoryCommit", () => {
     ]);
 
     const { host, result } = await run([source("src/a.ts")], llm);
+
+    expect(result.findings).toEqual([]);
+    expect(JSON.stringify(host.completions)).not.toContain("```");
+  });
+
+  it("drops a cross-file finding whose comment carries a fenced fix", async () => {
+    const llm = fakeLlm(
+      () => [],
+      [
+        {
+          category: "architecture",
+          comment: "Shared state.\n\n```ts\nexport const fixed = true;\n```",
+          confidence: 0.95,
+          file_path: "src/a.ts",
+          line_number: 1,
+          line_type: "added",
+          severity: "attention",
+        },
+      ],
+    );
+
+    const { host, result } = await run(
+      [source("src/a.ts", 80), source("src/b.ts", 80)],
+      llm,
+    );
 
     expect(result.findings).toEqual([]);
     expect(JSON.stringify(host.completions)).not.toContain("```");

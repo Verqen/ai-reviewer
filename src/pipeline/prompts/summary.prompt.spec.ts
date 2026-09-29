@@ -36,6 +36,18 @@ function buildParams(overrides: Partial<SummaryParams> = {}): SummaryParams {
 }
 
 describe("buildSummaryNote", () => {
+  it("titles the summary with the default product name", () => {
+    expect(buildSummaryNote(buildParams())).toContain(
+      "## AI Reviewer check summary\n\n",
+    );
+  });
+
+  it("titles the summary with the given product name", () => {
+    const note = buildSummaryNote(buildParams({ productName: "Acme" }));
+    expect(note).toContain("## Acme check summary\n\n");
+    expect(note).not.toContain("AI Reviewer");
+  });
+
   it("includes overall assessment", () => {
     const note = buildSummaryNote(
       buildParams({ overview: "No issues found." }),
@@ -234,9 +246,11 @@ describe("buildSummaryNote", () => {
 
   it("links the rule catalog when a catalog url is given", () => {
     const note = buildSummaryNote(
-      buildParams({ catalogUrl: "https://verqen.dev/rules" }),
+      buildParams({ catalogUrl: "https://rules.example.com/rules" }),
     );
-    expect(note).toContain("Rule catalog 2026.10.1: https://verqen.dev/rules");
+    expect(note).toContain(
+      "Rule catalog 2026.10.1: https://rules.example.com/rules",
+    );
   });
 
   it("prefixes each listed finding with its rule id", () => {

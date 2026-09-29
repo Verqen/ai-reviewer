@@ -1,3 +1,4 @@
+import { DEFAULT_PRODUCT_NAME } from "~/domain/product-name";
 import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import type { Finding, Severity } from "~/domain/types/review.types";
 
@@ -13,6 +14,7 @@ interface SummaryParams {
   includeCostFooter?: boolean;
   overview: string;
   postableFindings: Finding[];
+  productName?: string | undefined;
   suppressedCount: number;
   tokenCostUsd?: number;
   tokenUsageByModel: Record<string, ModelTokenUsage>;
@@ -89,6 +91,7 @@ function buildSummaryNote(params: SummaryParams): string {
     catalogVersion,
     includeCostFooter = false,
     overview,
+    productName = DEFAULT_PRODUCT_NAME,
     suppressedCount,
     tokenCostUsd,
     tokenUsageByModel,
@@ -96,7 +99,7 @@ function buildSummaryNote(params: SummaryParams): string {
 
   const parts: string[] = [];
 
-  parts.push(`## Verqen check summary\n\n**Overall:** ${overview}`);
+  parts.push(`## ${productName} check summary\n\n**Overall:** ${overview}`);
 
   const severityTable = buildSeverityTable(acceptedFindings);
   if (severityTable) {

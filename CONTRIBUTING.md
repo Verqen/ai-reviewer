@@ -9,7 +9,7 @@ We accept changes that:
 - Fix bugs with a regression test
 - Add code-host adapters (GitHub, Bitbucket, Gitea)
 - Add LLM provider adapters (Anthropic direct, OpenAI direct, vLLM, etc.)
-- Improve prompt grounding (severity / category / confidence rubrics, anchor handling, suggestion sanitizing)
+- Improve prompt grounding (rule catalog matching, confidence, anchor handling)
 - Improve incremental review correctness across rebases / force pushes
 
 We are unlikely to accept:

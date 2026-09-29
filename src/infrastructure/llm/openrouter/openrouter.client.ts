@@ -456,7 +456,9 @@ class OpenRouterClient implements ILlmClient {
     return {
       ...body,
       max_tokens: maxTokens,
-      reasoning: { effort: "low" },
+      ...(body["reasoning"] === undefined
+        ? {}
+        : { reasoning: { effort: "low" } }),
       tools: undefined,
     };
   }

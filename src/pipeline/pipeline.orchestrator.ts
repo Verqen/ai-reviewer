@@ -269,11 +269,12 @@ export class PipelineOrchestrator {
         aggregationResult?.postableFindings ??
         passResults.get("file-review")?.findings ??
         [];
-      const allFindings = aggregationResult?.allFindings ?? postableFindings;
+      const acceptedFindings =
+        aggregationResult?.acceptedFindings ?? postableFindings;
       const repostedFindings = aggregationResult?.repostedFindings ?? [];
       const suppressedCount = aggregationResult?.suppressedCount ?? 0;
       await this.reviewFindingPublisherService.publishInlineFindingsAndStore({
-        allFindings,
+        acceptedFindings,
         diffs: filteredDiffs,
         mrIid,
         postableFindings,
@@ -312,7 +313,7 @@ export class PipelineOrchestrator {
             }
           : undefined;
       await this.reviewRunCompletionService.completeSuccessfulRun({
-        allFindings,
+        acceptedFindings,
         baseSha: versions.baseSha,
         diffsFileCount: filteredDiffs.length,
         headSha: versions.headSha,

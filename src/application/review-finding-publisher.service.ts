@@ -14,7 +14,7 @@ import { formatFindingComment } from "~/review/finding-comment";
 import { buildPosition } from "~/review/finding-inline-position";
 
 type PublishInlineParams = {
-  allFindings: Finding[];
+  acceptedFindings: Finding[];
   diffs: ParsedFileDiff[];
   mrIid: number;
   postableFindings: Finding[];
@@ -87,7 +87,7 @@ class ReviewFindingPublisherService {
     params: PublishInlineParams,
   ): Promise<void> {
     const {
-      allFindings,
+      acceptedFindings,
       diffs,
       mrIid,
       postableFindings,
@@ -148,14 +148,12 @@ class ReviewFindingPublisherService {
         findingsToPersist.push({ ...finding, reviewRunId });
       }
     }
-    const unpublishedFindings = allFindings
+    const unpublishedFindings = acceptedFindings
       .filter((f) => !postableFindings.includes(f))
       .map((f) => ({ ...f, reviewRunId }));
-    const allFindingsToStore = [...findingsToPersist, ...unpublishedFindings];
-    if (allFindingsToStore.length > 0) {
-      await this.infraRepoPorts.reviewFindingRepo.createMany(
-        allFindingsToStore,
-      );
+    const findingsToStore = [...findingsToPersist, ...unpublishedFindings];
+    if (findingsToStore.length > 0) {
+      await this.infraRepoPorts.reviewFindingRepo.createMany(findingsToStore);
     }
   }
 

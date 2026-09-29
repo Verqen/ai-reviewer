@@ -15,7 +15,7 @@ import {
 describe("buildOverviewText", () => {
   it("degraded: no findings", () => {
     const text = buildOverviewText({
-      allFindingsCount: 0,
+      acceptedFindingsCount: 0,
       postableFindingsCount: 0,
       repostedFindingsCount: 0,
       reviewRunId: "run-abc",
@@ -33,7 +33,7 @@ describe("buildOverviewText", () => {
 
   it("degraded: with findings", () => {
     const text = buildOverviewText({
-      allFindingsCount: 3,
+      acceptedFindingsCount: 3,
       postableFindingsCount: 2,
       repostedFindingsCount: 0,
       reviewRunId: "run-abc",
@@ -51,7 +51,7 @@ describe("buildOverviewText", () => {
 
   it("degraded: with findings and repositioned", () => {
     const text = buildOverviewText({
-      allFindingsCount: 3,
+      acceptedFindingsCount: 3,
       postableFindingsCount: 2,
       repostedFindingsCount: 1,
       reviewRunId: "run-abc",
@@ -69,7 +69,7 @@ describe("buildOverviewText", () => {
 
   it("not degraded when failures are partial", () => {
     const text = buildOverviewText({
-      allFindingsCount: 0,
+      acceptedFindingsCount: 0,
       postableFindingsCount: 0,
       repostedFindingsCount: 0,
       reviewRunId: "run-abc",
@@ -85,7 +85,7 @@ describe("buildOverviewText", () => {
 
   it("not degraded when triageDegradation is absent", () => {
     const text = buildOverviewText({
-      allFindingsCount: 0,
+      acceptedFindingsCount: 0,
       postableFindingsCount: 0,
       repostedFindingsCount: 0,
       reviewRunId: "run-abc",
@@ -97,7 +97,7 @@ describe("buildOverviewText", () => {
 
   it("complete: no findings", () => {
     const text = buildOverviewText({
-      allFindingsCount: 0,
+      acceptedFindingsCount: 0,
       postableFindingsCount: 0,
       repostedFindingsCount: 0,
       reviewRunId: "run-abc",
@@ -109,7 +109,7 @@ describe("buildOverviewText", () => {
 
   it("complete: with findings", () => {
     const text = buildOverviewText({
-      allFindingsCount: 5,
+      acceptedFindingsCount: 5,
       postableFindingsCount: 4,
       repostedFindingsCount: 0,
       reviewRunId: "run-abc",
@@ -121,7 +121,7 @@ describe("buildOverviewText", () => {
 
   it("complete: with findings and repositioned", () => {
     const text = buildOverviewText({
-      allFindingsCount: 5,
+      acceptedFindingsCount: 5,
       postableFindingsCount: 4,
       repostedFindingsCount: 2,
       reviewRunId: "run-abc",
@@ -135,7 +135,7 @@ describe("buildOverviewText", () => {
 
   it("not degraded when totalBatches is 0", () => {
     const text = buildOverviewText({
-      allFindingsCount: 0,
+      acceptedFindingsCount: 0,
       postableFindingsCount: 0,
       repostedFindingsCount: 0,
       reviewRunId: "run-abc",
@@ -162,7 +162,7 @@ describe("ReviewRunCompletionService.completeSuccessfulRun", () => {
     );
 
     await service.completeSuccessfulRun({
-      allFindings: [],
+      acceptedFindings: [],
       baseSha: "base-sha",
       diffsFileCount: 1,
       headSha: "head-sha",

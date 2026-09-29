@@ -118,6 +118,30 @@ const SUMMARY_MARKER = "<!-- verqen-review:summary -->";
 
 const PRIOR_THREAD_LINE_TOLERANCE = 3;
 
+export function buildReviewedFindings(
+  aggregation: Partial<AggregationResult> | undefined,
+  postedThreadByFinding: ReadonlyMap<
+    Finding,
+    { discussionId: string; noteId: string }
+  >,
+): ReviewedFinding[] {
+  return (aggregation?.postableFindings ?? []).map((finding) => {
+    const posted = postedThreadByFinding.get(finding) ?? null;
+    return {
+      ruleId: finding.ruleId,
+      severity: finding.severity,
+      category: finding.category,
+      filePath: finding.filePath,
+      line: finding.lineNumber,
+      lineType: finding.lineType,
+      comment: finding.comment,
+      anchored: true,
+      hostDiscussionId: posted?.discussionId ?? null,
+      hostNoteId: posted?.noteId ?? null,
+    };
+  });
+}
+
 export function selectPriorThreadsToResolve(
   previousThreads: readonly PriorThreadRef[],
   reviewedFilePaths: ReadonlySet<string>,
@@ -332,10 +356,9 @@ export async function reviewGitHubPullRequest(
   const aggMeta = passResults.get("aggregation")?.metadata as
     | Partial<AggregationResult>
     | undefined;
-  const allFindings: Finding[] = aggMeta?.allFindings ?? [];
+  const acceptedFindings: Finding[] = aggMeta?.acceptedFindings ?? [];
   const postable: Finding[] = aggMeta?.postableFindings ?? [];
   const suppressedCount = aggMeta?.suppressedCount ?? 0;
-  const postableSet = new Set(postable);
   const postedThreadByFinding = new Map<
     Finding,
     { discussionId: string; noteId: string }
@@ -387,11 +410,11 @@ export async function reviewGitHubPullRequest(
     }
 
     const overview =
-      allFindings.length === 0
+      acceptedFindings.length === 0
         ? incremental
           ? "No new issues in the changed files."
           : "No issues found."
-        : `${String(allFindings.length)} finding(s); ${String(postedCount)} posted inline.`;
+        : `${String(acceptedFindings.length)} finding(s); ${String(postedCount)} posted inline.`;
     const showCostFooter =
       options.showCostFooter ?? readRuntimeEnv().SHOW_REVIEW_COST_FOOTER;
     const summaryBody = `${buildPullRequestSummaryHeading({
@@ -399,7 +422,7 @@ export async function reviewGitHubPullRequest(
       partial,
       reviewedFileCount: reviewedFilePaths.size,
     })}\n\n${buildSummaryNote({
-      allFindings,
+      acceptedFindings,
       catalogUrl: options.catalogUrl,
       catalogVersion: RULE_CATALOG_VERSION,
       includeCostFooter: showCostFooter,
@@ -431,7 +454,7 @@ export async function reviewGitHubPullRequest(
     for (const thread of selectPriorThreadsToResolve(
       previousThreads,
       reviewedFilePaths,
-      allFindings,
+      acceptedFindings,
     )) {
       try {
         await resolverCodeHost.resolveDiscussion(
@@ -454,21 +477,7 @@ export async function reviewGitHubPullRequest(
     }
   }
 
-  const findings: ReviewedFinding[] = allFindings.map((finding) => {
-    const posted = postedThreadByFinding.get(finding) ?? null;
-    return {
-      ruleId: finding.ruleId,
-      severity: finding.severity,
-      category: finding.category,
-      filePath: finding.filePath,
-      line: finding.lineNumber,
-      lineType: finding.lineType,
-      comment: finding.comment,
-      anchored: postableSet.has(finding),
-      hostDiscussionId: posted?.discussionId ?? null,
-      hostNoteId: posted?.noteId ?? null,
-    };
-  });
+  const findings = buildReviewedFindings(aggMeta, postedThreadByFinding);
 
   return {
     repoId: projectId,

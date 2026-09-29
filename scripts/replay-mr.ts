@@ -486,7 +486,7 @@ function printSummary(
 
   const aggMeta = passResults.get("aggregation")?.metadata as
     | {
-        allFindings?: {
+        acceptedFindings?: {
           category: string;
           comment: string;
           filePath: string;
@@ -496,19 +496,19 @@ function printSummary(
         }[];
       }
     | undefined;
-  const allFindings = aggMeta?.allFindings ?? [];
-  if (allFindings.length > 0) {
+  const acceptedFindings = aggMeta?.acceptedFindings ?? [];
+  if (acceptedFindings.length > 0) {
     process.stderr.write(
-      `\n═══ FINDINGS (${String(allFindings.length)}) ═══\n`,
+      `\n═══ FINDINGS (${String(acceptedFindings.length)}) ═══\n`,
     );
-    for (const f of allFindings.slice(0, 30)) {
+    for (const f of acceptedFindings.slice(0, 30)) {
       process.stderr.write(
         `  [${f.severity}] ${f.filePath}:${String(f.lineNumber)} (${f.category})\n    ${f.comment.slice(0, 200)}\n`,
       );
     }
-    if (allFindings.length > 30) {
+    if (acceptedFindings.length > 30) {
       process.stderr.write(
-        `  ... and ${String(allFindings.length - 30)} more findings\n`,
+        `  ... and ${String(acceptedFindings.length - 30)} more findings\n`,
       );
     }
   } else {
@@ -519,10 +519,10 @@ function printSummary(
     sev === "critical" || sev === "attention" || sev === "warning";
   const fmtSummaryComment = (c: string): string =>
     c.replace(/\r?\n/g, " ").trim();
-  const fileTop = allFindings.filter(
+  const fileTop = acceptedFindings.filter(
     (f) => isVisible(f.severity) && f.passName === "file-review",
   );
-  const archTop = allFindings.filter(
+  const archTop = acceptedFindings.filter(
     (f) => isVisible(f.severity) && f.passName === "cross-file",
   );
   if (fileTop.length > 0 || archTop.length > 0) {
@@ -557,12 +557,12 @@ function printGitLabPreview(
 ): void {
   const aggMeta = passResults.get("aggregation")?.metadata as
     | {
-        allFindings?: Finding[];
+        acceptedFindings?: Finding[];
         postableFindings?: Finding[];
         suppressedCount?: number;
       }
     | undefined;
-  const allFindings = aggMeta?.allFindings ?? [];
+  const acceptedFindings = aggMeta?.acceptedFindings ?? [];
   const postableFindings = aggMeta?.postableFindings ?? [];
   const suppressedCount = aggMeta?.suppressedCount ?? 0;
 
@@ -647,12 +647,12 @@ function printGitLabPreview(
   }
 
   const summaryNote = buildSummaryNote({
-    allFindings,
+    acceptedFindings,
     catalogVersion: RULE_CATALOG_VERSION,
     overview:
-      allFindings.length === 0
+      acceptedFindings.length === 0
         ? "AI review complete — no issues found."
-        : `AI review complete: ${String(allFindings.length)} finding(s), ${String(postableFindings.length)} posted inline.`,
+        : `AI review complete: ${String(acceptedFindings.length)} finding(s), ${String(postableFindings.length)} posted inline.`,
     postableFindings,
     suppressedCount,
     tokenUsageByModel: Object.fromEntries(tokensByModel),

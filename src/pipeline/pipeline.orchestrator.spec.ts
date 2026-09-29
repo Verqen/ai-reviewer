@@ -17,6 +17,7 @@ import type {
 import type { Finding } from "~/domain/types/review.types";
 import { MemoryCache } from "~/infrastructure/cache/memory-cache";
 import { PipelineMetrics } from "~/infrastructure/metrics/pipeline.metrics";
+import { AggregationPass } from "~/pipeline/passes/aggregation.pass";
 import { hunkKey } from "~/pipeline/passes/triage.pass";
 import { parseDiff } from "~/review/diff-parser";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
@@ -63,7 +64,7 @@ function makeAggPass(findings: Finding[] = []): IReviewPass<AggregationResult> {
       _prior: Map<string, PassResult>,
     ): Promise<PassResult<AggregationResult>> => {
       const agg: AggregationResult = {
-        allFindings: findings,
+        acceptedFindings: findings,
         postableFindings: findings,
         repostedFindings: [],
         suppressedCount: 0,
@@ -305,7 +306,7 @@ describe("PipelineOrchestrator", () => {
             metadata:
               name === "aggregation"
                 ? {
-                    allFindings: [],
+                    acceptedFindings: [],
                     postableFindings: [],
                     repostedFindings: [],
                     suppressedCount: 0,
@@ -1049,5 +1050,114 @@ describe("PipelineOrchestrator", () => {
       headerFour,
       headerFive,
     ]);
+  });
+});
+
+describe("PipelineOrchestrator gate-failed findings", () => {
+  function buildGateFinding(overrides: Partial<Finding>): Finding {
+    return {
+      category: "correctness",
+      comment: "Gate finding",
+      confidence: 0.9,
+      filePath: "src/index.ts",
+      lineNumber: 2,
+      lineType: "added",
+      model: "test",
+      passName: "file-review",
+      ruleId: "R-013",
+      severity: "warning",
+      ...overrides,
+    };
+  }
+
+  function makeFileReviewPass(findings: Finding[]): IReviewPass {
+    return {
+      execute: (): Promise<PassResult> =>
+        Promise.resolve({
+          findings,
+          metadata: {},
+          tokenUsage: { completionTokens: 0, promptTokens: 0 },
+        }),
+      name: "file-review",
+    };
+  }
+
+  it("keeps findings below the confidence gate or the severity threshold out of the summary, the stored findings and auto-approval", async () => {
+    const passing = buildGateFinding({ ruleId: "R-013", severity: "warning" });
+    const lowConfidence = buildGateFinding({
+      confidence: 0.4,
+      ruleId: "R-014",
+      severity: "critical",
+    });
+    const lowSeverity = buildGateFinding({
+      ruleId: "R-022",
+      severity: "info",
+    });
+
+    const approvals: string[] = [];
+    const infraRepoPorts = createMockInfraRepoPorts();
+    const codeHost = createMockCodeHost(
+      { diffs: [MINIMAL_DIFF] },
+      {
+        approveMergeRequest: (): Promise<void> => {
+          approvals.push("approve");
+          return Promise.resolve();
+        },
+        unapprove: (): Promise<void> => {
+          approvals.push("unapprove");
+          return Promise.resolve();
+        },
+      },
+    );
+    const logger = createMockLogger();
+    const aggregationPass = new AggregationPass(
+      {
+        create: () => Promise.reject(new Error("not implemented")),
+        findByProject: () => Promise.resolve([]),
+        findByRule: () => Promise.resolve(undefined),
+        incrementOccurrence: () => Promise.resolve(),
+      },
+      logger,
+      3,
+    );
+
+    const orchestrator = createTestOrchestrator({
+      cache: new MemoryCache<boolean>(),
+      codeHost,
+      config: createPipelineConfig("warning"),
+      infraRepoPorts,
+      logger,
+      passes: [
+        makeFileReviewPass([passing, lowConfidence, lowSeverity]),
+        aggregationPass,
+      ],
+      reviewConfigLoader: createMockReviewConfigLoader({
+        load: () =>
+          Promise.resolve(
+            createMockReviewConfig({
+              blockMergeOn: "critical",
+              inlineMinConfidence: 0.7,
+            }),
+          ),
+      }),
+    });
+
+    await orchestrator.run({
+      diffs: [parseDiff(MINIMAL_DIFF)],
+      mrIid: 3,
+      projectId: 7,
+      triggerType: "mr_open",
+      versions: { baseSha: "base", headSha: "head", startSha: "start" },
+    });
+
+    const summary = codeHost.calls.postNote[0]?.[2] ?? "";
+    expect(summary).toContain("R-013");
+    expect(summary).not.toContain("R-014");
+    expect(summary).not.toContain("R-022");
+    expect(summary).toContain("1 finding(s)");
+    expect(
+      infraRepoPorts.calls.createFinding.flat().map((f) => f.ruleId),
+    ).toEqual(["R-013"]);
+    expect(approvals).toEqual(["approve"]);
   });
 });

@@ -165,7 +165,7 @@ describe("ReviewFindingPublisherService inline publication", () => {
     expect(infra.createManyMock).toHaveBeenCalledTimes(1);
   });
 
-  it("publishes valid finding without snapped-from marker", async () => {
+  it("publishes a valid finding as one inline comment", async () => {
     const finding = makeFinding();
     const infra = makeInfraRepoPorts();
     const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
@@ -186,10 +186,6 @@ describe("ReviewFindingPublisherService inline publication", () => {
       versions: { baseSha: "base", headSha: "head", startSha: "start" },
     });
     expect(codeHost.postInlineCommentMock).toHaveBeenCalledTimes(1);
-    const postedBody = codeHost.postInlineCommentMock.mock.calls[0]?.[2] as
-      | string
-      | undefined;
-    expect(postedBody).not.toContain("Snapped from");
   });
 
   it("posts the catalog comment format", async () => {

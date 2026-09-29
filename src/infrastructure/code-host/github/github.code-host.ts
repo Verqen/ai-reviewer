@@ -496,10 +496,13 @@ class GitHubCodeHost implements ICodeHost {
 
   async createCheckRun(
     projectId: number,
-    params: { headSha: string; name: string },
+    params: { detailsUrl?: string | undefined; headSha: string; name: string },
   ): Promise<CreatedCheckRun> {
     const { owner, repo } = await this.resolveRepo(projectId);
     const response = await this.octokit.rest.checks.create({
+      ...(params.detailsUrl === undefined
+        ? {}
+        : { details_url: params.detailsUrl }),
       head_sha: params.headSha,
       name: params.name,
       owner,

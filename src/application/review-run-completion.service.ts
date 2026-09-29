@@ -6,6 +6,7 @@ import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
 import type { ICache } from "~/domain/ports/cache.port";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
+import { RULE_CATALOG_VERSION } from "~/domain/rule-catalog/rule-catalog";
 import type { ReviewPipelineConfig } from "~/domain/types/config.types";
 import type { Finding, ReviewFinding } from "~/domain/types/review.types";
 import { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
@@ -117,6 +118,7 @@ class ReviewRunCompletionService {
     });
     const summaryNote = buildSummaryNote({
       allFindings,
+      catalogVersion: RULE_CATALOG_VERSION,
       includeCostFooter: readRuntimeEnv().SHOW_REVIEW_COST_FOOTER,
       overview: overviewText,
       postableFindings,

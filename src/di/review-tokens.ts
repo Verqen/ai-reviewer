@@ -1,4 +1,5 @@
 export enum ReviewTokens {
+  CatalogUrl = "CatalogUrl",
   CommentResolutionService = "CommentResolutionService",
   ForcePushCorrelationService = "ForcePushCorrelationService",
   IncrementalReviewService = "IncrementalReviewService",

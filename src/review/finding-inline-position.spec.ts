@@ -4,10 +4,7 @@ import type { DiffFile } from "~/domain/types/code-host.types";
 import type { Finding } from "~/domain/types/review.types";
 import { parseDiff } from "~/review/diff-parser";
 
-import {
-  buildPosition,
-  originalSnippetMatchesDiff,
-} from "./finding-inline-position";
+import { buildPosition } from "./finding-inline-position";
 
 const SAMPLE_DIFF: DiffFile = {
   diff: "@@ -1,2 +1,3 @@\n context\n+added line\n-removed line\n",
@@ -119,41 +116,5 @@ describe("buildPosition: strict in-hunk matching", () => {
       severity: "info",
     };
     expect(buildPosition(finding, VERSIONS, diffs)).toBeNull();
-  });
-});
-
-describe("originalSnippetMatchesDiff", () => {
-  it("returns true when snippet matches diff text for line range", () => {
-    const diffs = [parseDiff(SAMPLE_DIFF)];
-    const finding: Finding = {
-      category: "correctness",
-      comment: "c",
-      confidence: 1,
-      filePath: "src/index.ts",
-      lineNumber: 2,
-      lineType: "added",
-      model: "m",
-      passName: "p",
-      ruleId: "R-013",
-      severity: "info",
-    };
-    expect(originalSnippetMatchesDiff("added line", finding, diffs)).toBe(true);
-  });
-
-  it("returns false when file missing from diffs", () => {
-    const diffs = [parseDiff(SAMPLE_DIFF)];
-    const finding: Finding = {
-      category: "correctness",
-      comment: "c",
-      confidence: 1,
-      filePath: "missing.ts",
-      lineNumber: 1,
-      lineType: "added",
-      model: "m",
-      passName: "p",
-      ruleId: "R-013",
-      severity: "info",
-    };
-    expect(originalSnippetMatchesDiff("x", finding, diffs)).toBe(false);
   });
 });

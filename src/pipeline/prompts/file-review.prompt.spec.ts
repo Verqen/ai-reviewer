@@ -12,7 +12,6 @@ import {
   buildRuleCatalogInstruction,
   buildRuleIdList,
 } from "./rule-catalog.prompt";
-import { formatCommentWithSuggestion } from "./suggestion-formatter";
 
 function analysisSystemText(projectRules: string | null = null): string {
   return buildFileReviewAnalysisSystemBlocks(projectRules, undefined, true)
@@ -203,120 +202,5 @@ describe("buildFileReviewExtractionUserPrompt", () => {
     expect(text).toContain("## Risk");
     expect(text).toContain("Allowable anchors (closed list");
     expect(text).toContain("| added | 1 |");
-  });
-});
-
-describe("formatCommentWithSuggestion", () => {
-  it("formats comment with severity header", () => {
-    const result = formatCommentWithSuggestion(
-      "Potential null reference",
-      "warning",
-    );
-    expect(result).toBe("[WARNING] Potential null reference");
-  });
-
-  it("appends single-line suggestion block when all conditions met", () => {
-    const result = formatCommentWithSuggestion(
-      "Missing null check",
-      "warning",
-      "if (user != null) {\n  user.update(data);\n}",
-      "user.update(data);",
-      "added",
-      42,
-      undefined,
-    );
-    expect(result).toContain("```suggestion:-0+0");
-    expect(result).toContain("if (user != null)");
-  });
-
-  it("formats multi-line suggestion block with correct offset", () => {
-    const result = formatCommentWithSuggestion(
-      "Missing null check",
-      "critical",
-      "if (user != null) {\n  user.update(data);\n  user.save();\n}",
-      "user.update(data);\nuser.save();",
-      "added",
-      42,
-      43,
-    );
-    expect(result).toContain("```suggestion:-0+1");
-  });
-
-  it("falls back to plain comment when lineType is removed", () => {
-    const result = formatCommentWithSuggestion(
-      "This line was removed",
-      "info",
-      "replacement code",
-      "original code",
-      "removed",
-      10,
-      undefined,
-    );
-    expect(result).not.toContain("```suggestion");
-    expect(result).toBe("[INFO] This line was removed");
-  });
-
-  it("falls back to plain comment when suggestion is undefined", () => {
-    const result = formatCommentWithSuggestion(
-      "Some finding",
-      "nitpick",
-      undefined,
-      undefined,
-      "added",
-      5,
-      undefined,
-    );
-    expect(result).not.toContain("```suggestion");
-    expect(result).toBe("[NITPICK] Some finding");
-  });
-
-  it("falls back to plain comment when originalSnippet is undefined", () => {
-    const result = formatCommentWithSuggestion(
-      "Some finding",
-      "warning",
-      "replacement code",
-      undefined,
-      "added",
-      5,
-      undefined,
-    );
-    expect(result).not.toContain("```suggestion");
-  });
-
-  it("falls back to plain comment when lineType is undefined", () => {
-    const result = formatCommentWithSuggestion(
-      "Some finding",
-      "warning",
-      "replacement code",
-      "original code",
-      undefined,
-      5,
-      undefined,
-    );
-    expect(result).not.toContain("```suggestion");
-  });
-
-  it("includes severity in uppercase", () => {
-    const result = formatCommentWithSuggestion("Check this", "critical");
-    expect(result).toContain("[CRITICAL]");
-  });
-
-  it("formats attention severity in uppercase", () => {
-    const result = formatCommentWithSuggestion("Important risk", "attention");
-    expect(result).toContain("[ATTENTION]");
-  });
-
-  it("context line type allows suggestion block", () => {
-    const result = formatCommentWithSuggestion(
-      "Improve this",
-      "info",
-      "better code",
-      "original code",
-      "context",
-      20,
-      undefined,
-    );
-    expect(result).toContain("```suggestion:-0+0");
-    expect(result).toContain("better code");
   });
 });

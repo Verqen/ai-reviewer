@@ -60,7 +60,6 @@ interface Finding {
   passName: string;
   ruleId: RuleId;
   severity: Severity;
-  suggestion?: string | undefined;
 }
 
 interface ReviewRun {
@@ -113,7 +112,6 @@ interface ReviewFinding {
   reviewRunId: string;
   ruleId?: RuleId | undefined;
   severity: Severity;
-  suggestion?: string | undefined;
 }
 
 interface PriorFindings {

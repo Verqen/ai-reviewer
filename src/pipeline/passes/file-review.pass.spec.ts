@@ -187,7 +187,7 @@ describe("FileReviewPass", () => {
     const pass = new FileReviewPass(llm, createMockLogger());
     const result = await pass.execute(buildContext(), new Map());
     expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.suggestion).toBeUndefined();
+    expect(result.findings[0]).not.toHaveProperty("suggestion");
     expect(result.findings[0]?.comment).toBe(
       "This identifier is referenced here but is not declared in scope or imported.",
     );
@@ -692,37 +692,6 @@ describe("FileReviewPass", () => {
       new Map(),
     );
     expect(result.findings).toHaveLength(0);
-  });
-});
-
-describe("FileReviewPass with suggestions omitted", () => {
-  it("builds the comment from the catalog when the model returns fenced code", async () => {
-    const llm = createTwoPhaseMockLlm(
-      JSON.stringify({
-        findings: [
-          {
-            comment: "Wrong value.\n\n```suggestion\nconst x = 2;\n```",
-            confidence: 0.95,
-            end_line: null,
-            file_path: "src/utils.ts",
-            line_number: 1,
-            line_type: "added",
-            rule_id: "R-013",
-            suggestion: "const x = 2;",
-          },
-        ],
-      }),
-    );
-    const pass = new FileReviewPass(llm, createMockLogger());
-
-    const result = await pass.execute(
-      buildContext({ findingSuggestions: "omitted" }),
-      new Map(),
-    );
-
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.suggestion).toBeUndefined();
-    expect(result.findings[0]?.comment).not.toContain("```");
   });
 });
 

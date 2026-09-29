@@ -498,6 +498,32 @@ describe("GitHubCodeHost check runs", () => {
     );
   });
 
+  it("sends raw details with an annotation when present", async () => {
+    const { calls, host } = checkRunHost();
+
+    await host.updateCheckRun(42, 9, {
+      annotations: [
+        {
+          line: 3,
+          message: "m",
+          path: "a.ts",
+          rawDetails: "Condition: c",
+          severity: "warning",
+          title: "R-018 · t",
+        },
+      ],
+      conclusion: "neutral",
+      summary: "s",
+      title: "t",
+    });
+
+    const body = calls.find((call) => call.method === "PATCH")
+      ?.body as CheckRunPatchBody;
+    expect(body.output.annotations).toEqual([
+      expect.objectContaining({ raw_details: "Condition: c" }),
+    ]);
+  });
+
   it("completes the check run in a single call when there are no annotations", async () => {
     const { calls, host } = checkRunHost();
 

@@ -71,6 +71,7 @@ interface CheckRunAnnotation {
   line: number;
   message: string;
   path: string;
+  rawDetails?: string | undefined;
   severity: Severity;
   title: string;
 }
@@ -530,6 +531,9 @@ class GitHubCodeHost implements ICodeHost {
             end_line: annotation.line,
             message: annotation.message,
             path: annotation.path,
+            ...(annotation.rawDetails !== undefined
+              ? { raw_details: annotation.rawDetails }
+              : {}),
             start_line: annotation.line,
             title: annotation.title,
           })),

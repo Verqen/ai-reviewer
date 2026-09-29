@@ -36,6 +36,7 @@ import {
   createReviewLlm,
   runReviewPasses,
 } from "~/review/review-pass-run";
+import { RepositoryTooLargeError } from "~/review/repository-size";
 import { buildWholeFileDiffs } from "~/review/whole-file-diff";
 
 const CHECK_RUN_NAME = "Verqen";
@@ -56,6 +57,7 @@ interface GitHubCommitReviewOptions {
   installationId?: number | undefined;
   commitSha: string;
   maxCostUsd: number;
+  maxReviewableFiles: number;
   pathRules?: ReviewPathRule[] | undefined;
   catalogUrl?: string | undefined;
   logger?: FastifyBaseLogger;
@@ -198,18 +200,19 @@ async function resolveGitHubDefaultBranchHead(options: {
   return resolveDefaultBranchHead(codeHost, options);
 }
 
+type WholeFileDiffs = ReturnType<typeof buildWholeFileDiffs>;
+
 type TreeReview = Omit<GitHubCommitReviewResult, "checkRunUrl">;
 
 async function reviewTree(
   dependencies: CommitReviewDependencies,
   options: GitHubCommitReviewOptions,
   projectId: number,
+  prepared: WholeFileDiffs,
 ): Promise<TreeReview> {
   const { codeHost, llm, logger, models } = dependencies;
   const { commitSha } = options;
-
-  const archive = await codeHost.getRepositoryArchive(projectId, commitSha);
-  const { diffs, reviewablePaths } = buildWholeFileDiffs(archive);
+  const { diffs, reviewablePaths } = prepared;
 
   const costBudget = new CostBudget(options.maxCostUsd);
   const context: ReviewContext = {
@@ -287,13 +290,21 @@ async function reviewRepositoryCommit(
   assertCostCeilingEnforceable(dependencies.models, options.maxCostUsd);
 
   const projectId = await codeHost.getRepoId(options.owner, options.repo);
+  const archive = await codeHost.getRepositoryArchive(projectId, commitSha);
+  const prepared = buildWholeFileDiffs(archive);
+  if (prepared.reviewablePaths.length > options.maxReviewableFiles) {
+    throw new RepositoryTooLargeError(
+      prepared.reviewablePaths.length,
+      options.maxReviewableFiles,
+    );
+  }
   const checkRun = await codeHost.createCheckRun(projectId, {
     headSha: commitSha,
     name: CHECK_RUN_NAME,
   });
 
   try {
-    const review = await reviewTree(dependencies, options, projectId);
+    const review = await reviewTree(dependencies, options, projectId, prepared);
     await codeHost.updateCheckRun(projectId, checkRun.id, {
       annotations: review.findings.map((finding) =>
         toAnnotation(finding, options.catalogUrl),
@@ -316,6 +327,34 @@ async function reviewRepositoryCommit(
   }
 }
 
+async function countRepositoryReviewableFiles(
+  codeHost: Pick<CommitReviewCodeHost, "getRepoId" | "getRepositoryArchive">,
+  options: { commitSha: string; owner: string; repo: string },
+): Promise<{ reviewableFiles: number }> {
+  const projectId = await codeHost.getRepoId(options.owner, options.repo);
+  const archive = await codeHost.getRepositoryArchive(
+    projectId,
+    options.commitSha,
+  );
+  return {
+    reviewableFiles: buildWholeFileDiffs(archive).reviewablePaths.length,
+  };
+}
+
+async function countGitHubReviewableFiles(options: {
+  commitSha: string;
+  installationId?: number | undefined;
+  logger?: FastifyBaseLogger;
+  owner: string;
+  repo: string;
+}): Promise<{ reviewableFiles: number }> {
+  const logger = options.logger ?? createSilentLogger();
+  const githubConfig = new GitHubConfig();
+  const octokit = createGitHubOctokit(githubConfig, options.installationId);
+  const codeHost = new GitHubCodeHostAdapter(octokit, githubConfig, logger);
+  return countRepositoryReviewableFiles(codeHost, options);
+}
+
 async function reviewGitHubCommit(
   options: GitHubCommitReviewOptions,
 ): Promise<GitHubCommitReviewResult> {
@@ -328,6 +367,8 @@ async function reviewGitHubCommit(
 }
 
 export {
+  countGitHubReviewableFiles,
+  countRepositoryReviewableFiles,
   resolveDefaultBranchHead,
   resolveGitHubDefaultBranchHead,
   reviewGitHubCommit,

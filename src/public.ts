@@ -71,9 +71,11 @@ export type {
 } from "~/review/github-pr-review";
 
 export {
+  countGitHubReviewableFiles,
   resolveGitHubDefaultBranchHead,
   reviewGitHubCommit,
 } from "~/review/github-commit-review";
+export { RepositoryTooLargeError } from "~/review/repository-size";
 export type {
   CommitReviewFinding,
   GitHubCommitReviewOptions,

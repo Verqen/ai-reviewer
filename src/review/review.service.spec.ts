@@ -255,7 +255,7 @@ describe("ReviewService", () => {
 
     const findings: PassResult["findings"] = [
       {
-        category: "bug",
+        category: "correctness",
         comment: "Test finding",
         confidence: 0.9,
         filePath: "src/index.ts",
@@ -263,6 +263,7 @@ describe("ReviewService", () => {
         lineType: "added",
         model: "test",
         passName: "aggregation",
+        ruleId: "R-013",
         severity: "warning",
       },
     ];

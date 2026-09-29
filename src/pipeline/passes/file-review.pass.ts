@@ -5,6 +5,10 @@ import { toJSONSchema, z } from "zod";
 import { computeCostUsd } from "~/config/llm-pricing";
 import { OVERLAY_VIEW_DEFAULTS } from "~/config/pipeline.config";
 import { parseLlmJson } from "~/domain/llm/parse-llm-json";
+import {
+  buildCatalogFinding,
+  resolveCatalogRule,
+} from "~/domain/rule-catalog/catalog-finding";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { ToolDefinition } from "~/domain/types/llm.types";
 import type {
@@ -29,29 +33,25 @@ import { createDedupeToolExecutor } from "~/pipeline/tools/dedupe-tool-executor"
 import { executeDiffHunkTool } from "~/pipeline/tools/execute-diff-hunk-tool";
 import { formatParsedDiffForPromptWithBudget } from "~/review/diff-parser";
 import { validateFindingPositionInHunk } from "~/review/finding-position-validation";
-import { sanitizeSuggestionAndComment } from "~/review/suggestion-sanitizer";
 
 const FileFindingSchema = z.object({
-  category: z.string().default("best_practice"),
-  comment: z.string(),
-  confidence: z.number().default(0.8),
+  confidence: z.number().min(0).max(1),
   end_line: z.number().int().nullable().optional(),
   file_path: z.string(),
   line_number: z.number().int(),
-  line_type: z.enum(["added", "removed", "context"]).catch("added"),
+  line_type: z.enum(["added", "removed", "context"]),
   old_path: z.string().nullable().optional(),
-  original_snippet: z.string().nullable().optional().catch(null),
-  severity: z
-    .enum(["critical", "attention", "warning", "info", "nitpick"])
-    .catch("info"),
-  suggestion: z.string().nullable().optional(),
+  original_snippet: z.string().nullable().optional(),
+  rule_id: z.string(),
 });
 
 const FileReviewResponseSchema = z.object({
-  findings: z.array(FileFindingSchema),
+  findings: z.array(z.unknown()),
 });
 
-const FILE_REVIEW_JSON_SCHEMA = toJSONSchema(FileReviewResponseSchema);
+const FILE_REVIEW_JSON_SCHEMA = toJSONSchema(
+  z.object({ findings: z.array(FileFindingSchema) }),
+);
 
 const MAX_TOOL_ROUNDS = 5;
 const MAX_TOOL_ROUNDS_TRIAGE = 5;
@@ -62,43 +62,7 @@ const FILE_REVIEW_ANALYSIS_MAX_TOKENS = 2200;
 const FILE_REVIEW_ANALYSIS_TRIAGE_MAX_TOKENS = 1100;
 const FILE_REVIEW_EXTRACTION_MAX_TOKENS = 1200;
 const FILE_REVIEW_TEMPERATURE = 0;
-const MISSING_FILE_CLAIM_REGEX =
-  /(does\s+not\s+exist|not\s+found|missing\s+file|not\s+imported|neither\s+imported|not\s+declared|reference\s*error|не\s+существ|несуществующ|не\s+найден|не\s+импортир|не\s+объявл)/i;
-const IMPORT_MENTION_REGEX = /(import|импорт)/i;
 const MIN_GROUNDABLE_SNIPPET_LENGTH = 12;
-const VERIFIED_REPO_PATH_MARKER_REGEX =
-  /\[\s*verified_repo_path\s*:\s*([^\]\s]+)\s*\]/i;
-const CODE_FENCE = "```";
-
-function carriesCodeFence(comment: string): boolean {
-  return comment.includes(CODE_FENCE);
-}
-
-function mapToFinding(
-  item: z.infer<typeof FileFindingSchema>,
-  passName: string,
-  model: string,
-): Finding {
-  return {
-    category: item.category,
-    comment: item.comment,
-    confidence: item.confidence,
-    endLineNumber:
-      item.end_line !== null && item.end_line !== undefined
-        ? item.end_line
-        : undefined,
-    filePath: item.file_path,
-    lineNumber: item.line_number,
-    lineType: item.line_type,
-    model,
-    oldPath: item.old_path ?? undefined,
-    originalSnippet: item.original_snippet ?? undefined,
-    passName,
-    severity: item.severity,
-    suggestion: item.suggestion ?? undefined,
-  };
-}
-
 function resolveMaxToolRounds(
   isTriageOnly: boolean,
   diffLineCount: number,
@@ -106,12 +70,6 @@ function resolveMaxToolRounds(
   if (isTriageOnly) return MAX_TOOL_ROUNDS_TRIAGE;
   if (diffLineCount >= HIGH_RISK_FILE_DIFF_LINES) return MAX_TOOL_ROUNDS;
   return BASE_TOOL_ROUNDS;
-}
-
-function shouldGateMissingFileFinding(comment: string): boolean {
-  return (
-    MISSING_FILE_CLAIM_REGEX.test(comment) && IMPORT_MENTION_REGEX.test(comment)
-  );
 }
 
 function normalizeForGrounding(text: string): string {
@@ -129,41 +87,6 @@ function isFindingSnippetGrounded(
     diff.lines.map((line) => line.content).join("\n"),
   );
   return haystack.includes(needle);
-}
-
-function applyMissingFileVerificationGate(params: {
-  comment: string;
-  filePath: string;
-  logger: FastifyBaseLogger;
-  mrIid: number;
-  projectId: number;
-  reviewRunId: string;
-}): { normalizedComment: string; shouldKeep: boolean } {
-  const { comment, filePath, logger, mrIid, projectId, reviewRunId } = params;
-  if (!shouldGateMissingFileFinding(comment)) {
-    return { normalizedComment: comment, shouldKeep: true };
-  }
-  const markerMatch = VERIFIED_REPO_PATH_MARKER_REGEX.exec(comment);
-  if (!markerMatch) {
-    logger.warn(
-      {
-        filePath,
-        mrIid,
-        projectId,
-        reviewRunId,
-      },
-      "Dropping unverified missing-file finding",
-    );
-    return { normalizedComment: comment, shouldKeep: false };
-  }
-  const normalizedComment = comment
-    .replace(VERIFIED_REPO_PATH_MARKER_REGEX, "")
-    .trim();
-  return {
-    normalizedComment:
-      normalizedComment.length > 0 ? normalizedComment : comment,
-    shouldKeep: true,
-  };
 }
 
 function addUsageToModelTotals(
@@ -200,7 +123,6 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
     _priorResults: Map<string, PassResult>,
   ): Promise<PassResult<Record<string, unknown>>> {
     const { diffs, mrInfo, reviewConfig } = context;
-    const suggestions = context.findingSuggestions ?? "allowed";
 
     if (diffs.length === 0) {
       this.logger.debug(
@@ -450,11 +372,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
               );
             } else {
               const extractionSystemBlocks =
-                buildFileReviewExtractionSystemBlocks(
-                  true,
-                  undefined,
-                  suggestions,
-                );
+                buildFileReviewExtractionSystemBlocks(true);
               const extractionUserPrompt = buildFileReviewExtractionUserPrompt({
                 allowableAnchorsText: diffPromptPayload.allowableAnchorsText,
                 analysisText,
@@ -521,116 +439,92 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
                 if (parsed.success) {
                   allFilesFailed = false;
                   fileReviewCounters.filesSucceeded++;
-                  const findings = parsed.data.findings
-                    .filter((item) => {
-                      if (allowedPaths.has(item.file_path)) return true;
+                  const logContext = {
+                    mrIid: context.mrIid,
+                    pass: "file-review",
+                    projectId: context.projectId,
+                    reviewRunId: context.reviewRunId,
+                  };
+                  for (const candidate of parsed.data.findings) {
+                    const item = FileFindingSchema.safeParse(candidate);
+                    if (!item.success) {
                       this.logger.warn(
                         {
-                          mrIid: context.mrIid,
-                          off_diff_path: item.file_path,
-                          pass: "file-review",
-                          projectId: context.projectId,
-                          reviewRunId: context.reviewRunId,
+                          ...logContext,
+                          errors: item.error.issues.slice(0, 3),
                         },
+                        "Dropping malformed finding",
+                      );
+                      continue;
+                    }
+                    const finding = item.data;
+                    if (!allowedPaths.has(finding.file_path)) {
+                      this.logger.warn(
+                        { ...logContext, off_diff_path: finding.file_path },
                         "Dropping off-diff finding",
                       );
-                      return false;
-                    })
-                    .filter((item) => {
-                      const positionValidation = validateFindingPositionInHunk(
-                        item,
-                        diff,
-                      );
-                      if (positionValidation.valid) {
-                        return true;
-                      }
+                      continue;
+                    }
+                    const resolution = resolveCatalogRule(
+                      finding.rule_id,
+                      "file",
+                    );
+                    if (resolution.kind === "dropped") {
                       this.logger.warn(
                         {
-                          endLine: item.end_line ?? undefined,
-                          filePath: item.file_path,
-                          lineNumber: item.line_number,
-                          lineType: item.line_type,
-                          mrIid: context.mrIid,
-                          pass: "file-review",
-                          projectId: context.projectId,
+                          ...logContext,
+                          reason: resolution.reason,
+                          ruleId: finding.rule_id,
+                        },
+                        "Dropping finding outside the rule catalog",
+                      );
+                      continue;
+                    }
+                    const positionValidation = validateFindingPositionInHunk(
+                      finding,
+                      diff,
+                    );
+                    if (!positionValidation.valid) {
+                      this.logger.warn(
+                        {
+                          ...logContext,
+                          endLine: finding.end_line ?? undefined,
+                          filePath: finding.file_path,
+                          lineNumber: finding.line_number,
+                          lineType: finding.line_type,
                           reason: positionValidation.reason,
-                          reviewRunId: context.reviewRunId,
                         },
                         "Dropping off-hunk finding",
                       );
-                      return false;
-                    })
-                    .filter((item) => {
-                      if (
-                        isFindingSnippetGrounded(item.original_snippet, diff)
-                      ) {
-                        return true;
-                      }
+                      continue;
+                    }
+                    if (
+                      !isFindingSnippetGrounded(finding.original_snippet, diff)
+                    ) {
                       this.logger.warn(
                         {
-                          filePath: item.file_path,
-                          lineNumber: item.line_number,
-                          mrIid: context.mrIid,
-                          pass: "file-review",
-                          projectId: context.projectId,
-                          reviewRunId: context.reviewRunId,
+                          ...logContext,
+                          filePath: finding.file_path,
+                          lineNumber: finding.line_number,
                         },
                         "Dropping finding with ungrounded original_snippet",
                       );
-                      return false;
-                    })
-                    .filter((item) => {
-                      if (
-                        suggestions === "allowed" ||
-                        !carriesCodeFence(item.comment)
-                      ) {
-                        return true;
-                      }
-                      this.logger.warn(
-                        {
-                          filePath: item.file_path,
-                          lineNumber: item.line_number,
-                          mrIid: context.mrIid,
-                          pass: "file-review",
-                          projectId: context.projectId,
-                          reviewRunId: context.reviewRunId,
-                        },
-                        "Dropping finding with code in comment while suggestions are omitted",
-                      );
-                      return false;
-                    })
-                    .map((item) => {
-                      const gating = applyMissingFileVerificationGate({
-                        comment: item.comment,
-                        filePath: item.file_path,
-                        logger: this.logger,
-                        mrIid: context.mrIid,
-                        projectId: context.projectId,
-                        reviewRunId: context.reviewRunId,
-                      });
-                      if (!gating.shouldKeep) {
-                        return null;
-                      }
-                      const sanitized = sanitizeSuggestionAndComment({
-                        comment: gating.normalizedComment,
-                        suggestion:
-                          suggestions === "omitted" ? null : item.suggestion,
-                      });
-                      return mapToFinding(
-                        {
-                          ...item,
-                          comment: sanitized.comment,
-                          suggestion:
-                            sanitized.suggestion !== undefined
-                              ? sanitized.suggestion
-                              : null,
-                        },
-                        "file-review",
+                      continue;
+                    }
+                    allFindings.push(
+                      buildCatalogFinding(resolution.rule, {
+                        confidence: finding.confidence,
+                        endLineNumber: finding.end_line ?? undefined,
+                        filePath: finding.file_path,
+                        lineNumber: finding.line_number,
+                        lineType: finding.line_type,
                         model,
-                      );
-                    })
-                    .filter((finding): finding is Finding => finding !== null);
-                  allFindings.push(...findings);
+                        oldPath: finding.old_path ?? undefined,
+                        originalSnippet: finding.original_snippet ?? undefined,
+                        passName: "file-review",
+                      }),
+                    );
+                  }
                 } else {
                   allFilesFailed = false;
                   fileReviewCounters.filesParseFailed++;

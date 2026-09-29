@@ -1,13 +1,20 @@
+import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
 import type {
   CommentResolution,
   Finding,
+  FindingCategory,
   ReviewFinding,
 } from "~/domain/types/review.types";
 
-interface CreateReviewFindingInput extends Finding {
+interface CreateReviewFindingInput extends Omit<
+  Finding,
+  "category" | "ruleId"
+> {
+  category: FindingCategory;
   hostDiscussionId?: string | undefined;
   hostNoteId?: string | undefined;
   reviewRunId: string;
+  ruleId?: RuleId | undefined;
 }
 
 interface IReviewFindingRepository {

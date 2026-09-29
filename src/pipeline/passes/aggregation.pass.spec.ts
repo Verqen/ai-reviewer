@@ -45,7 +45,7 @@ function buildContext(overrides: Partial<ReviewContext> = {}): ReviewContext {
 
 function buildFinding(overrides: Partial<Finding> = {}): Finding {
   return {
-    category: "bug",
+    category: "correctness",
     comment: "Test issue",
     confidence: 0.9,
     filePath: "src/a.ts",
@@ -53,6 +53,7 @@ function buildFinding(overrides: Partial<Finding> = {}): Finding {
     lineType: "added",
     model: "test",
     passName: "file-review",
+    ruleId: "R-013",
     severity: "warning",
     ...overrides,
   };
@@ -84,7 +85,7 @@ function buildPattern(
   overrides: Partial<DismissedPattern> = {},
 ): DismissedPattern {
   return {
-    category: "bug",
+    category: "correctness",
     createdAt: new Date(),
     id: "pattern-1",
     occurrenceCount: 3,
@@ -232,7 +233,7 @@ describe("AggregationPass", () => {
 
   it("suppresses findings matching dismissed patterns with occurrence >= threshold", async () => {
     const pattern: DismissedPattern = {
-      category: "style",
+      category: "reliability",
       createdAt: new Date(),
       id: "p1",
       occurrenceCount: 3,
@@ -253,7 +254,7 @@ describe("AggregationPass", () => {
     const pass = new AggregationPass(repo, createMockLogger(), 3);
 
     const finding = buildFinding({
-      category: "style",
+      category: "reliability",
       comment: "Avoid trailing spaces here",
       severity: "nitpick",
     });
@@ -467,11 +468,14 @@ describe("AggregationPass", () => {
 
   it("does not suppress a finding when the dismissed pattern targets a different category", async () => {
     const repo = repoWithPatterns([
-      buildPattern({ category: "style", sampleComment: "" }),
+      buildPattern({ category: "reliability", sampleComment: "" }),
     ]);
     const pass = new AggregationPass(repo, createMockLogger(), 3);
 
-    const finding = buildFinding({ category: "bug", comment: "Real bug" });
+    const finding = buildFinding({
+      category: "correctness",
+      comment: "Real bug",
+    });
 
     const result = await pass.execute(
       buildContext(),
@@ -485,19 +489,19 @@ describe("AggregationPass", () => {
   it("requires all of the first three pattern keywords to be present before suppressing", async () => {
     const repo = repoWithPatterns([
       buildPattern({
-        category: "bug",
+        category: "correctness",
         sampleComment: "alpha beta gamma delta",
       }),
     ]);
     const pass = new AggregationPass(repo, createMockLogger(), 3);
 
     const matchesFirstThree = buildFinding({
-      category: "bug",
+      category: "correctness",
       comment: "alpha beta gamma here",
       lineNumber: 1,
     });
     const matchesOnlyOne = buildFinding({
-      category: "bug",
+      category: "correctness",
       comment: "alpha only stuff",
       lineNumber: 2,
     });
@@ -549,7 +553,7 @@ describe("AggregationPass", () => {
   it("does not suppress when the dismissed pattern's file glob excludes the finding's path", async () => {
     const repo = repoWithPatterns([
       buildPattern({
-        category: "bug",
+        category: "correctness",
         filePathGlob: "src/other/**",
         sampleComment: "",
       }),
@@ -557,7 +561,7 @@ describe("AggregationPass", () => {
     const pass = new AggregationPass(repo, createMockLogger(), 3);
 
     const finding = buildFinding({
-      category: "bug",
+      category: "correctness",
       comment: "Real bug",
       filePath: "src/a.ts",
     });
@@ -573,11 +577,14 @@ describe("AggregationPass", () => {
 
   it("suppresses a category-only dismissed pattern that has no sample comment", async () => {
     const repo = repoWithPatterns([
-      buildPattern({ category: "bug", sampleComment: undefined }),
+      buildPattern({ category: "correctness", sampleComment: undefined }),
     ]);
     const pass = new AggregationPass(repo, createMockLogger(), 3);
 
-    const finding = buildFinding({ category: "bug", comment: "Real bug" });
+    const finding = buildFinding({
+      category: "correctness",
+      comment: "Real bug",
+    });
 
     const result = await pass.execute(
       buildContext(),
@@ -590,11 +597,18 @@ describe("AggregationPass", () => {
 
   it("does not suppress a matching pattern whose occurrence count is below the threshold", async () => {
     const repo = repoWithPatterns([
-      buildPattern({ category: "bug", occurrenceCount: 0, sampleComment: "" }),
+      buildPattern({
+        category: "correctness",
+        occurrenceCount: 0,
+        sampleComment: "",
+      }),
     ]);
     const pass = new AggregationPass(repo, createMockLogger(), 3);
 
-    const finding = buildFinding({ category: "bug", comment: "Real bug" });
+    const finding = buildFinding({
+      category: "correctness",
+      comment: "Real bug",
+    });
 
     const result = await pass.execute(
       buildContext(),

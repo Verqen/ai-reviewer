@@ -1,4 +1,4 @@
-import type { Finding, Severity } from "~/domain/types/review.types";
+import type { Severity } from "~/domain/types/review.types";
 
 type ScoreCategory =
   | "Architecture"
@@ -91,7 +91,7 @@ function gradeForScore(score: number): Grade {
 }
 
 function computeProductionReadinessScore(
-  findings: ReadonlyArray<Pick<Finding, "category" | "severity">>,
+  findings: ReadonlyArray<{ category: string; severity: Severity }>,
 ): ProductionReadinessScore {
   const penaltyByCategory = new Map<ScoreCategory, number>();
   const countByCategory = new Map<ScoreCategory, number>();

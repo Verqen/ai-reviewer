@@ -7,7 +7,7 @@ import type { SummaryParams } from "./summary.prompt";
 
 function buildFinding(overrides: Partial<Finding> = {}): Finding {
   return {
-    category: "bug",
+    category: "correctness",
     comment: "Test issue",
     confidence: 0.9,
     filePath: "src/a.ts",
@@ -15,6 +15,7 @@ function buildFinding(overrides: Partial<Finding> = {}): Finding {
     lineType: "added",
     model: "test-model",
     passName: "file-review",
+    ruleId: "R-013",
     severity: "warning",
     ...overrides,
   };

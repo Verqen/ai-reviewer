@@ -7,7 +7,11 @@ import type {
 import type { ReviewPipelineConfig } from "~/domain/types/config.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { ForcePushCorrelationResult } from "~/domain/types/force-push-correlation.types";
-import type { Finding, PriorFindingsByFile } from "~/domain/types/review.types";
+import type {
+  Finding,
+  PriorFindingsByFile,
+  ReviewFinding,
+} from "~/domain/types/review.types";
 
 type FindingSuggestions = "allowed" | "omitted";
 
@@ -21,7 +25,7 @@ interface ReviewContext {
   mrIid: number;
   mrInfo: MergeRequestInfo;
   overlayView?: IOverlayView | undefined;
-  previousFindings: Finding[];
+  previousFindings: ReviewFinding[];
   priorFindingsByFile?: PriorFindingsByFile | undefined;
   projectId: number;
   reviewConfig: ReviewPipelineConfig;
@@ -51,7 +55,7 @@ interface IReviewPass<M = unknown> {
 interface AggregationResult {
   allFindings: Finding[];
   postableFindings: Finding[];
-  repostedFindings: Finding[];
+  repostedFindings: ReviewFinding[];
   suppressedCount: number;
 }
 

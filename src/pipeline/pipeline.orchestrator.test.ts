@@ -168,7 +168,7 @@ describe("PipelineOrchestrator (integration)", () => {
     };
 
     const finding: Finding = {
-      category: "bug",
+      category: "correctness",
       comment: "Integration test finding",
       confidence: 0.9,
       filePath: "src/index.ts",
@@ -176,6 +176,7 @@ describe("PipelineOrchestrator (integration)", () => {
       lineType: "added",
       model: "test-model",
       passName: "aggregation",
+      ruleId: "R-013",
       severity: "warning",
     };
 

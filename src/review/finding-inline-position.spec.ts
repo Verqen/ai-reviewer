@@ -21,7 +21,7 @@ describe("buildPosition", () => {
   it("returns null when file is not in diff", () => {
     const diffs = [parseDiff(SAMPLE_DIFF)];
     const finding: Finding = {
-      category: "style",
+      category: "correctness",
       comment: "c",
       confidence: 1,
       filePath: "other.ts",
@@ -29,6 +29,7 @@ describe("buildPosition", () => {
       lineType: "added",
       model: "m",
       passName: "p",
+      ruleId: "R-013",
       severity: "info",
     };
     expect(buildPosition(finding, VERSIONS, diffs)).toBeNull();
@@ -37,7 +38,7 @@ describe("buildPosition", () => {
   it("builds position for added line on new line", () => {
     const diffs = [parseDiff(SAMPLE_DIFF)];
     const finding: Finding = {
-      category: "style",
+      category: "correctness",
       comment: "c",
       confidence: 1,
       filePath: "src/index.ts",
@@ -45,6 +46,7 @@ describe("buildPosition", () => {
       lineType: "added",
       model: "m",
       passName: "p",
+      ruleId: "R-013",
       severity: "info",
     };
     const result = buildPosition(finding, VERSIONS, diffs);
@@ -64,7 +66,7 @@ describe("buildPosition: strict in-hunk matching", () => {
   it("returns null when line is outside the hunk", () => {
     const diffs = [parseDiff(SNAP_DIFF)];
     const finding: Finding = {
-      category: "style",
+      category: "correctness",
       comment: "c",
       confidence: 1,
       filePath: "src/snap.ts",
@@ -72,6 +74,7 @@ describe("buildPosition: strict in-hunk matching", () => {
       lineType: "added",
       model: "m",
       passName: "p",
+      ruleId: "R-013",
       severity: "info",
     };
     expect(buildPosition(finding, VERSIONS, diffs)).toBeNull();
@@ -80,7 +83,7 @@ describe("buildPosition: strict in-hunk matching", () => {
   it("does NOT snap when line is already in the hunk", () => {
     const diffs = [parseDiff(SNAP_DIFF)];
     const finding: Finding = {
-      category: "style",
+      category: "correctness",
       comment: "c",
       confidence: 1,
       filePath: "src/snap.ts",
@@ -88,6 +91,7 @@ describe("buildPosition: strict in-hunk matching", () => {
       lineType: "added",
       model: "m",
       passName: "p",
+      ruleId: "R-013",
       severity: "info",
     };
     const result = buildPosition(finding, VERSIONS, diffs);
@@ -103,7 +107,7 @@ describe("buildPosition: strict in-hunk matching", () => {
     };
     const diffs = [parseDiff(deletionOnly)];
     const finding: Finding = {
-      category: "style",
+      category: "correctness",
       comment: "c",
       confidence: 1,
       filePath: "src/del.ts",
@@ -111,6 +115,7 @@ describe("buildPosition: strict in-hunk matching", () => {
       lineType: "added",
       model: "m",
       passName: "p",
+      ruleId: "R-013",
       severity: "info",
     };
     expect(buildPosition(finding, VERSIONS, diffs)).toBeNull();
@@ -121,7 +126,7 @@ describe("originalSnippetMatchesDiff", () => {
   it("returns true when snippet matches diff text for line range", () => {
     const diffs = [parseDiff(SAMPLE_DIFF)];
     const finding: Finding = {
-      category: "style",
+      category: "correctness",
       comment: "c",
       confidence: 1,
       filePath: "src/index.ts",
@@ -129,6 +134,7 @@ describe("originalSnippetMatchesDiff", () => {
       lineType: "added",
       model: "m",
       passName: "p",
+      ruleId: "R-013",
       severity: "info",
     };
     expect(originalSnippetMatchesDiff("added line", finding, diffs)).toBe(true);
@@ -137,7 +143,7 @@ describe("originalSnippetMatchesDiff", () => {
   it("returns false when file missing from diffs", () => {
     const diffs = [parseDiff(SAMPLE_DIFF)];
     const finding: Finding = {
-      category: "style",
+      category: "correctness",
       comment: "c",
       confidence: 1,
       filePath: "missing.ts",
@@ -145,6 +151,7 @@ describe("originalSnippetMatchesDiff", () => {
       lineType: "added",
       model: "m",
       passName: "p",
+      ruleId: "R-013",
       severity: "info",
     };
     expect(originalSnippetMatchesDiff("x", finding, diffs)).toBe(false);

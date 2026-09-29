@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import type { FastifyBaseLogger } from "fastify";
+import { describe, expect, it, vi } from "vitest";
 
 import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
@@ -74,21 +75,14 @@ function buildContext(overrides: Partial<ReviewContext> = {}): ReviewContext {
   };
 }
 
-function buildFileReviewResponse(
-  count = 1,
-  severity = "warning",
-  filePath = "src/utils.ts",
-): string {
-  const findings = Array.from({ length: count }, (_, i) => ({
-    category: "bug",
-    comment: `Issue ${i + 1}`,
+function buildFileReviewResponse(count = 1, filePath = "src/utils.ts"): string {
+  const findings = Array.from({ length: count }, () => ({
     confidence: 0.9,
     end_line: null,
     file_path: filePath,
     line_number: 1,
     line_type: "added",
-    severity,
-    suggestion: null,
+    rule_id: "R-013",
   }));
   return JSON.stringify({ findings });
 }
@@ -122,7 +116,8 @@ describe("FileReviewPass", () => {
     const result = await pass.execute(buildContext(), new Map());
 
     expect(result.findings).toHaveLength(2);
-    expect(result.findings[0]?.severity).toBe("warning");
+    expect(result.findings[0]?.ruleId).toBe("R-013");
+    expect(result.findings[0]?.severity).toBe("attention");
     expect(result.findings[0]?.passName).toBe("file-review");
     const [firstCall] = llm.calls.chatCompletionWithTools;
     expect(firstCall?.[2]?.maxToolRounds).toBe(3);
@@ -148,9 +143,7 @@ describe("FileReviewPass", () => {
     });
 
     it("finishes the in-flight file but skips the rest once the ceiling is crossed", async () => {
-      const llm = createTwoPhaseMockLlm(
-        buildFileReviewResponse(1, "warning", "src/a.ts"),
-      );
+      const llm = createTwoPhaseMockLlm(buildFileReviewResponse(1, "src/a.ts"));
       const pass = new FileReviewPass(llm, createMockLogger());
       const context = buildContext({
         costBudget: new CostBudget(0.000001),
@@ -174,20 +167,19 @@ describe("FileReviewPass", () => {
     });
   });
 
-  it("moves prose suggestion into comment and clears suggestion", async () => {
+  it("never carries a suggestion or model prose into the finding", async () => {
     const llm = createTwoPhaseMockLlm(
       JSON.stringify({
         findings: [
           {
-            category: "bug",
             comment: "Original comment",
             confidence: 0.9,
             file_path: "src/utils.ts",
             line_number: 1,
             line_type: "added",
-            severity: "warning",
-            suggestion:
-              "Either remove the injector creation or export the service from the module",
+            original_snippet: "const x = 1;",
+            rule_id: "R-013",
+            suggestion: "const x = 2;",
           },
         ],
       }),
@@ -196,34 +188,9 @@ describe("FileReviewPass", () => {
     const result = await pass.execute(buildContext(), new Map());
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.suggestion).toBeUndefined();
-    expect(result.findings[0]?.comment).toContain("Original comment");
-    expect(result.findings[0]?.comment).toContain(
-      "Either remove the injector creation",
+    expect(result.findings[0]?.comment).toBe(
+      "This identifier is referenced here but is not declared in scope or imported.",
     );
-  });
-
-  it("keeps empty-string suggestion for deletion-only apply block", async () => {
-    const llm = createTwoPhaseMockLlm(
-      JSON.stringify({
-        findings: [
-          {
-            category: "bug",
-            comment: "Delete redundant line",
-            confidence: 0.9,
-            file_path: "src/utils.ts",
-            line_number: 1,
-            line_type: "added",
-            original_snippet: "const x = 1;",
-            severity: "warning",
-            suggestion: "   ",
-          },
-        ],
-      }),
-    );
-    const pass = new FileReviewPass(llm, createMockLogger());
-    const result = await pass.execute(buildContext(), new Map());
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.suggestion).toBe("");
   });
 
   it("reviews all files (no triage filtering)", async () => {
@@ -297,11 +264,7 @@ describe("FileReviewPass", () => {
 
   it("skips file and continues on individual file failure", async () => {
     let withToolsRound = 0;
-    const successResponse = buildFileReviewResponse(
-      1,
-      "warning",
-      "src/file2.ts",
-    );
+    const successResponse = buildFileReviewResponse(1, "src/file2.ts");
     const llm = createMockLlmClient();
     llm.chatCompletionWithTools = () => {
       withToolsRound++;
@@ -553,26 +516,20 @@ describe("FileReviewPass", () => {
     const offDiffResponse = JSON.stringify({
       findings: [
         {
-          category: "bug",
-          comment: "Hallucinated path",
           confidence: 0.9,
           end_line: null,
           file_path: "apps/example-app/foo.ts",
           line_number: 1,
           line_type: "added",
-          severity: "critical",
-          suggestion: null,
+          rule_id: "R-013",
         },
         {
-          category: "bug",
-          comment: "Legit in-diff finding",
           confidence: 0.9,
           end_line: null,
           file_path: "src/utils.ts",
           line_number: 1,
           line_type: "added",
-          severity: "warning",
-          suggestion: null,
+          rule_id: "R-013",
         },
       ],
     });
@@ -599,15 +556,12 @@ describe("FileReviewPass", () => {
       JSON.stringify({
         findings: [
           {
-            category: "bug",
-            comment: "Rename-safe path match",
             confidence: 0.9,
             end_line: null,
             file_path: "src/old-name.ts",
             line_number: 1,
             line_type: "added",
-            severity: "warning",
-            suggestion: null,
+            rule_id: "R-013",
           },
         ],
       }),
@@ -641,26 +595,20 @@ describe("FileReviewPass", () => {
       JSON.stringify({
         findings: [
           {
-            category: "bug",
-            comment: "Outside hunk",
             confidence: 0.9,
             end_line: null,
             file_path: "src/utils.ts",
             line_number: 999,
             line_type: "added",
-            severity: "warning",
-            suggestion: null,
+            rule_id: "R-013",
           },
           {
-            category: "bug",
-            comment: "Inside hunk",
             confidence: 0.9,
             end_line: null,
             file_path: "src/utils.ts",
             line_number: 1,
             line_type: "added",
-            severity: "warning",
-            suggestion: null,
+            rule_id: "R-013",
           },
         ],
       }),
@@ -673,7 +621,7 @@ describe("FileReviewPass", () => {
     const pass = new FileReviewPass(llm, logger);
     const result = await pass.execute(buildContext(), new Map());
     expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.comment).toContain("Inside hunk");
+    expect(result.findings[0]?.lineNumber).toBe(1);
     expect(
       warnCalls.some((args) => {
         const meta = args[0] as { reason?: string } | undefined;
@@ -687,15 +635,12 @@ describe("FileReviewPass", () => {
       JSON.stringify({
         findings: [
           {
-            category: "bug",
-            comment: "Wrong line type",
             confidence: 0.9,
             end_line: null,
             file_path: "src/utils.ts",
             line_number: 1,
             line_type: "removed",
-            severity: "warning",
-            suggestion: null,
+            rule_id: "R-013",
           },
         ],
       }),
@@ -710,15 +655,12 @@ describe("FileReviewPass", () => {
       JSON.stringify({
         findings: [
           {
-            category: "bug",
-            comment: "Cross-hunk range",
             confidence: 0.9,
             end_line: 10,
             file_path: "src/utils.ts",
             line_number: 1,
             line_type: "added",
-            severity: "warning",
-            suggestion: null,
+            rule_id: "R-013",
           },
         ],
       }),
@@ -751,92 +693,25 @@ describe("FileReviewPass", () => {
     );
     expect(result.findings).toHaveLength(0);
   });
-
-  it("drops missing-file import findings without verified_repo_path marker", async () => {
-    const llm = createTwoPhaseMockLlm(
-      JSON.stringify({
-        findings: [
-          {
-            category: "bug",
-            comment:
-              "Imports a file that does not exist './user/user.router.ts'. File not found in the repository.",
-            confidence: 0.9,
-            file_path: "src/utils.ts",
-            line_number: 1,
-            line_type: "added",
-            severity: "warning",
-            suggestion: null,
-          },
-        ],
-      }),
-    );
-    const pass = new FileReviewPass(llm, createMockLogger());
-    const result = await pass.execute(buildContext(), new Map());
-    expect(result.findings).toHaveLength(0);
-  });
-
-  it("keeps missing-file import findings with verified_repo_path marker", async () => {
-    const llm = createTwoPhaseMockLlm(
-      JSON.stringify({
-        findings: [
-          {
-            category: "bug",
-            comment:
-              "Imports a file that does not exist './user/user.router.ts'. [verified_repo_path: src/user/user.router.ts]",
-            confidence: 0.9,
-            file_path: "src/utils.ts",
-            line_number: 1,
-            line_type: "added",
-            severity: "warning",
-            suggestion: null,
-          },
-        ],
-      }),
-    );
-    const pass = new FileReviewPass(llm, createMockLogger());
-    const result = await pass.execute(buildContext(), new Map());
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.comment).not.toContain("[verified_repo_path:");
-  });
 });
 
 describe("FileReviewPass with suggestions omitted", () => {
-  function singleFinding(comment: string, suggestion: string | null): string {
-    return JSON.stringify({
-      findings: [
-        {
-          category: "bug",
-          comment,
-          confidence: 0.95,
-          end_line: null,
-          file_path: "src/utils.ts",
-          line_number: 1,
-          line_type: "added",
-          severity: "warning",
-          suggestion,
-        },
-      ],
-    });
-  }
-
-  it("asks the extraction phase to leave suggestion null", async () => {
-    const llm = createTwoPhaseMockLlm(singleFinding("Issue", null));
-    const pass = new FileReviewPass(llm, createMockLogger());
-
-    await pass.execute(
-      buildContext({ findingSuggestions: "omitted" }),
-      new Map(),
-    );
-
-    const extractionSystem = llm.calls.chatCompletion[0]?.[0][0]?.content;
-    expect(JSON.stringify(extractionSystem)).toContain(
-      "Always set suggestion to null",
-    );
-  });
-
-  it("drops the suggestion the model returned anyway and keeps the comment intact", async () => {
+  it("builds the comment from the catalog when the model returns fenced code", async () => {
     const llm = createTwoPhaseMockLlm(
-      singleFinding("Division by zero when count is 0", "const x = 2;"),
+      JSON.stringify({
+        findings: [
+          {
+            comment: "Wrong value.\n\n```suggestion\nconst x = 2;\n```",
+            confidence: 0.95,
+            end_line: null,
+            file_path: "src/utils.ts",
+            line_number: 1,
+            line_type: "added",
+            rule_id: "R-013",
+            suggestion: "const x = 2;",
+          },
+        ],
+      }),
     );
     const pass = new FileReviewPass(llm, createMockLogger());
 
@@ -847,34 +722,135 @@ describe("FileReviewPass with suggestions omitted", () => {
 
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]?.suggestion).toBeUndefined();
-    expect(result.findings[0]?.comment).toBe(
-      "Division by zero when count is 0",
-    );
+    expect(result.findings[0]?.comment).not.toContain("```");
   });
+});
 
-  it("drops a finding whose comment carries a fenced code block", async () => {
-    const llm = createTwoPhaseMockLlm(
-      singleFinding("Wrong value.\n\n```suggestion\nconst x = 2;\n```", null),
-    );
-    const pass = new FileReviewPass(llm, createMockLogger());
-
+describe("FileReviewPass catalog findings", () => {
+  async function runFileReview(
+    extraction: unknown,
+    loggerOverrides: Partial<FastifyBaseLogger> = {},
+  ): Promise<{
+    findings: Awaited<ReturnType<FileReviewPass["execute"]>>["findings"];
+  }> {
+    const llm = createTwoPhaseMockLlm(JSON.stringify(extraction));
+    const pass = new FileReviewPass(llm, createMockLogger(loggerOverrides));
     const result = await pass.execute(
-      buildContext({ findingSuggestions: "omitted" }),
+      buildContext({ diffs: [buildDiff("src/a.ts")] }),
       new Map(),
     );
+    return { findings: result.findings };
+  }
 
-    expect(result.findings).toEqual([]);
+  it("builds findings from the catalog regardless of what the model claims", async () => {
+    const extraction = {
+      findings: [
+        {
+          category: "security",
+          comment: "free text",
+          confidence: 0.9,
+          file_path: "src/a.ts",
+          line_number: 1,
+          line_type: "added",
+          rule_id: "R-020",
+          severity: "critical",
+        },
+      ],
+    };
+    const { findings } = await runFileReview(extraction);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      category: "reliability",
+      comment: "This public endpoint has no rate limit.",
+      ruleId: "R-020",
+      severity: "info",
+    });
   });
 
-  it("keeps a fenced comment when suggestions are allowed", async () => {
-    const llm = createTwoPhaseMockLlm(
-      singleFinding("Wrong value.\n\n```ts\nconst x = 2;\n```", null),
+  it("drops a finding whose rule_id is not in the catalog and logs it", async () => {
+    const warn = vi.fn();
+    const extraction = {
+      findings: [
+        {
+          confidence: 0.9,
+          file_path: "src/a.ts",
+          line_number: 1,
+          line_type: "added",
+          rule_id: "bug",
+        },
+      ],
+    };
+    const { findings } = await runFileReview(extraction, { warn });
+    expect(findings).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "unknown_rule", ruleId: "bug" }),
+      "Dropping finding outside the rule catalog",
     );
-    const pass = new FileReviewPass(llm, createMockLogger());
+  });
 
-    const result = await pass.execute(buildContext(), new Map());
+  it("drops a cross-file rule returned by the file pass", async () => {
+    const warn = vi.fn();
+    const extraction = {
+      findings: [
+        {
+          confidence: 0.9,
+          file_path: "src/a.ts",
+          line_number: 1,
+          line_type: "added",
+          rule_id: "R-025",
+        },
+      ],
+    };
+    const { findings } = await runFileReview(extraction, { warn });
+    expect(findings).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "scope_mismatch", ruleId: "R-025" }),
+      "Dropping finding outside the rule catalog",
+    );
+  });
 
-    expect(result.findings).toHaveLength(1);
+  it("drops a finding with an invalid line_type instead of coercing it", async () => {
+    const extraction = {
+      findings: [
+        {
+          confidence: 0.9,
+          file_path: "src/a.ts",
+          line_number: 1,
+          line_type: "moved",
+          rule_id: "R-013",
+        },
+      ],
+    };
+    const { findings } = await runFileReview(extraction);
+    expect(findings).toEqual([]);
+  });
+
+  it("keeps valid findings when one finding in the response is malformed", async () => {
+    const warn = vi.fn();
+    const extraction = {
+      findings: [
+        {
+          confidence: 0.9,
+          file_path: "src/a.ts",
+          line_number: 1,
+          line_type: "moved",
+          rule_id: "R-013",
+        },
+        {
+          confidence: 0.9,
+          file_path: "src/a.ts",
+          line_number: 1,
+          line_type: "added",
+          rule_id: "R-013",
+        },
+      ],
+    };
+    const { findings } = await runFileReview(extraction, { warn });
+    expect(findings.map((f) => f.ruleId)).toEqual(["R-013"]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ pass: "file-review" }),
+      "Dropping malformed finding",
+    );
   });
 });
 

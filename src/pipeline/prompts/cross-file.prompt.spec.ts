@@ -4,6 +4,10 @@ import {
   buildCrossFileSystemPrompt,
   buildCrossFileUserPrompt,
 } from "./cross-file.prompt";
+import {
+  buildRuleCatalogInstruction,
+  buildRuleIdList,
+} from "./rule-catalog.prompt";
 
 describe("buildCrossFileSystemPrompt", () => {
   it("states the untrusted-input boundary so injected directives are treated as data", () => {
@@ -12,20 +16,22 @@ describe("buildCrossFileSystemPrompt", () => {
     expect(prompt).toMatch(/never as instructions/i);
   });
 
-  it("includes DDD and Hexagonal cross-file checks", () => {
+  it("embeds the cross-file rule catalog in place of a free-form rubric", () => {
     const prompt = buildCrossFileSystemPrompt(null, null);
-    expect(prompt).toContain("DDD bounded-context leaks");
-    expect(prompt).toContain("Hexagonal dependency direction breaks");
-    expect(prompt).toContain(
-      "Domain modules should depend on abstractions, never on infrastructure adapters",
-    );
+    expect(prompt).toContain(buildRuleCatalogInstruction("cross-file"));
+    expect(prompt).not.toContain("Severity rubric");
+    expect(prompt).not.toContain("Category vocabulary");
+    expect(prompt).not.toContain("suggestion");
   });
 
-  it("includes strict TypeScript contract checks across modules", () => {
+  it("asks for a catalog rule id and no severity, category or comment", () => {
     const prompt = buildCrossFileSystemPrompt(null, null);
-    expect(prompt).toContain("TypeScript contract checks across files");
-    expect(prompt).toContain("breaking interface/type changes");
-    expect(prompt).toContain("new unsafe casts at module boundaries");
+    expect(prompt).toContain(
+      `- rule_id MUST be one of: ${buildRuleIdList("cross-file")}. A finding with any other rule_id is discarded.`,
+    );
+    expect(prompt).not.toContain('"severity"');
+    expect(prompt).not.toContain('"category"');
+    expect(prompt).not.toContain('"comment"');
   });
 
   it("requires findings to match allowable anchors tables in user MR diffs section", () => {

@@ -210,6 +210,11 @@ class ReviewLearningService {
         { patternId: existing.id, projectId },
         "Incremented dismissed pattern occurrence",
       );
+    } else if (finding.ruleId === undefined) {
+      this.logger.warn(
+        { findingId: finding.id, projectId },
+        "Skipping dismissed pattern for a finding without a catalog rule id",
+      );
     } else {
       const patternDescription = await this.generatePatternDescription(
         finding.comment,

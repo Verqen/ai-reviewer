@@ -1,3 +1,4 @@
+import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { TestDatabase } from "~/test-utils/test-database";
@@ -47,5 +48,22 @@ describe("DismissedPatternRepository", () => {
         severity: "attention",
       }),
     ).rejects.toThrow(/dismissed_pattern_rule_id_required/);
+  });
+
+  it("increments the occurrence of a legacy pattern whose rule id is null", async () => {
+    const created = await repo.create({
+      category: "correctness",
+      patternDescription: "legacy null checks",
+      projectId: 1,
+      ruleId: "R-014",
+      severity: "attention",
+    });
+    await sql`UPDATE dismissed_pattern SET rule_id = NULL WHERE id = ${created.id}`.execute(
+      testDb.db,
+    );
+    await repo.incrementOccurrence(created.id);
+    const [pattern] = await repo.findByProject(1);
+    expect(pattern?.occurrenceCount).toBe(2);
+    expect(pattern?.ruleId).toBeUndefined();
   });
 });

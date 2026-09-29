@@ -116,16 +116,21 @@ interface CommitReviewDependencies {
 }
 
 const FileReviewCoverageSchema = z.object({
+  pathsFailed: z.array(z.string()).default([]),
   pathsSkippedCostCeiling: z.array(z.string()).default([]),
 });
 
-function pathsSkippedForCost(
-  passResults: ReadonlyMap<string, PassResult>,
-): ReadonlySet<string> {
+function pathsNotFullyReviewed(passResults: ReadonlyMap<string, PassResult>): {
+  failed: string[];
+  skipped: string[];
+} {
   const coverage = FileReviewCoverageSchema.parse(
     passResults.get("file-review")?.metadata ?? {},
   );
-  return new Set(coverage.pathsSkippedCostCeiling);
+  return {
+    failed: coverage.pathsFailed,
+    skipped: coverage.pathsSkippedCostCeiling,
+  };
 }
 
 function publishedFindings(
@@ -173,7 +178,7 @@ function buildCheckRunSummary(params: {
 }): string {
   const scope = `Reviewed ${String(params.filesReviewed)} of ${String(params.filesTotal)} files at commit ${params.commitSha}.`;
   const partialNote = params.partial
-    ? "> **Partial result.** The cost ceiling for this run was reached before every file was reviewed. Files that were not reviewed carry no findings."
+    ? "> **Partial result.** Not every file was fully reviewed: the cost ceiling for this run was reached or the review of a file failed. Files that were not fully reviewed may carry no findings."
     : "";
   const catalog = `Rule catalog ${params.catalogVersion}. Each finding is a match of a published rule; the check makes no code changes.`;
   const consensus = `Each finding was detected in at least ${String(CONSENSUS_QUORUM)} of ${String(CONSENSUS_PASSES)} independent passes over the same code.`;
@@ -228,6 +233,7 @@ async function reviewTree(
   options: GitHubCommitReviewOptions,
   projectId: number,
   prepared: WholeFileDiffs,
+  archivePaths: readonly string[],
 ): Promise<{ review: TreeReview; unreviewedPaths: ReadonlySet<string> }> {
   const { codeHost, llm, logger, models } = dependencies;
   const { commitSha } = options;
@@ -267,9 +273,14 @@ async function reviewTree(
   }
 
   const lineTexts = indexLineTexts(prepared.diffs);
-  const skipped = new Set(
-    runs.flatMap((passRun) => [...pathsSkippedForCost(passRun.passResults)]),
+  const coverage = runs.map((passRun) =>
+    pathsNotFullyReviewed(passRun.passResults),
   );
+  const reviewable = new Set(reviewablePaths);
+  const unreviewedPaths = new Set([
+    ...coverage.flatMap((paths) => [...paths.skipped, ...paths.failed]),
+    ...archivePaths.filter((path) => !reviewable.has(path)),
+  ]);
   const findingsByPass = runs.map((passRun) => {
     const reported = toCommitReviewFindings(
       publishedFindings(passRun.passResults),
@@ -287,18 +298,21 @@ async function reviewTree(
   return {
     review: {
       catalogVersion: RULE_CATALOG_VERSION,
-      filesReviewed: reviewablePaths.filter((path) => !skipped.has(path))
-        .length,
+      filesReviewed: reviewablePaths.filter(
+        (path) => !unreviewedPaths.has(path),
+      ).length,
       filesTotal: reviewablePaths.length,
       findings: selectConsensusFindings(findingsByPass, CONSENSUS_QUORUM),
-      partial: runs.some((passRun) => passRun.partial),
+      partial:
+        runs.some((passRun) => passRun.partial) ||
+        coverage.some((paths) => paths.failed.length > 0),
       tokenCostUsd: runs.reduce(
         (total, passRun) =>
           total + computeReviewRunCostUsd(passRun.passResults, models),
         0,
       ),
     },
-    unreviewedPaths: skipped,
+    unreviewedPaths,
   };
 }
 
@@ -349,6 +363,7 @@ async function reviewRepositoryCommit(
   const projectId = await codeHost.getRepoId(options.owner, options.repo);
   const archive = await codeHost.getRepositoryArchive(projectId, commitSha);
   const prepared = buildWholeFileDiffs(archive);
+  const archivePaths = archive.map((entry) => entry.path);
   if (prepared.reviewablePaths.length > options.maxReviewableFiles) {
     throw new RepositoryTooLargeError(
       prepared.reviewablePaths.length,
@@ -367,6 +382,7 @@ async function reviewRepositoryCommit(
       options,
       projectId,
       prepared,
+      archivePaths,
     );
     const compared =
       baseline === undefined || catalog === null
@@ -374,7 +390,7 @@ async function reviewRepositoryCommit(
         : compareCommitRun({
             baseline,
             comparableRuleIds: catalog.comparableRuleIds,
-            currentPaths: new Set(archive.map((entry) => entry.path)),
+            currentPaths: new Set(archivePaths),
             findings: review.findings,
             unreviewedPaths,
           });

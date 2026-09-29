@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
 import type { PassResult, ReviewContext } from "~/domain/types/pipeline.types";
 import { CostBudget } from "~/domain/cost-budget";
+import type { ChatMessage } from "~/domain/types/llm.types";
+import { PromptTokenBudgetExceededError } from "~/infrastructure/llm/estimate-prompt-tokens";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
@@ -841,5 +843,69 @@ describe("FileReviewPass cost ceiling coverage", () => {
       "src/a.ts",
       "src/b.ts",
     ]);
+  });
+});
+
+describe("FileReviewPass failed coverage", () => {
+  it("reports the paths whose review threw, failed to parse, hit the token limit or never finished", async () => {
+    function mentions(messages: ChatMessage[], path: string): boolean {
+      return JSON.stringify(messages).includes(path);
+    }
+    const llm = createMockLlmClient();
+    llm.chatCompletionWithTools = (messages) => {
+      if (mentions(messages, "src/throws.ts")) {
+        return Promise.reject(new Error("LLM timeout"));
+      }
+      if (mentions(messages, "src/too-big.ts")) {
+        return Promise.reject(new PromptTokenBudgetExceededError(9000, 100));
+      }
+      return Promise.resolve({
+        content: mentions(messages, "src/no-final.ts")
+          ? null
+          : DEFAULT_PHASE_A_ANALYSIS,
+        toolCalls: [],
+        usage: { completionTokens: 5, promptTokens: 10 },
+      });
+    };
+    llm.chatCompletion = (messages) =>
+      Promise.resolve({
+        content: mentions(messages, "src/unparsable.ts")
+          ? "not json at all"
+          : buildFileReviewResponse(0, "src/ok.ts"),
+        toolCalls: [],
+        usage: { completionTokens: 10, promptTokens: 20 },
+      });
+    const pass = new FileReviewPass(llm, createMockLogger());
+
+    const result = await pass.execute(
+      buildContext({
+        diffs: [
+          buildDiff("src/ok.ts"),
+          buildDiff("src/throws.ts"),
+          buildDiff("src/unparsable.ts"),
+          buildDiff("src/too-big.ts"),
+          buildDiff("src/no-final.ts"),
+        ],
+      }),
+      new Map(),
+    );
+
+    expect(result.metadata["pathsFailed"]).toEqual([
+      "src/throws.ts",
+      "src/unparsable.ts",
+      "src/too-big.ts",
+      "src/no-final.ts",
+    ]);
+  });
+
+  it("reports no failed paths when every file is reviewed", async () => {
+    const pass = new FileReviewPass(
+      createTwoPhaseMockLlm(buildFileReviewResponse(1)),
+      createMockLogger(),
+    );
+
+    const result = await pass.execute(buildContext(), new Map());
+
+    expect(result.metadata["pathsFailed"]).toEqual([]);
   });
 });

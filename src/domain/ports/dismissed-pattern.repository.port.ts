@@ -1,3 +1,4 @@
+import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
 import type { FindingCategory, Severity } from "~/domain/types/review.types";
 
 interface DismissedPattern {
@@ -9,6 +10,7 @@ interface DismissedPattern {
   occurrenceCount: number;
   patternDescription: string;
   projectId: number;
+  ruleId?: RuleId | undefined;
   sampleComment?: string | undefined;
   sampleReply?: string | undefined;
   severity: Severity;
@@ -21,6 +23,7 @@ interface CreateDismissedPatternInput {
   filePathGlob?: string | undefined;
   patternDescription: string;
   projectId: number;
+  ruleId: RuleId | undefined;
   sampleComment?: string | undefined;
   sampleReply?: string | undefined;
   severity: Severity;

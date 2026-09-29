@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { findingsMatch, normalizeCategory } from "./finding-match";
+import { findingsMatch } from "./finding-match";
 import type { MatchableFinding } from "./finding-match";
 
 function make(overrides: Partial<MatchableFinding> = {}): MatchableFinding {
   return {
-    category: "bug",
     filePath: "src/a.ts",
     lineNumber: 10,
     lineType: "added",
+    ruleId: "R-013",
     ...overrides,
   };
 }
@@ -33,14 +33,18 @@ describe("findingsMatch", () => {
     expect(findingsMatch(make(), make({ lineType: "removed" }), 3)).toBe(false);
   });
 
-  it("matches categories case- and whitespace-insensitively", () => {
-    expect(findingsMatch(make(), make({ category: "  BUG " }), 0)).toBe(true);
-    expect(findingsMatch(make(), make({ category: "security" }), 0)).toBe(
-      false,
-    );
+  it("matches only the same rule", () => {
+    expect(findingsMatch(make(), make({ ruleId: "R-014" }), 0)).toBe(false);
   });
 
-  it("normalizeCategory lowercases and trims", () => {
-    expect(normalizeCategory("  Security ")).toBe("security");
+  it("never matches a finding without a rule id", () => {
+    expect(
+      findingsMatch(
+        make({ ruleId: undefined }),
+        make({ ruleId: undefined }),
+        0,
+      ),
+    ).toBe(false);
+    expect(findingsMatch(make(), make({ ruleId: undefined }), 0)).toBe(false);
   });
 });

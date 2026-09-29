@@ -50,6 +50,7 @@ function createMockPipelineOrchestrator(
       codeHost,
       new MemoryCache<boolean>(),
       logger,
+      undefined,
     ),
     [],
     createMockPipelineMetrics(),

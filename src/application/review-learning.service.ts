@@ -4,14 +4,16 @@ import { toJSONSchema, z } from "zod";
 import { computeCostUsd } from "~/config/llm-pricing";
 import { AnalyticsTokens } from "~/di/analytics.tokens";
 import { InjectionTokens } from "~/di/injection-tokens";
+import { ReviewTokens } from "~/di/review-tokens";
 import type { CostBudget } from "~/domain/cost-budget";
 import { parseLlmJson } from "~/domain/llm/parse-llm-json";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
+import { buildRuleThreadReply } from "~/domain/rule-catalog/thread-reply";
 import type { ChatMessage } from "~/domain/types/llm.types";
 import type { ReviewFinding } from "~/domain/types/review.types";
-import { runNarrowFindingClarification } from "~/review/review-narrow-finding-clarification";
 
 const IntentResponseSchema = z.object({
   intent: z.enum([
@@ -55,6 +57,7 @@ class ReviewLearningService {
     InjectionTokens.Llm,
     InjectionTokens.Logger,
     AnalyticsTokens.CostModel,
+    ReviewTokens.CatalogUrl,
   ] as const;
 
   constructor(
@@ -63,6 +66,7 @@ class ReviewLearningService {
     private readonly llm: ILlmClient,
     private readonly logger: FastifyBaseLogger,
     private readonly costModel: string,
+    private readonly catalogUrl: string | undefined,
   ) {}
 
   private recordCost(
@@ -168,19 +172,14 @@ class ReviewLearningService {
     return { intent, reason };
   }
 
-  async answerClarification(
-    finding: ReviewFinding,
-    devReply: string,
-    costBudget: CostBudget,
-  ): Promise<string> {
-    return runNarrowFindingClarification({
-      costBudget,
-      costModel: this.costModel,
-      developerNote: devReply,
-      finding,
-      llm: this.llm,
-      logger: this.logger,
-    });
+  answerClarification(finding: ReviewFinding): string {
+    const rule =
+      finding.ruleId === undefined
+        ? undefined
+        : findCatalogRule(finding.ruleId);
+    return rule === undefined
+      ? ""
+      : buildRuleThreadReply(rule, this.catalogUrl);
   }
 
   async learnFromReply(input: LearnFromReplyInput): Promise<void> {

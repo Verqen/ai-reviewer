@@ -189,7 +189,6 @@ describe("ThreadManagerService", () => {
       1,
       1,
       expect.objectContaining({ id: "finding-1" }),
-      "What do you mean by this?",
     );
     expect(replyToDiscussionSpy).toHaveBeenCalledWith(
       1,
@@ -197,6 +196,30 @@ describe("ThreadManagerService", () => {
       "disc-1",
       "Narrow thread reply",
     );
+    expect(resolveDiscussionSpy).not.toHaveBeenCalled();
+  });
+
+  it("posts nothing when the clarification answer is empty", async () => {
+    classifyIntentFn.mockResolvedValue({
+      intent: "clarification",
+      reason: "question asked",
+    });
+    respondToFindingThreadClarificationFn.mockResolvedValue("");
+
+    const replyToDiscussionSpy = vi.spyOn(codeHost, "replyToDiscussion");
+    const resolveDiscussionSpy = vi.spyOn(codeHost, "resolveDiscussion");
+    const service = buildService();
+
+    await service.handleReply({
+      authorUsername: "dev-user",
+      discussionId: "disc-1",
+      mrIid: 1,
+      noteBody: "Why is this flagged?",
+      projectId: 1,
+    });
+
+    expect(respondToFindingThreadClarificationFn).toHaveBeenCalledTimes(1);
+    expect(replyToDiscussionSpy).not.toHaveBeenCalled();
     expect(resolveDiscussionSpy).not.toHaveBeenCalled();
   });
 

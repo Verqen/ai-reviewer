@@ -80,6 +80,7 @@ class ReviewRunCompletionService {
     InjectionTokens.CodeHost,
     InjectionTokens.Cache,
     InjectionTokens.Logger,
+    ReviewTokens.CatalogUrl,
   ] as const;
 
   constructor(
@@ -87,6 +88,7 @@ class ReviewRunCompletionService {
     private readonly codeHost: ICodeHost,
     private readonly cache: ICache<boolean>,
     private readonly logger: FastifyBaseLogger,
+    private readonly catalogUrl: string | undefined,
   ) {}
 
   async completeSuccessfulRun(
@@ -118,6 +120,7 @@ class ReviewRunCompletionService {
     });
     const summaryNote = buildSummaryNote({
       allFindings,
+      catalogUrl: this.catalogUrl,
       catalogVersion: RULE_CATALOG_VERSION,
       includeCostFooter: readRuntimeEnv().SHOW_REVIEW_COST_FOOTER,
       overview: overviewText,

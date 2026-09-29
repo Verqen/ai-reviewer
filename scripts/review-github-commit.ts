@@ -67,6 +67,11 @@ async function main(): Promise<void> {
   process.stderr.write(
     `[GH-COMMIT] files: ${String(result.filesReviewed)}/${String(result.filesTotal)}  findings: ${String(result.findings.length)}  partial: ${String(result.partial)}  catalog: ${result.catalogVersion}  cost: $${result.tokenCostUsd.toFixed(4)} → ${result.checkRunUrl}\n\n`,
   );
+  for (const finding of result.findings) {
+    process.stderr.write(
+      `[GH-COMMIT] ${finding.ruleId} ${finding.filePath}:${String(finding.line)} ${finding.fingerprint}\n`,
+    );
+  }
 }
 
 main().catch((err: unknown) => {

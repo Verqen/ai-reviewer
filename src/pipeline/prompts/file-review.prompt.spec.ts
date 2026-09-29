@@ -328,3 +328,33 @@ describe("formatCommentWithSuggestion", () => {
     expect(result).toContain("better code");
   });
 });
+
+describe("buildFileReviewExtractionSystemBlocks with suggestions omitted", () => {
+  function omittedText(): string {
+    return buildFileReviewExtractionSystemBlocks(true, "English", "omitted")
+      .map((b) => b.text)
+      .join("\n");
+  }
+
+  it("does not ask for replacement code", () => {
+    const text = omittedText();
+    expect(text).not.toContain("confidence >= 0.8");
+    expect(text).not.toContain(
+      "suggestion must contain only replacement code lines",
+    );
+    expect(text).not.toContain("deletion-only apply suggestion");
+    expect(text).not.toContain("every finding comment and suggestion");
+  });
+
+  it("instructs the model to leave suggestion null and keep code out of the comment", () => {
+    const text = omittedText();
+    expect(text).toContain("Always set suggestion to null");
+    expect(text).toContain("Never include replacement code");
+  });
+
+  it("keeps the allowed-suggestions prompt unchanged by default", () => {
+    expect(
+      buildFileReviewExtractionSystemBlocks(true, "English", "allowed"),
+    ).toEqual(buildFileReviewExtractionSystemBlocks(true, "English"));
+  });
+});

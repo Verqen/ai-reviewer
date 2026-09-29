@@ -9,10 +9,13 @@ import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { ForcePushCorrelationResult } from "~/domain/types/force-push-correlation.types";
 import type { Finding, PriorFindingsByFile } from "~/domain/types/review.types";
 
+type FindingSuggestions = "allowed" | "omitted";
+
 interface ReviewContext {
   architectureSnapshot?: string | undefined;
   costBudget?: CostBudget | undefined;
   diffs: ParsedFileDiff[];
+  findingSuggestions?: FindingSuggestions | undefined;
   forcePushCorrelation?: ForcePushCorrelationResult | undefined;
   isIncremental: boolean;
   mrIid: number;
@@ -52,4 +55,10 @@ interface AggregationResult {
   suppressedCount: number;
 }
 
-export type { AggregationResult, IReviewPass, PassResult, ReviewContext };
+export type {
+  AggregationResult,
+  FindingSuggestions,
+  IReviewPass,
+  PassResult,
+  ReviewContext,
+};

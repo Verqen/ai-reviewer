@@ -614,24 +614,13 @@ function printGitLabPreview(
         );
         continue;
       }
-      const { position, snappedFromLine } = positionResult;
-      const snappedComment =
-        snappedFromLine !== undefined && position.newLine !== undefined
-          ? `${finding.comment}\n\n_[Snapped from L${String(snappedFromLine)} → L${String(position.newLine)}: original line is outside the diff hunk]_`
-          : finding.comment;
-      const commentBody = formatFindingComment(
-        { ...finding, comment: snappedComment },
-        undefined,
-      );
+      const { position } = positionResult;
+      const commentBody = formatFindingComment(finding, undefined);
       threadIdx++;
       const targetLine = position.newLine ?? position.oldLine ?? "?";
-      const snapBadge =
-        snappedFromLine !== undefined
-          ? ` (snapped from L${String(snappedFromLine)})`
-          : "";
       process.stderr.write(
         `\n  ── thread #${String(threadIdx)} ─────────────────────────────────────\n` +
-          `  📍 ${position.newPath}:L${String(targetLine)}${snapBadge}  pass=${finding.passName}\n` +
+          `  📍 ${position.newPath}:L${String(targetLine)}  pass=${finding.passName}\n` +
           commentBody
             .split("\n")
             .map((l) => `  │ ${l}`)

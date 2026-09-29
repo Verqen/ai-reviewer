@@ -1,3 +1,4 @@
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import type { CatalogRule } from "~/domain/rule-catalog/rule-catalog.types";
 
 const SERVICE_STATEMENT =
@@ -11,9 +12,20 @@ function buildRuleThreadReply(
   return `${SERVICE_STATEMENT} about findings. Rule ${rule.id}: ${rule.condition}${link}`;
 }
 
+function buildFindingThreadReply(
+  ruleId: string | undefined | null,
+  catalogUrl: string | undefined,
+): string {
+  const rule =
+    ruleId === undefined || ruleId === null
+      ? undefined
+      : findCatalogRule(ruleId);
+  return rule === undefined ? "" : buildRuleThreadReply(rule, catalogUrl);
+}
+
 function buildMentionReply(catalogUrl: string | undefined): string {
   const link = catalogUrl === undefined ? "" : ` Rule catalog: ${catalogUrl}`;
   return `${SERVICE_STATEMENT}.${link}`;
 }
 
-export { buildMentionReply, buildRuleThreadReply };
+export { buildFindingThreadReply, buildMentionReply };

@@ -6,10 +6,9 @@ import { ReviewFindingPublisherService } from "~/application/review-finding-publ
 import { ReviewRunCompletionService } from "~/application/review-run-completion.service";
 import { ReviewRunLifecycleService } from "~/application/review-run-lifecycle.service";
 import { PipelineConfig } from "~/config/pipeline.config";
-import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import {
+  buildFindingThreadReply,
   buildMentionReply,
-  buildRuleThreadReply,
 } from "~/domain/rule-catalog/thread-reply";
 import type { DiffFile } from "~/domain/types/code-host.types";
 import type {
@@ -420,16 +419,15 @@ describe("ReviewService.respondToFindingThreadClarification", () => {
     const { codeHost, service } = createReplyServiceUnderTest(
       "https://verqen.dev/rules",
     );
-    const rule = findCatalogRule("R-013");
-    if (rule === undefined) throw new Error("missing");
-
     const reply = await service.respondToFindingThreadClarification(
       1,
       42,
       buildPendingFindingForThread("R-013"),
     );
 
-    expect(reply).toBe(buildRuleThreadReply(rule, "https://verqen.dev/rules"));
+    expect(reply).toBe(
+      buildFindingThreadReply("R-013", "https://verqen.dev/rules"),
+    );
     expect(codeHost.calls.getMergeRequestDiff).toHaveLength(0);
   });
 

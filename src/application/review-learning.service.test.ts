@@ -54,7 +54,6 @@ function createService(): ReviewLearningService {
     createMockLlmClient({ defaultContent: "null checks dismissed" }),
     createMockLogger(),
     OPENROUTER_REVIEW_MODEL,
-    undefined,
   );
 }
 

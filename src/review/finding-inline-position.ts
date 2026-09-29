@@ -76,33 +76,5 @@ function buildPosition(
   return null;
 }
 
-function originalSnippetMatchesDiff(
-  originalSnippet: string,
-  finding: Finding,
-  diffs: ParsedFileDiff[],
-): boolean {
-  const fileDiff = diffs.find((d) => d.newPath === finding.filePath);
-  if (!fileDiff) {
-    return false;
-  }
-  const endLine = finding.endLineNumber ?? finding.lineNumber;
-  const relevantLines = fileDiff.lines.filter((line) => {
-    const lineNum =
-      finding.lineType === "removed" ? line.oldLine : line.newLine;
-    return (
-      lineNum !== undefined &&
-      lineNum >= finding.lineNumber &&
-      lineNum <= endLine
-    );
-  });
-  const diffSnippet = relevantLines.map((l) => l.content).join("\n");
-  const normalizedDiff = diffSnippet.replace(/\r\n/g, "\n").trim();
-  const normalizedSnippet = originalSnippet.replace(/\r\n/g, "\n").trim();
-  return (
-    normalizedDiff === normalizedSnippet ||
-    normalizedDiff.includes(normalizedSnippet)
-  );
-}
-
-export { buildPosition, originalSnippetMatchesDiff };
+export { buildPosition };
 export type { InlinePositionResult };

@@ -13,13 +13,10 @@ import type {
   ReviewFinding,
 } from "~/domain/types/review.types";
 
-type FindingSuggestions = "allowed" | "omitted";
-
 interface ReviewContext {
   architectureSnapshot?: string | undefined;
   costBudget?: CostBudget | undefined;
   diffs: ParsedFileDiff[];
-  findingSuggestions?: FindingSuggestions | undefined;
   forcePushCorrelation?: ForcePushCorrelationResult | undefined;
   isIncremental: boolean;
   mrIid: number;
@@ -59,10 +56,4 @@ interface AggregationResult {
   suppressedCount: number;
 }
 
-export type {
-  AggregationResult,
-  FindingSuggestions,
-  IReviewPass,
-  PassResult,
-  ReviewContext,
-};
+export type { AggregationResult, IReviewPass, PassResult, ReviewContext };

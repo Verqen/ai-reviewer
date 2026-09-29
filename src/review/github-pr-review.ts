@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { GitHubConfig } from "~/config/github.config";
 import { computeReviewRunCostUsd } from "~/config/llm-pricing";
 import { readRuntimeEnv } from "~/config/runtime.env";
+import { RULE_CATALOG_VERSION } from "~/domain/rule-catalog/rule-catalog";
 import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
 import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
 import type {
@@ -26,9 +27,9 @@ import {
 import { createSilentLogger } from "~/infrastructure/logging/silent-logger";
 import { CostBudget } from "~/domain/cost-budget";
 import { getPrimarySkipReason } from "~/pipeline/passes/skip-filter";
-import { formatCommentWithSuggestion } from "~/pipeline/prompts/suggestion-formatter";
 import { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 import { parseDiff } from "~/review/diff-parser";
+import { formatFindingComment } from "~/review/finding-comment";
 import { findingsMatch } from "~/review/finding-match";
 import { buildPosition } from "~/review/finding-inline-position";
 import { computeProductionReadinessScore } from "~/review/scoring.service";
@@ -69,17 +70,18 @@ export interface GitHubPullRequestReviewOptions {
   resolverToken?: string | undefined;
   pathRules?: ReviewPathRule[] | undefined;
   showCostFooter?: boolean | undefined;
+  catalogUrl?: string | undefined;
   logger?: FastifyBaseLogger;
 }
 
 export interface ReviewedFinding {
+  ruleId: RuleId;
   severity: Severity;
   category: string;
   filePath: string;
   line: number;
   lineType: LineType;
   comment: string;
-  suggestion: string | null;
   anchored: boolean;
   hostDiscussionId: string | null;
   hostNoteId: string | null;
@@ -95,6 +97,7 @@ export interface GitHubPullRequestReviewResult {
   incremental: boolean;
   resolvedThreadIds: string[];
   tokenCostUsd: number;
+  catalogVersion: string;
 }
 
 function defaultLogger(provided?: FastifyBaseLogger): FastifyBaseLogger {
@@ -341,15 +344,7 @@ export async function reviewGitHubPullRequest(
         if (alreadyPosted.has(locationKey(finding.filePath, targetLine))) {
           continue;
         }
-        const body = formatCommentWithSuggestion(
-          finding.comment,
-          finding.severity,
-          finding.suggestion,
-          finding.originalSnippet,
-          finding.lineType,
-          positionResult.position.newLine ?? finding.lineNumber,
-          finding.endLineNumber,
-        );
+        const body = formatFindingComment(finding, options.catalogUrl);
         try {
           const posted = await codeHost.postInlineComment(
             projectId,
@@ -369,7 +364,7 @@ export async function reviewGitHubPullRequest(
     }
 
     const partialNote = partial
-      ? "\n\n> **Large change — partial review.** The per-scan cost ceiling was reached, so file-level findings are reported but cross-file analysis was skipped. Upgrade for full coverage."
+      ? "\n\n> **Large change — partial review.** The per-scan cost ceiling was reached, so file-level findings are reported but cross-file analysis was skipped. Cross-file analysis was skipped for this run."
       : "";
     const incrementalNote = incremental
       ? `\n\n> _Incremental review: only the ${String(reviewedFilePaths.size)} file(s) changed since the last review were re-analyzed; prior findings on unchanged files still stand._`
@@ -385,6 +380,8 @@ export async function reviewGitHubPullRequest(
     const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})${partialNote}${incrementalNote}\n\n${buildSummaryNote(
       {
         allFindings,
+        catalogUrl: options.catalogUrl,
+        catalogVersion: RULE_CATALOG_VERSION,
         includeCostFooter: showCostFooter,
         overview,
         postableFindings: postable,
@@ -456,13 +453,13 @@ export async function reviewGitHubPullRequest(
   const findings: ReviewedFinding[] = allFindings.map((finding) => {
     const posted = postedThreadByFinding.get(finding) ?? null;
     return {
+      ruleId: finding.ruleId,
       severity: finding.severity,
       category: finding.category,
       filePath: finding.filePath,
       line: finding.lineNumber,
       lineType: finding.lineType,
       comment: finding.comment,
-      suggestion: finding.suggestion ?? null,
       anchored: postableSet.has(finding),
       hostDiscussionId: posted?.discussionId ?? null,
       hostNoteId: posted?.noteId ?? null,
@@ -479,5 +476,6 @@ export async function reviewGitHubPullRequest(
     incremental,
     resolvedThreadIds,
     tokenCostUsd,
+    catalogVersion: RULE_CATALOG_VERSION,
   };
 }

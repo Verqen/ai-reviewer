@@ -108,6 +108,7 @@ function createE2eOrchestrator(options: {
       codeHost,
       createMockCommentResolutionService(),
       logger,
+      undefined,
     ),
     new ReviewRunCompletionService(infraRepoPorts, codeHost, cache, logger),
     passes,

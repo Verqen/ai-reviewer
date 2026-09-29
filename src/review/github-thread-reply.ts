@@ -29,7 +29,6 @@ export interface ReviewThreadFinding {
   category?: string;
   severity?: Severity;
   comment: string;
-  suggestion?: string | null;
 }
 
 export interface AnswerReviewThreadOptions {
@@ -124,7 +123,6 @@ export async function answerReviewThread(
       resolution: "pending",
       reviewRunId: "thread-reply",
       severity: finding.severity ?? "warning",
-      suggestion: finding.suggestion ?? undefined,
     },
     mrInfo: {
       description: mrInfo.description,

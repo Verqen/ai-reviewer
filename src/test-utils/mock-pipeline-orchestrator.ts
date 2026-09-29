@@ -43,6 +43,7 @@ function createMockPipelineOrchestrator(
       codeHost,
       createMockCommentResolutionService(),
       logger,
+      undefined,
     ),
     new ReviewRunCompletionService(
       infraRepoPorts,

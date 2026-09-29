@@ -24,6 +24,7 @@ function buildFinding(overrides: Partial<Finding> = {}): Finding {
 function buildParams(overrides: Partial<SummaryParams> = {}): SummaryParams {
   return {
     allFindings: [],
+    catalogVersion: "2026.10.1",
     overview: "AI review complete — no issues found.",
     postableFindings: [],
     suppressedCount: 0,
@@ -194,25 +195,57 @@ describe("buildSummaryNote", () => {
     const archSectionIdx = note.indexOf("### Architecture Findings");
     const fileSection = note.slice(fileSectionIdx, archSectionIdx);
     const archSection = note.slice(archSectionIdx);
-    const fileItems = fileSection.match(/\n\d+\. \*\*\[CRITICAL\]\*\*/g) ?? [];
-    const archItems = archSection.match(/\n\d+\. \*\*\[CRITICAL\]\*\*/g) ?? [];
+    const fileItems =
+      fileSection.match(/\n\d+\. \*\*R-013\*\* \[CRITICAL\]/g) ?? [];
+    const archItems =
+      archSection.match(/\n\d+\. \*\*R-013\*\* \[CRITICAL\]/g) ?? [];
     expect(fileItems).toHaveLength(6);
     expect(archItems).toHaveLength(6);
     expect(fileSection).toContain("File issue 0");
     expect(archSection).toContain("Architecture issue 0");
   });
 
-  it("renders a suggested-fix block for findings that carry a suggestion", () => {
-    const finding = buildFinding({
-      comment: "Hardcoded key",
-      severity: "critical",
-      suggestion: "const key = process.env.API_KEY;",
+  it("counts matches by rule and states the catalog version", () => {
+    const note = buildSummaryNote({
+      allFindings: [
+        buildFinding({ ruleId: "R-013" }),
+        buildFinding({ lineNumber: 2, ruleId: "R-013" }),
+        buildFinding({
+          category: "types",
+          ruleId: "R-022",
+          severity: "warning",
+        }),
+      ],
+      catalogVersion: "2026.10.1",
+      overview: "3 finding(s)",
+      postableFindings: [],
+      suppressedCount: 0,
+      tokenUsageByModel: {},
     });
-    const note = buildSummaryNote(
-      buildParams({ allFindings: [finding], postableFindings: [finding] }),
+    expect(note).toContain("Rule catalog 2026.10.1");
+    expect(note).toContain(
+      "| R-013 | Identifier used but not declared or imported | 2 |",
     );
-    expect(note).toContain("_Suggested fix:_");
-    expect(note).toContain("const key = process.env.API_KEY;");
+    expect(note).toContain(
+      "| R-022 | Type assertion that bypasses the type checker | 1 |",
+    );
+    expect(note).not.toMatch(/suggest|score|grade/i);
+  });
+
+  it("links the rule catalog when a catalog url is given", () => {
+    const note = buildSummaryNote(
+      buildParams({ catalogUrl: "https://verqen.dev/rules" }),
+    );
+    expect(note).toContain("Rule catalog 2026.10.1: https://verqen.dev/rules");
+  });
+
+  it("prefixes each listed finding with its rule id", () => {
+    const note = buildSummaryNote(
+      buildParams({
+        allFindings: [buildFinding({ comment: "Listed", severity: "warning" })],
+      }),
+    );
+    expect(note).toContain("1. **R-013** [WARNING] `src/a.ts:1` - Listed");
   });
 
   it("renders the estimated LLM cost when the footer is enabled", () => {

@@ -98,7 +98,7 @@ export type {
 
 export { parseDiff } from "~/review/diff-parser";
 export { buildPosition } from "~/review/finding-inline-position";
-export { formatCommentWithSuggestion } from "~/pipeline/prompts/suggestion-formatter";
+export { formatFindingComment } from "~/review/finding-comment";
 export { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 
 export { OpenRouterClient } from "~/infrastructure/llm/openrouter/openrouter.client";

@@ -32,10 +32,9 @@ interface CreateDismissedPatternInput {
 interface IDismissedPatternRepository {
   create(input: CreateDismissedPatternInput): Promise<DismissedPattern>;
   findByProject(projectId: number): Promise<DismissedPattern[]>;
-  findSimilar(
+  findByRule(
     projectId: number,
-    category: FindingCategory,
-    comment: string,
+    ruleId: RuleId,
   ): Promise<DismissedPattern | undefined>;
   incrementOccurrence(id: string): Promise<void>;
 }

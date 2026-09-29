@@ -197,43 +197,43 @@ class ReviewLearningService {
       return;
     }
 
-    const existing = await this.dismissedPatternRepo.findSimilar(
-      projectId,
-      finding.category,
-      finding.comment,
-    );
-
-    if (existing) {
-      await this.dismissedPatternRepo.incrementOccurrence(existing.id);
-      this.logger.info(
-        { patternId: existing.id, projectId },
-        "Incremented dismissed pattern occurrence",
-      );
-    } else if (finding.ruleId === undefined) {
+    if (finding.ruleId === undefined) {
       this.logger.warn(
         { findingId: finding.id, projectId },
         "Skipping dismissed pattern for a finding without a catalog rule id",
       );
     } else {
-      const patternDescription = await this.generatePatternDescription(
-        finding.comment,
-        devReply,
-        costBudget,
-      );
-      await this.dismissedPatternRepo.create({
-        category: finding.category,
-        createdBy: authorUsername,
-        patternDescription,
+      const existing = await this.dismissedPatternRepo.findByRule(
         projectId,
-        ruleId: finding.ruleId,
-        sampleComment: finding.comment,
-        sampleReply: devReply,
-        severity: finding.severity,
-      });
-      this.logger.info(
-        { category: finding.category, projectId },
-        "Created new dismissed pattern",
+        finding.ruleId,
       );
+      if (existing) {
+        await this.dismissedPatternRepo.incrementOccurrence(existing.id);
+        this.logger.info(
+          { patternId: existing.id, projectId },
+          "Incremented dismissed pattern occurrence",
+        );
+      } else {
+        const patternDescription = await this.generatePatternDescription(
+          finding.comment,
+          devReply,
+          costBudget,
+        );
+        await this.dismissedPatternRepo.create({
+          category: finding.category,
+          createdBy: authorUsername,
+          patternDescription,
+          projectId,
+          ruleId: finding.ruleId,
+          sampleComment: finding.comment,
+          sampleReply: devReply,
+          severity: finding.severity,
+        });
+        this.logger.info(
+          { category: finding.category, projectId },
+          "Created new dismissed pattern",
+        );
+      }
     }
 
     await this.reviewFindingRepo.updateResolution(

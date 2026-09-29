@@ -16,9 +16,9 @@ import type {
   BaselineState,
   ContentMatch,
 } from "~/domain/ports/snapshot.repository.port";
+import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
 import type {
   CommentResolution,
-  FindingCategory,
   ReviewFinding,
   ReviewRun,
   ReviewStatus,
@@ -97,10 +97,9 @@ function createMockInfraRepoPorts(
         return Promise.resolve([]);
       },
 
-      findSimilar(
+      findByRule(
         _projectId: number,
-        _category: FindingCategory,
-        _comment: string,
+        _ruleId: RuleId,
       ): Promise<DismissedPattern | undefined> {
         return Promise.resolve(undefined);
       },

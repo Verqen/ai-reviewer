@@ -28,6 +28,7 @@ function buildMockFinding(
     passName: "file-review",
     resolution: "pending",
     reviewRunId: "run-1",
+    ruleId: "R-013",
     severity: "warning",
     ...overrides,
   };
@@ -510,6 +511,50 @@ describe("ReviewLearningService", () => {
           createdBy: "dev-user",
           projectId: 1,
         }),
+      );
+      expect(updateResolutionFn).toHaveBeenCalledWith(
+        "finding-1",
+        "dismissed",
+        "dev-user",
+        "by design",
+      );
+    });
+
+    it("skips the pattern for a legacy finding without a rule id and still resolves it", async () => {
+      const llm = createMockLlmClient({
+        responses: [
+          {
+            content: JSON.stringify({
+              intent: "false_positive",
+              reason: "by design",
+            }),
+            toolCalls: [],
+            usage: { completionTokens: 10, promptTokens: 5 },
+          },
+        ],
+      });
+      const warn = vi.fn();
+      const service = new ReviewLearningService(
+        dismissedPatternRepo,
+        reviewFindingRepo,
+        llm,
+        createMockLogger({ warn }),
+        COST_MODEL,
+      );
+
+      await service.learnFromReply({
+        authorUsername: "dev-user",
+        costBudget: new CostBudget(undefined),
+        devReply: "This is intentional",
+        finding: buildMockFinding({ ruleId: undefined }),
+        mrIid: 1,
+        projectId: 1,
+      });
+
+      expect(createFn).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith(
+        { findingId: "finding-1", projectId: 1 },
+        "Skipping dismissed pattern for a finding without a catalog rule id",
       );
       expect(updateResolutionFn).toHaveBeenCalledWith(
         "finding-1",

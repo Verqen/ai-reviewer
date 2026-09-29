@@ -1,3 +1,4 @@
+import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { CreateReviewFindingInput } from "~/domain/ports/review-finding.repository.port";
@@ -219,5 +220,23 @@ describe("ReviewFindingRepository", () => {
         })
         .execute(),
     ).rejects.toThrow(/review_finding_rule_id_required/);
+  });
+
+  it("resolves a legacy finding whose rule id is null", async () => {
+    const run = await createTestRun();
+    const [created] = await findingRepo.createMany([makeFindingInput(run.id)]);
+    await sql`UPDATE review_finding SET rule_id = NULL WHERE id = ${created?.id}`.execute(
+      testDb.db,
+    );
+    await findingRepo.updateResolution(
+      created?.id ?? "",
+      "dismissed",
+      "dev-user",
+      "by design",
+    );
+    await findingRepo.updateResolutionMany([created?.id ?? ""], "addressed");
+    const [stored] = await findingRepo.findByRunId(run.id);
+    expect(stored?.resolution).toBe("addressed");
+    expect(stored?.ruleId).toBeUndefined();
   });
 });

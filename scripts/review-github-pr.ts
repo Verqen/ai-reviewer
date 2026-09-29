@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   });
 
   process.stderr.write(
-    `[GH-REVIEW] findings: ${String(result.findings.length)}  score: ${String(result.score)}/100 (${result.grade})  ${dryRun ? "would post" : "posted"}: ${String(result.postedCount)} → https://github.com/${owner}/${repo}/pull/${String(prNumber)}\n\n`,
+    `[GH-REVIEW] findings: ${String(result.findings.length)}  ${dryRun ? "would post" : "posted"}: ${String(result.postedCount)} → https://github.com/${owner}/${repo}/pull/${String(prNumber)}\n\n`,
   );
 }
 

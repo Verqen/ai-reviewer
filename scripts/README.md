@@ -41,7 +41,7 @@ LLM_PROVIDER=ollama pnpm run scan -- --repo /path/to/repo
 
 `pnpm run review:github -- --owner <login> --repo <name> --pr <number> [--dry-run]` (`scripts/review-github-pr.ts`)
 
-The GitHub equivalent of `scan`, but it writes: inline review threads plus a summary note with the production-readiness score. `--dry-run` runs the whole pipeline and posts nothing. Owner, repo and PR number are required.
+The GitHub equivalent of `scan`, but it writes: inline review threads plus a summary note. `--dry-run` runs the whole pipeline and posts nothing. Owner, repo and PR number are required.
 
 Needs `CODE_HOST_PROVIDER=github`, GitHub App credentials, and an LLM provider key.
 

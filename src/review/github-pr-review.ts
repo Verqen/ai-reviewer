@@ -32,13 +32,11 @@ import { parseDiff } from "~/review/diff-parser";
 import { formatFindingComment } from "~/review/finding-comment";
 import { findingsMatch } from "~/review/finding-match";
 import { buildPosition } from "~/review/finding-inline-position";
-import { computeProductionReadinessScore } from "~/review/scoring.service";
 import {
   buildOverlay,
   createReviewLlm,
   runReviewPasses,
 } from "~/review/review-pass-run";
-import type { Grade } from "~/review/scoring.service";
 
 export type GitHubReviewPostMode = "inline" | "summary";
 
@@ -87,10 +85,22 @@ export interface ReviewedFinding {
   hostNoteId: string | null;
 }
 
+export function buildPullRequestSummaryHeading(params: {
+  incremental: boolean;
+  partial: boolean;
+  reviewedFileCount: number;
+}): string {
+  const partialNote = params.partial
+    ? "\n\n> **Large change — partial check.** The per-scan cost ceiling was reached. Cross-file analysis was skipped for this run."
+    : "";
+  const incrementalNote = params.incremental
+    ? `\n\n> _Incremental check: only the ${String(params.reviewedFileCount)} file(s) changed since the last review were re-analyzed; prior findings on unchanged files still stand._`
+    : "";
+  return `## Verqen check${partialNote}${incrementalNote}`;
+}
+
 export interface GitHubPullRequestReviewResult {
   repoId: number;
-  score: number;
-  grade: Grade;
   findings: ReviewedFinding[];
   postedCount: number;
   partial: boolean;
@@ -299,19 +309,6 @@ export async function reviewGitHubPullRequest(
   const allFindings: Finding[] = aggMeta?.allFindings ?? [];
   const postable: Finding[] = aggMeta?.postableFindings ?? [];
   const suppressedCount = aggMeta?.suppressedCount ?? 0;
-  const carriedForScore = incremental
-    ? previousThreads
-        .filter((thread) => !reviewedFilePaths.has(thread.filePath))
-        .map((thread) => ({
-          category: "correctness",
-          severity: thread.severity,
-        }))
-    : [];
-  const score = computeProductionReadinessScore([
-    ...allFindings,
-    ...carriedForScore,
-  ]);
-
   const postableSet = new Set(postable);
   const postedThreadByFinding = new Map<
     Finding,
@@ -363,12 +360,6 @@ export async function reviewGitHubPullRequest(
       }
     }
 
-    const partialNote = partial
-      ? "\n\n> **Large change — partial review.** The per-scan cost ceiling was reached, so file-level findings are reported but cross-file analysis was skipped. Cross-file analysis was skipped for this run."
-      : "";
-    const incrementalNote = incremental
-      ? `\n\n> _Incremental review: only the ${String(reviewedFilePaths.size)} file(s) changed since the last review were re-analyzed; prior findings on unchanged files still stand._`
-      : "";
     const overview =
       allFindings.length === 0
         ? incremental
@@ -377,19 +368,21 @@ export async function reviewGitHubPullRequest(
         : `${String(allFindings.length)} finding(s); ${String(postedCount)} posted inline.`;
     const showCostFooter =
       options.showCostFooter ?? readRuntimeEnv().SHOW_REVIEW_COST_FOOTER;
-    const summaryBody = `## AI Review — production-readiness: ${String(score.score)}/100 (grade ${score.grade})${partialNote}${incrementalNote}\n\n${buildSummaryNote(
-      {
-        allFindings,
-        catalogUrl: options.catalogUrl,
-        catalogVersion: RULE_CATALOG_VERSION,
-        includeCostFooter: showCostFooter,
-        overview,
-        postableFindings: postable,
-        suppressedCount,
-        tokenCostUsd,
-        tokenUsageByModel,
-      },
-    )}`;
+    const summaryBody = `${buildPullRequestSummaryHeading({
+      incremental,
+      partial,
+      reviewedFileCount: reviewedFilePaths.size,
+    })}\n\n${buildSummaryNote({
+      allFindings,
+      catalogUrl: options.catalogUrl,
+      catalogVersion: RULE_CATALOG_VERSION,
+      includeCostFooter: showCostFooter,
+      overview,
+      postableFindings: postable,
+      suppressedCount,
+      tokenCostUsd,
+      tokenUsageByModel,
+    })}`;
     const summaryNote = `${summaryBody}\n\n${SUMMARY_MARKER}`;
     await codeHost.upsertNote(
       projectId,
@@ -468,8 +461,6 @@ export async function reviewGitHubPullRequest(
 
   return {
     repoId: projectId,
-    score: score.score,
-    grade: score.grade,
     findings,
     postedCount,
     partial,

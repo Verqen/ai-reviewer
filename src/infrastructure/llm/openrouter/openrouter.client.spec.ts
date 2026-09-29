@@ -354,6 +354,52 @@ describe("OpenRouterClient", () => {
     expect(result.content).toBe("done");
   });
 
+  it("retries an oversized request without reasoning when the original had none", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(rateLimitedResponse("0"))
+      .mockResolvedValueOnce(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion([
+      { content: "x".repeat(90_000), role: "user" },
+    ]);
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await pending;
+
+    const retried = fetchMock.mock.calls[1] as [string, { body: string }];
+    const retriedBody: unknown = JSON.parse(retried[1].body);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(retriedBody).toMatchObject({ max_tokens: 800 });
+    expect(retriedBody).not.toHaveProperty("reasoning");
+  });
+
+  it("retries an oversized request with low reasoning when the original had reasoning", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(rateLimitedResponse("0"))
+      .mockResolvedValueOnce(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion(
+      [{ content: "x".repeat(90_000), role: "user" }],
+      { reasoning: { effort: "high" } },
+    );
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await pending;
+
+    const retried = fetchMock.mock.calls[1] as [string, { body: string }];
+    expect(JSON.parse(retried[1].body)).toMatchObject({
+      reasoning: { effort: "low" },
+    });
+  });
+
   it("does not retry a transport error that cannot succeed on a repeat", async () => {
     const fetchMock = vi
       .fn()

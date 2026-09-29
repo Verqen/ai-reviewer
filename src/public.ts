@@ -83,6 +83,17 @@ export type {
   ReviewPathRule,
 } from "~/review/github-pr-review";
 
+export {
+  resolveGitHubDefaultBranchHead,
+  reviewGitHubCommit,
+} from "~/review/github-commit-review";
+export type {
+  CommitReviewFinding,
+  GitHubCommitReviewOptions,
+  GitHubCommitReviewResult,
+  GitHubDefaultBranchHead,
+} from "~/review/github-commit-review";
+
 export { answerReviewThread } from "~/review/github-thread-reply";
 export type {
   AnswerReviewThreadOptions,

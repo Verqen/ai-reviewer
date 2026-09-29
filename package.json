@@ -1,6 +1,6 @@
 {
   "name": "@gkosach/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Source-available AI code-review pipeline: anchor-grounded, multi-pass, self-hostable.",
   "license": "LicenseRef-FSL-1.1-ALv2",
   "author": "German Kosach",
@@ -38,6 +38,7 @@
     "quickstart": "tsx scripts/quickstart.ts",
     "replay": "dotenv -e .env -- tsx scripts/replay-mr.ts",
     "review:github": "dotenv -e .env -- tsx scripts/review-github-pr.ts",
+    "review:github:commit": "dotenv -e .env -- tsx scripts/review-github-commit.ts",
     "scan": "dotenv -e .env -- tsx scripts/replay-mr.ts",
     "smoke:llm": "dotenv -e .env tsx scripts/smoke-llm.ts",
     "smoke:llm:ollama": "LLM_PROVIDER=ollama dotenv -e .env tsx scripts/smoke-llm.ts",

@@ -45,6 +45,14 @@ The GitHub equivalent of `scan`, but it writes: inline review threads plus a sum
 
 Needs `CODE_HOST_PROVIDER=github`, GitHub App credentials, and an LLM provider key.
 
+## review:github:commit — check a whole repository at one commit
+
+`pnpm run review:github:commit -- --owner <login> --repo <name> [--installation <id>] [--sha <commit>] [--max-cost <usd>]` (`scripts/review-github-commit.ts`)
+
+Reviews every reviewable file of the repository tree at one commit, without a pull request, and publishes the findings as a GitHub Check Run on that commit. Findings carry no suggested fix. Without `--sha` it takes the head of the default branch. `--max-cost` is the spend ceiling for the run (default 20 USD); a run that reaches it is marked partial.
+
+Needs the same setup as `review:github`, and the GitHub App must have the `checks: write` permission.
+
 ## smoke:llm — check the configured provider
 
 `pnpm run smoke:llm` / `pnpm run smoke:llm:ollama` / `pnpm run smoke:llm:openrouter` (`scripts/smoke-llm.ts`)

@@ -223,6 +223,8 @@ function formatParsedDiffForPromptWithBudget(
 export { formatParsedDiffForPrompt, parseDiff };
 export {
   DEFAULT_ANCHOR_CATALOG_GROUP_BY_HUNK_THRESHOLD,
+  DEFAULT_MAX_DIFF_CHARACTERS,
+  DEFAULT_MAX_DIFF_LINES,
   formatAllowableAnchorsForPrompt,
   getAnchorCatalogLineNumber,
   formatParsedDiffForPromptWithBudget,

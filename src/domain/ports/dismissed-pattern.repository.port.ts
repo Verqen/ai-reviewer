@@ -23,7 +23,7 @@ interface CreateDismissedPatternInput {
   filePathGlob?: string | undefined;
   patternDescription: string;
   projectId: number;
-  ruleId: RuleId | undefined;
+  ruleId: RuleId;
   sampleComment?: string | undefined;
   sampleReply?: string | undefined;
   severity: Severity;

@@ -467,6 +467,23 @@ describe("GitHubCodeHost check runs", () => {
     });
   });
 
+  it("links the check run details to the given url", async () => {
+    const { calls, host } = checkRunHost();
+
+    await host.createCheckRun(42, {
+      detailsUrl: "https://app.verqen.dev/rules",
+      headSha: "abc123",
+      name: "Verqen",
+    });
+
+    expect(calls.find((call) => call.method === "POST")?.body).toEqual({
+      details_url: "https://app.verqen.dev/rules",
+      head_sha: "abc123",
+      name: "Verqen",
+      status: "in_progress",
+    });
+  });
+
   it("sends 120 annotations in three batches and completes only on the last", async () => {
     const { calls, host } = checkRunHost();
 

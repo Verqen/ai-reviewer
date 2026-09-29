@@ -8,6 +8,9 @@ const DATE_LENGTH = 10;
 const FIRST_RUN_SUMMARY =
   "First run for this repository: there is no earlier result to compare with.";
 
+const COMPARISON_CAVEAT =
+  "The same code can yield a different borderline match between runs, so a single new or resolved match is not by itself proof of a code change.";
+
 interface CommitReviewBaseline {
   catalogVersion: string;
   commitSha: string;
@@ -114,7 +117,7 @@ function buildComparisonSummary(
     .join("\n");
   const hidden = comparison.resolved.length - RESOLVED_LIST_LIMIT;
   const more = hidden > 0 ? `and ${String(hidden)} more` : "";
-  return [heading, counts, catalogLine, listed, more]
+  return [heading, counts, catalogLine, listed, more, COMPARISON_CAVEAT]
     .filter((part) => part.length > 0)
     .join("\n\n");
 }

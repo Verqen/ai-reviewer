@@ -132,6 +132,31 @@ describe("compareFindings", () => {
     expect(result.notComparable).toBe(1);
   });
 
+  it("does not compare current findings in files this run did not review", () => {
+    const baseline = at("src/big.ts", 3, "f1");
+    const current = at("src/big.ts", 3, "f1");
+
+    const result = compare([current], [baseline], ["src/big.ts"], {
+      unreviewedPaths: new Set(["src/big.ts"]),
+    });
+
+    expect(result).toEqual({
+      new: [],
+      notComparable: 2,
+      persisting: [],
+      resolved: [],
+    });
+  });
+
+  it("orders findings by code point rather than locale", () => {
+    const lower = at("src/a.ts", 1, "f1");
+    const upper = at("src/B.ts", 1, "f2");
+
+    const result = compare([lower, upper], [], ["src/a.ts", "src/B.ts"]);
+
+    expect(result.new).toEqual([upper, lower]);
+  });
+
   it("partitions every comparable finding exactly once", () => {
     let seed = 7;
     function next(limit: number): number {
@@ -160,8 +185,9 @@ describe("compareFindings", () => {
         unreviewedPaths: unreviewed,
       });
 
-      const currentComparable = current.filter((finding) =>
-        comparable.has(finding.ruleId),
+      const currentComparable = current.filter(
+        (finding) =>
+          comparable.has(finding.ruleId) && !unreviewed.has(finding.filePath),
       ).length;
       const baselineComparable = baseline.filter(
         (finding) =>

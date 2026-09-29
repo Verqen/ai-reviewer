@@ -100,13 +100,27 @@ function pathsSkippedForCost(
   return new Set(coverage.pathsSkippedCostCeiling);
 }
 
+const CODE_FENCE = "```";
+
 function publishedFindings(
   passResults: ReadonlyMap<string, PassResult>,
+  logger: FastifyBaseLogger,
 ): Finding[] {
   const aggregation = passResults.get("aggregation")?.metadata as
     | Partial<AggregationResult>
     | undefined;
-  return aggregation?.postableFindings ?? [];
+  return (aggregation?.postableFindings ?? []).filter((finding) => {
+    if (!finding.comment.includes(CODE_FENCE)) return true;
+    logger.warn(
+      {
+        filePath: finding.filePath,
+        lineNumber: finding.lineNumber,
+        passName: finding.passName,
+      },
+      "Dropping commit-review finding with code in comment",
+    );
+    return false;
+  });
 }
 
 function toCommitReviewFinding(finding: Finding): CommitReviewFinding {
@@ -230,7 +244,7 @@ async function reviewTree(
   return {
     filesReviewed: reviewablePaths.filter((path) => !skipped.has(path)).length,
     filesTotal: reviewablePaths.length,
-    findings: publishedFindings(passResults).map(toCommitReviewFinding),
+    findings: publishedFindings(passResults, logger).map(toCommitReviewFinding),
     partial,
     tokenCostUsd: computeReviewRunCostUsd(passResults, models),
   };

@@ -138,7 +138,6 @@ class ThreadManagerService {
           mrIid,
           discussionId,
           finding,
-          noteBody,
         );
         break;
     }
@@ -178,7 +177,6 @@ class ThreadManagerService {
     mrIid: number,
     discussionId: string,
     finding: ReviewFinding,
-    devReply: string,
   ): Promise<void> {
     this.logger.info(
       {
@@ -196,7 +194,6 @@ class ThreadManagerService {
         projectId,
         mrIid,
         finding,
-        devReply,
       );
     } catch (err) {
       this.logger.warn(
@@ -212,6 +209,8 @@ class ThreadManagerService {
       );
       return;
     }
+
+    if (answer.length === 0) return;
 
     try {
       await this.codeHost.replyToDiscussion(

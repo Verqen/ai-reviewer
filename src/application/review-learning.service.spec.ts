@@ -5,6 +5,8 @@ import { CostBudget } from "~/domain/cost-budget";
 import type { DismissedPattern } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
+import { buildRuleThreadReply } from "~/domain/rule-catalog/thread-reply";
 import type { ReviewFinding } from "~/domain/types/review.types";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
 import { createMockLogger } from "~/test-utils/mock-logger";
@@ -12,6 +14,7 @@ import { createMockLogger } from "~/test-utils/mock-logger";
 import { ReviewLearningService } from "./review-learning.service";
 
 const COST_MODEL = OPENROUTER_REVIEW_MODEL;
+const CATALOG_URL = "https://verqen.dev/rules";
 
 function buildMockFinding(
   overrides: Partial<ReviewFinding> = {},
@@ -112,6 +115,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -141,6 +145,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -168,6 +173,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -198,6 +204,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -226,6 +233,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       await service.classifyIntent("bot", "dev", new CostBudget(undefined));
@@ -254,6 +262,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       await service.classifyIntent(
@@ -280,184 +289,45 @@ describe("ReviewLearningService", () => {
   });
 
   describe("answerClarification", () => {
-    it("returns single LLM response trimmed and uses only finding context (no MR/file fetches)", async () => {
-      const llm = createMockLlmClient({
-        responses: [
-          {
-            content: "  Замените умножение на деление в строке 5.  ",
-            toolCalls: [],
-            usage: { completionTokens: 30, promptTokens: 100 },
-          },
-        ],
-      });
-
+    it("returns the fixed rule text for the finding rule without calling the LLM", () => {
+      const llm = createMockLlmClient();
       const service = new ReviewLearningService(
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
+      );
+      const rule = findCatalogRule("R-013");
+      if (rule === undefined) throw new Error("missing");
+
+      const reply = service.answerClarification(
+        buildMockFinding({ ruleId: "R-013" }),
       );
 
-      const finding = buildMockFinding({
-        comment: "Multiplication used instead of division",
-        filePath: "src/calculator.ts",
-        lineExcerpt: "return a * b;",
-        lineNumber: 5,
-      });
-
-      const reply = await service.answerClarification(
-        finding,
-        "Как починить?",
-        new CostBudget(undefined),
-      );
-
-      expect(reply).toBe("Замените умножение на деление в строке 5.");
-      expect(llm.calls.chatCompletion).toHaveLength(1);
+      expect(reply).toBe(buildRuleThreadReply(rule, CATALOG_URL));
+      expect(llm.calls.chatCompletion).toHaveLength(0);
       expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
     });
 
-    it("sets maxPromptTokensHard=4000 budget on clarification call", async () => {
-      const llm = createMockLlmClient({
-        responses: [
-          {
-            content: "answer",
-            toolCalls: [],
-            usage: { completionTokens: 5, promptTokens: 5 },
-          },
-        ],
-      });
-
+    it("returns an empty reply for a finding without a catalog rule", () => {
+      const llm = createMockLlmClient();
       const service = new ReviewLearningService(
         dismissedPatternRepo,
         reviewFindingRepo,
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
-      await service.answerClarification(
-        buildMockFinding(),
-        "?",
-        new CostBudget(undefined),
+      const reply = service.answerClarification(
+        buildMockFinding({ ruleId: undefined }),
       );
 
-      const [, opts] = llm.calls.chatCompletion[0]!;
-      expect(opts?.maxPromptTokensHard).toBe(6000);
-      expect(opts?.tools).toBeUndefined();
-    });
-
-    it("does NOT include any diff/MR-info hint in the prompt — only finding fields and devReply", async () => {
-      const llm = createMockLlmClient({
-        responses: [
-          {
-            content: "ok",
-            toolCalls: [],
-            usage: { completionTokens: 5, promptTokens: 5 },
-          },
-        ],
-      });
-
-      const service = new ReviewLearningService(
-        dismissedPatternRepo,
-        reviewFindingRepo,
-        llm,
-        createMockLogger(),
-        COST_MODEL,
-      );
-
-      const finding = buildMockFinding({
-        comment: "BAD",
-        filePath: "src/x.ts",
-        lineNumber: 7,
-      });
-
-      await service.answerClarification(
-        finding,
-        "почему?",
-        new CostBudget(undefined),
-      );
-
-      const [messages] = llm.calls.chatCompletion[0]!;
-      const userText = messages
-        .filter((m) => m.role === "user")
-        .map((m) => (typeof m.content === "string" ? m.content : ""))
-        .join("\n");
-
-      expect(userText).toContain("src/x.ts:7");
-      expect(userText).toContain("BAD");
-      expect(userText).toContain("почему?");
-      expect(userText.toLowerCase()).not.toContain("branch:");
-      expect(userText.toLowerCase()).not.toContain("mr:");
-      expect(userText.toLowerCase()).not.toContain("diff:");
-      expect(userText.toLowerCase()).not.toContain("@@ -");
-    });
-
-    it("returns fallback string when LLM yields empty content", async () => {
-      const llm = createMockLlmClient({
-        responses: [
-          {
-            content: "",
-            toolCalls: [],
-            usage: { completionTokens: 0, promptTokens: 5 },
-          },
-        ],
-      });
-
-      const service = new ReviewLearningService(
-        dismissedPatternRepo,
-        reviewFindingRepo,
-        llm,
-        createMockLogger(),
-        COST_MODEL,
-      );
-
-      const reply = await service.answerClarification(
-        buildMockFinding(),
-        "?",
-        new CostBudget(undefined),
-      );
-
-      expect(reply).toMatch(/context/i);
-    });
-
-    it("system prompt scopes the reply to this comment only", async () => {
-      const llm = createMockLlmClient({
-        responses: [
-          {
-            content: "ok",
-            toolCalls: [],
-            usage: { completionTokens: 5, promptTokens: 5 },
-          },
-        ],
-      });
-
-      const service = new ReviewLearningService(
-        dismissedPatternRepo,
-        reviewFindingRepo,
-        llm,
-        createMockLogger(),
-        COST_MODEL,
-      );
-
-      await service.answerClarification(
-        buildMockFinding(),
-        "?",
-        new CostBudget(undefined),
-      );
-
-      const [messages] = llm.calls.chatCompletion[0]!;
-      const systemMsg = messages.find((m) => m.role === "system");
-      expect(systemMsg).toBeDefined();
-      const systemText = Array.isArray(systemMsg!.content)
-        ? systemMsg!.content.map((b) => b.text).join("\n")
-        : systemMsg!.content;
-
-      expect(systemText.toLowerCase()).toContain(
-        "answer the developer's specific question",
-      );
-      expect(systemText.toLowerCase()).toContain("maximum 3 short sentences");
-      expect(systemText.toLowerCase()).not.toContain("[out_of_scope]");
+      expect(reply).toBe("");
+      expect(llm.calls.chatCompletion).toHaveLength(0);
     });
   });
 
@@ -487,6 +357,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       const finding = buildMockFinding();
@@ -540,6 +411,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger({ warn }),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -587,6 +459,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -619,6 +492,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -659,6 +533,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -686,6 +561,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -722,6 +598,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
       const costBudget = new CostBudget(10);
 
@@ -746,6 +623,7 @@ describe("ReviewLearningService", () => {
         llm,
         logger,
         COST_MODEL,
+        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -775,6 +653,7 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
+        CATALOG_URL,
       );
       const costBudget = new CostBudget(10);
 
@@ -815,6 +694,7 @@ describe("ReviewLearningService", () => {
         llm,
         logger,
         COST_MODEL,
+        CATALOG_URL,
       );
       const costBudget = new CostBudget(0.0000001);
       const finding = buildMockFinding();

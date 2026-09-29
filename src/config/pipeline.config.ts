@@ -6,12 +6,7 @@ import {
   DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_FILE_CHARS,
   DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_LIST_FILES,
   DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS,
-  DEFAULT_COMMENT_RESPONSE_MAX_DIFF_LENGTH,
-  DEFAULT_COMMENT_RESPONSE_MAX_TOOL_ROUNDS,
-  DEFAULT_COMMENT_RESPONSE_PROMPT_HARD_LIMIT,
   DEFAULT_FILE_REVIEW_MAX_DIFF_CHARACTERS,
-  DEFAULT_FINDING_THREAD_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS,
-  DEFAULT_FINDING_THREAD_PROMPT_HARD_LIMIT,
   DEFAULT_FORCE_PUSH_LINE_MATCH_TAB_WIDTH,
   DEFAULT_FORCE_PUSH_LINE_WINDOW,
   DEFAULT_LINE_SHIFT_DEDUP_TOLERANCE,
@@ -21,7 +16,6 @@ import {
   DEFAULT_REVIEW_FILE_PROMPT_HARD_LIMIT,
   DEFAULT_REVIEW_TRIAGE_PROMPT_HARD_LIMIT,
   DEFAULT_RUN_STUCK_AFTER_MS,
-  DEFAULT_THREAD_PRIOR_FINDINGS_MAX_CHARS,
 } from "~/config/constants";
 import { optionalEnv } from "~/config/optional-env";
 
@@ -68,36 +62,11 @@ const PipelineConfigSchema = z.object({
     .int()
     .positive()
     .default(DEFAULT_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS),
-  COMMENT_RESPONSE_MAX_DIFF_LENGTH: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(DEFAULT_COMMENT_RESPONSE_MAX_DIFF_LENGTH),
-  COMMENT_RESPONSE_MAX_TOOL_ROUNDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(DEFAULT_COMMENT_RESPONSE_MAX_TOOL_ROUNDS),
-  COMMENT_RESPONSE_PROMPT_HARD_LIMIT: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(DEFAULT_COMMENT_RESPONSE_PROMPT_HARD_LIMIT),
   FILE_REVIEW_MAX_DIFF_CHARACTERS: z.coerce
     .number()
     .int()
     .positive()
     .default(DEFAULT_FILE_REVIEW_MAX_DIFF_CHARACTERS),
-  FINDING_THREAD_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(DEFAULT_FINDING_THREAD_ARCHITECTURE_SNAPSHOT_MAX_TOTAL_CHARS),
-  FINDING_THREAD_PROMPT_HARD_LIMIT: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(DEFAULT_FINDING_THREAD_PROMPT_HARD_LIMIT),
   FORCE_PUSH_LINE_MATCH_TAB_WIDTH: z.coerce
     .number()
     .int()
@@ -174,12 +143,8 @@ const PipelineConfigSchema = z.object({
     .positive()
     .default(DEFAULT_RUN_STUCK_AFTER_MS),
   REVIEW_MAX_COST_USD: optionalEnv(z.coerce.number().positive()),
+  RULE_CATALOG_URL: optionalEnv(z.string().url()),
   SEVERITY_THRESHOLD: SeverityEnum.default("info"),
-  THREAD_PRIOR_FINDINGS_MAX_CHARS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(DEFAULT_THREAD_PRIOR_FINDINGS_MAX_CHARS),
 });
 
 type PipelineConfigSchema = z.infer<typeof PipelineConfigSchema>;

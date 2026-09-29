@@ -14,7 +14,6 @@ interface IReviewService {
     projectId: number,
     mrIid: number,
     finding: ReviewFinding,
-    developerNote: string,
   ): Promise<string>;
   reviewMergeRequest(
     projectId: number,

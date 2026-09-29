@@ -125,7 +125,8 @@ export function buildReviewedFindings(
     { discussionId: string; noteId: string }
   >,
 ): ReviewedFinding[] {
-  return (aggregation?.postableFindings ?? []).map((finding) => {
+  const postableSet = new Set(aggregation?.postableFindings ?? []);
+  return (aggregation?.acceptedFindings ?? []).map((finding) => {
     const posted = postedThreadByFinding.get(finding) ?? null;
     return {
       ruleId: finding.ruleId,
@@ -135,7 +136,7 @@ export function buildReviewedFindings(
       line: finding.lineNumber,
       lineType: finding.lineType,
       comment: finding.comment,
-      anchored: true,
+      anchored: postableSet.has(finding),
       hostDiscussionId: posted?.discussionId ?? null,
       hostNoteId: posted?.noteId ?? null,
     };

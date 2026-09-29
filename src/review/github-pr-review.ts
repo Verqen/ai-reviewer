@@ -115,6 +115,36 @@ const SUMMARY_MARKER = "<!-- verqen-review:summary -->";
 
 const PRIOR_THREAD_LINE_TOLERANCE = 3;
 
+export function selectPriorThreadsToResolve(
+  previousThreads: readonly PriorThreadRef[],
+  reviewedFilePaths: ReadonlySet<string>,
+  findings: readonly Finding[],
+): PriorThreadRef[] {
+  return previousThreads.filter((thread) => {
+    const ruleId = thread.ruleId;
+    if (ruleId === null) return false;
+    if (!reviewedFilePaths.has(thread.filePath)) return false;
+    const stillPresent = findings.some((finding) =>
+      findingsMatch(
+        {
+          filePath: finding.filePath,
+          lineNumber: finding.lineNumber,
+          lineType: finding.lineType,
+          ruleId: finding.ruleId,
+        },
+        {
+          filePath: thread.filePath,
+          lineNumber: thread.line,
+          lineType: thread.lineType,
+          ruleId,
+        },
+        PRIOR_THREAD_LINE_TOLERANCE,
+      ),
+    );
+    return !stillPresent;
+  });
+}
+
 function priorThreadToReviewFinding(thread: PriorThreadRef): ReviewFinding {
   return {
     category: "correctness",
@@ -395,26 +425,11 @@ export async function reviewGitHubPullRequest(
             logger,
           )
         : codeHost;
-    for (const thread of previousThreads) {
-      if (!reviewedFilePaths.has(thread.filePath)) continue;
-      const stillPresent = allFindings.some((finding) =>
-        findingsMatch(
-          {
-            filePath: finding.filePath,
-            lineNumber: finding.lineNumber,
-            lineType: finding.lineType,
-            ruleId: finding.ruleId,
-          },
-          {
-            filePath: thread.filePath,
-            lineNumber: thread.line,
-            lineType: thread.lineType,
-            ruleId: thread.ruleId ?? undefined,
-          },
-          PRIOR_THREAD_LINE_TOLERANCE,
-        ),
-      );
-      if (stillPresent) continue;
+    for (const thread of selectPriorThreadsToResolve(
+      previousThreads,
+      reviewedFilePaths,
+      allFindings,
+    )) {
       try {
         await resolverCodeHost.resolveDiscussion(
           projectId,

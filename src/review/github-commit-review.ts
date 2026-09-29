@@ -239,9 +239,7 @@ async function reviewTree(
   const { commitSha } = options;
   const { diffs, reviewablePaths } = prepared;
 
-  const costBudget = new CostBudget(options.maxCostUsd);
-  const context: ReviewContext = {
-    costBudget,
+  const context: Omit<ReviewContext, "costBudget"> = {
     diffs,
     isIncremental: false,
     mrIid: 0,
@@ -269,7 +267,15 @@ async function reviewTree(
 
   const runs: ReviewPassRun[] = [];
   for (let pass = 0; pass < CONSENSUS_PASSES; pass++) {
-    runs.push(await runReviewPasses({ context, costBudget, llm, logger }));
+    const costBudget = new CostBudget(options.maxCostUsd / CONSENSUS_PASSES);
+    runs.push(
+      await runReviewPasses({
+        context: { ...context, costBudget },
+        costBudget,
+        llm,
+        logger,
+      }),
+    );
   }
 
   const lineTexts = indexLineTexts(prepared.diffs);

@@ -265,12 +265,8 @@ export class PipelineOrchestrator {
       const aggregationResult = passResults.get("aggregation")?.metadata as
         | AggregationResult
         | undefined;
-      const postableFindings =
-        aggregationResult?.postableFindings ??
-        passResults.get("file-review")?.findings ??
-        [];
-      const acceptedFindings =
-        aggregationResult?.acceptedFindings ?? postableFindings;
+      const postableFindings = aggregationResult?.postableFindings ?? [];
+      const acceptedFindings = aggregationResult?.acceptedFindings ?? [];
       const repostedFindings = aggregationResult?.repostedFindings ?? [];
       const suppressedCount = aggregationResult?.suppressedCount ?? 0;
       await this.reviewFindingPublisherService.publishInlineFindingsAndStore({

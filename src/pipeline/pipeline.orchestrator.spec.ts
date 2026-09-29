@@ -1160,4 +1160,36 @@ describe("PipelineOrchestrator gate-failed findings", () => {
     ).toEqual(["R-013"]);
     expect(approvals).toEqual(["approve"]);
   });
+
+  it("posts, stores and summarises nothing when no aggregation pass gated the findings", async () => {
+    const ungated = buildGateFinding({
+      confidence: 0.1,
+      ruleId: "R-014",
+      severity: "critical",
+    });
+    const infraRepoPorts = createMockInfraRepoPorts();
+    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
+    const logger = createMockLogger();
+
+    const orchestrator = createTestOrchestrator({
+      cache: new MemoryCache<boolean>(),
+      codeHost,
+      config: createPipelineConfig("warning"),
+      infraRepoPorts,
+      logger,
+      passes: [makeFileReviewPass([ungated])],
+    });
+
+    await orchestrator.run({
+      diffs: [parseDiff(MINIMAL_DIFF)],
+      mrIid: 4,
+      projectId: 7,
+      triggerType: "mr_open",
+      versions: { baseSha: "base", headSha: "head", startSha: "start" },
+    });
+
+    expect(codeHost.calls.postInlineComment).toEqual([]);
+    expect(infraRepoPorts.calls.createFinding).toEqual([]);
+    expect(codeHost.calls.postNote[0]?.[2] ?? "").not.toContain("R-014");
+  });
 });

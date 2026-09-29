@@ -31,6 +31,7 @@ interface RuleCatalog {
 
 interface RuleCatalogHistoryEntry {
   fingerprint: string;
+  ruleIds: readonly RuleId[];
   version: string;
 }
 

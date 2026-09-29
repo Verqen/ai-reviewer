@@ -189,6 +189,13 @@ class OpenRouterClient implements ILlmClient {
       body["tools"] = mapToolDefinitions(options.tools);
     }
 
+    if (options?.provider) {
+      body["provider"] = {
+        allow_fallbacks: options.provider.allowFallbacks,
+        order: [...options.provider.order],
+      };
+    }
+
     const data = await this.fetchWithRetry(body);
     const choice = Array.isArray(data.choices) ? data.choices[0] : undefined;
     if (!choice) {

@@ -85,6 +85,32 @@ describe("OpenRouterClient", () => {
     vi.restoreAllMocks();
   });
 
+  it("sends provider routing with fallbacks turned off", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+
+    await client.chatCompletion([{ content: "hi", role: "user" }], {
+      provider: { allowFallbacks: false, order: ["anthropic"] },
+    });
+
+    const callArgs = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(callArgs[1].body)).toMatchObject({
+      provider: { allow_fallbacks: false, order: ["anthropic"] },
+    });
+  });
+
+  it("leaves provider routing to OpenRouter when none is requested", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+
+    await client.chatCompletion([{ content: "hi", role: "user" }]);
+
+    const callArgs = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(callArgs[1].body)).not.toHaveProperty("provider");
+  });
+
   it("passes cache_control through to request body for system TextBlock[]", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       json: () =>

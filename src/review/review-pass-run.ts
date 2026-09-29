@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 
 import { assertCostCeilingEnforceable } from "~/config/llm-pricing";
 import { LlmConfig } from "~/config/llm.config";
+import { OPENROUTER_PINNED_PROVIDERS } from "~/config/models";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import type { CostBudget } from "~/domain/cost-budget";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
@@ -16,6 +17,7 @@ import { AggregationPass } from "~/pipeline/passes/aggregation.pass";
 import { CrossFilePass } from "~/pipeline/passes/cross-file.pass";
 import { FileReviewPass } from "~/pipeline/passes/file-review.pass";
 import { applyTriageFilter, TriagePass } from "~/pipeline/passes/triage.pass";
+import type { ProviderPins } from "~/review/reproducible-llm";
 
 interface ReviewModels {
   review: string;
@@ -25,6 +27,7 @@ interface ReviewModels {
 interface ReviewLlm {
   llm: ILlmClient;
   models: ReviewModels;
+  providerPins: ProviderPins | null;
 }
 
 interface ReviewPassRun {
@@ -50,6 +53,7 @@ function buildReviewLlm(logger: FastifyBaseLogger): ReviewLlm {
         review: llmConfig.envs.OLLAMA_MODEL,
         triage: llmConfig.envs.OLLAMA_TRIAGE_MODEL,
       },
+      providerPins: null,
     };
   }
   const openRouterConfig = new OpenRouterConfig();
@@ -59,6 +63,7 @@ function buildReviewLlm(logger: FastifyBaseLogger): ReviewLlm {
       review: openRouterConfig.envs.OPENROUTER_MODEL,
       triage: openRouterConfig.envs.OPENROUTER_TRIAGE_MODEL,
     },
+    providerPins: OPENROUTER_PINNED_PROVIDERS,
   };
 }
 

@@ -38,6 +38,7 @@ export type {
   ChatMessage,
   LlmOptions,
   LlmResponse,
+  ProviderRouting,
   TextBlock,
   ToolCall,
   ToolDefinition,

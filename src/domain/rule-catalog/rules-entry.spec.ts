@@ -9,7 +9,8 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 function resolveSpecifier(from: string, specifier: string): string | null {
   if (specifier.startsWith("~/")) return join(SRC, `${specifier.slice(2)}.ts`);
-  if (specifier.startsWith(".")) return resolve(dirname(from), `${specifier}.ts`);
+  if (specifier.startsWith("."))
+    return resolve(dirname(from), `${specifier}.ts`);
   return null;
 }
 

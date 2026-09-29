@@ -67,7 +67,6 @@ export type {
   InstallationRepository,
   PriorThreadRef,
   ReviewedFinding,
-  ReviewPathRule,
 } from "~/review/github-pr-review";
 
 export {

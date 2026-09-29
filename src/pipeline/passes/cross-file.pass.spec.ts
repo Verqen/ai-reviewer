@@ -81,14 +81,12 @@ function buildContext(overrides: Partial<ReviewContext> = {}): ReviewContext {
 }
 
 function buildCrossFileResponse(findingCount = 1): string {
-  const findings = Array.from({ length: findingCount }, (_, i) => ({
-    category: "architecture",
-    comment: `Cross-file issue ${i + 1}`,
+  const findings = Array.from({ length: findingCount }, () => ({
     confidence: 0.8,
     file_path: "src/a.ts",
     line_number: 1,
     line_type: "added",
-    severity: "warning",
+    rule_id: "R-025",
   }));
 
   return JSON.stringify({
@@ -121,6 +119,8 @@ describe("CrossFilePass", () => {
 
     expect(result.findings).toHaveLength(2);
     expect(result.findings[0]?.category).toBe("architecture");
+    expect(result.findings[0]?.ruleId).toBe("R-025");
+    expect(result.findings[0]?.severity).toBe("warning");
     expect(result.findings[0]?.passName).toBe("cross-file");
     const [firstCall] = llm.calls.chatCompletion;
     expect(firstCall?.[1]?.model).toBe("review-model");
@@ -131,13 +131,11 @@ describe("CrossFilePass", () => {
       defaultContent: JSON.stringify({
         findings: [
           {
-            category: "architecture",
-            comment: "Cross issue",
             confidence: 0.8,
             file_path: "src/a.ts",
             line_number: 999,
             line_type: "added",
-            severity: "warning",
+            rule_id: "R-025",
           },
         ],
       }),
@@ -203,7 +201,7 @@ describe("CrossFilePass", () => {
 
     const priorFindings: PassResult["findings"] = [
       {
-        category: "bug",
+        category: "correctness",
         comment: "Prior bug",
         confidence: 0.9,
         filePath: "src/a.ts",
@@ -211,7 +209,8 @@ describe("CrossFilePass", () => {
         lineType: "added",
         model: "review-model",
         passName: "file-review",
-        severity: "warning",
+        ruleId: "R-013",
+        severity: "attention",
       },
     ];
 
@@ -230,7 +229,7 @@ describe("CrossFilePass", () => {
 
     const [firstCall] = llm.calls.chatCompletion;
     const userMessage = firstCall?.[0]?.find((m) => m.role === "user");
-    expect(userMessage?.content).toContain("Prior bug");
+    expect(userMessage?.content).toContain("[R-013] L5: Prior bug");
   });
 
   it("makes chatCompletion call without codebase context when overlayView is absent", async () => {
@@ -329,22 +328,18 @@ describe("CrossFilePass", () => {
     const offDiffResponse = JSON.stringify({
       findings: [
         {
-          category: "architecture",
-          comment: "Off-diff hallucination",
           confidence: 0.8,
           file_path: "apps/example-app/foo.ts",
           line_number: 1,
           line_type: "added",
-          severity: "critical",
+          rule_id: "R-025",
         },
         {
-          category: "architecture",
-          comment: "Legit in-diff finding",
           confidence: 0.8,
           file_path: "src/a.ts",
           line_number: 1,
           line_type: "added",
-          severity: "warning",
+          rule_id: "R-025",
         },
       ],
     });
@@ -422,6 +417,100 @@ describe("CrossFilePass", () => {
     const result = await pass.execute(buildContext(), new Map());
 
     expect(result.findings).toHaveLength(0);
+  });
+});
+
+describe("CrossFilePass catalog findings", () => {
+  async function runCrossFile(
+    ruleId: string,
+    warn = vi.fn(),
+  ): Promise<PassResult["findings"]> {
+    const llm = createMockLlmClient({
+      defaultContent: JSON.stringify({
+        findings: [
+          {
+            category: "security",
+            comment: "free text",
+            confidence: 0.8,
+            file_path: "src/a.ts",
+            line_number: 1,
+            line_type: "added",
+            rule_id: ruleId,
+            severity: "critical",
+          },
+        ],
+      }),
+    });
+    const pass = new CrossFilePass(llm, createMockLogger({ warn }));
+    const result = await pass.execute(buildContext(), new Map());
+    return result.findings;
+  }
+
+  it("builds a cross-file finding from the catalog regardless of what the model claims", async () => {
+    const findings = await runCrossFile("R-026");
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      category: "architecture",
+      comment:
+        "This call does not match the current signature or return type of the function it calls.",
+      passName: "cross-file",
+      ruleId: "R-026",
+      severity: "attention",
+    });
+  });
+
+  it("drops a file-scope rule returned by the cross-file pass", async () => {
+    const warn = vi.fn();
+    const findings = await runCrossFile("R-013", warn);
+    expect(findings).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "scope_mismatch", ruleId: "R-013" }),
+      "Dropping finding outside the rule catalog",
+    );
+  });
+
+  it("drops an id that is not in the catalog", async () => {
+    const warn = vi.fn();
+    const findings = await runCrossFile("architecture", warn);
+    expect(findings).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "unknown_rule",
+        ruleId: "architecture",
+      }),
+      "Dropping finding outside the rule catalog",
+    );
+  });
+
+  it("keeps valid findings when one finding in the response is malformed", async () => {
+    const warn = vi.fn();
+    const llm = createMockLlmClient({
+      defaultContent: JSON.stringify({
+        findings: [
+          {
+            confidence: 0.8,
+            file_path: "src/a.ts",
+            line_number: 1,
+            line_type: "moved",
+            rule_id: "R-026",
+          },
+          {
+            confidence: 0.8,
+            file_path: "src/a.ts",
+            line_number: 1,
+            line_type: "added",
+            rule_id: "R-026",
+          },
+        ],
+      }),
+    });
+    const pass = new CrossFilePass(llm, createMockLogger({ warn }));
+    const result = await pass.execute(buildContext(), new Map());
+    expect(result.findings.map((f) => f.ruleId)).toEqual(["R-026"]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ pass: "cross-file" }),
+      "Dropping malformed finding",
+    );
   });
 });
 

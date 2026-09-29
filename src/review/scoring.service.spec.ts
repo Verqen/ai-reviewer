@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { Finding, Severity } from "~/domain/types/review.types";
 import { computeProductionReadinessScore } from "~/review/scoring.service";
 
-function finding(category: string, severity: Severity): Finding {
+function finding(
+  category: string,
+  severity: Severity,
+): Omit<Finding, "category" | "ruleId"> & { category: string } {
   return {
     category,
     comment: "x",

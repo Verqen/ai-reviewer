@@ -1,3 +1,8 @@
+import type {
+  RuleCategory,
+  RuleId,
+} from "~/domain/rule-catalog/rule-catalog.types";
+
 type Severity = "critical" | "attention" | "warning" | "info" | "nitpick";
 
 type FindingCategory = string;
@@ -40,7 +45,7 @@ interface CommentContext {
 type LineType = "added" | "removed" | "context";
 
 interface Finding {
-  category: FindingCategory;
+  category: RuleCategory;
   comment: string;
   confidence: number;
   endLineNumber?: number | undefined;
@@ -53,6 +58,7 @@ interface Finding {
   oldPath?: string | undefined;
   originalSnippet?: string | undefined;
   passName: string;
+  ruleId: RuleId;
   severity: Severity;
   suggestion?: string | undefined;
 }
@@ -105,6 +111,7 @@ interface ReviewFinding {
   resolvedAt?: Date | undefined;
   resolvedBy?: string | undefined;
   reviewRunId: string;
+  ruleId?: RuleId | undefined;
   severity: Severity;
   suggestion?: string | undefined;
 }

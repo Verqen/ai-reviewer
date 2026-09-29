@@ -422,6 +422,24 @@ describe("reviewRepositoryCommit", () => {
     expect(host.completions[0]?.summary).toContain("Partial result");
   });
 
+  it("gives each pass its own share of the ceiling so every pass reviews the same files", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+
+    const { result } = await run(
+      [source("src/a.ts"), source("src/b.ts")],
+      llm,
+      0.06,
+    );
+
+    expect(llm.analysisPrompts).toHaveLength(6);
+    expect(result.partial).toBe(true);
+    expect(result.filesReviewed).toBe(2);
+    expect(result.findings.map((reported) => reported.filePath)).toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+  });
+
   it("states the scope and asks to remove the GitHub App in the summary", async () => {
     const llm = fakeLlm(() => []);
 

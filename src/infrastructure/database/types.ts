@@ -57,8 +57,8 @@ interface ReviewFindingTable {
   resolved_at: Date | null;
   resolved_by: string | null;
   review_run_id: string;
+  rule_id: string | null;
   severity: Severity;
-  suggestion: string | null;
 }
 
 type BaselineStatus = "missing" | "bootstrapping" | "ready" | "failed";
@@ -100,6 +100,7 @@ interface DismissedPatternTable {
   occurrence_count: Generated<number>;
   pattern_description: string;
   project_id: number;
+  rule_id: string | null;
   sample_comment: string | null;
   sample_reply: string | null;
   severity: Severity;

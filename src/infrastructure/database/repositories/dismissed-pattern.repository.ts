@@ -6,6 +6,7 @@ import type {
   DismissedPattern,
   IDismissedPatternRepository,
 } from "~/domain/ports/dismissed-pattern.repository.port";
+import { toRuleId } from "~/domain/rule-catalog/rule-catalog";
 import type { FindingCategory, Severity } from "~/domain/types/review.types";
 import type { Database } from "~/infrastructure/database/types";
 
@@ -20,6 +21,7 @@ function rowToDismissedPattern(row: {
   sample_reply: string | null;
   occurrence_count: number;
   created_by: string | null;
+  rule_id: string | null;
   created_at: Date;
   updated_at: Date;
 }): DismissedPattern {
@@ -32,6 +34,7 @@ function rowToDismissedPattern(row: {
     occurrenceCount: row.occurrence_count,
     patternDescription: row.pattern_description,
     projectId: row.project_id,
+    ruleId: toRuleId(row.rule_id),
     sampleComment: row.sample_comment ?? undefined,
     sampleReply: row.sample_reply ?? undefined,
     severity: row.severity as Severity,
@@ -53,6 +56,7 @@ class DismissedPatternRepository implements IDismissedPatternRepository {
         file_path_glob: input.filePathGlob ?? null,
         pattern_description: input.patternDescription,
         project_id: input.projectId,
+        rule_id: input.ruleId ?? null,
         sample_comment: input.sampleComment ?? null,
         sample_reply: input.sampleReply ?? null,
         severity: input.severity,

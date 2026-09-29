@@ -210,6 +210,14 @@ class ReviewFindingPublisherService {
       if (!hostDiscussionId) {
         continue;
       }
+      const ruleId = finding.ruleId;
+      if (ruleId === undefined) {
+        this.logger.warn(
+          { filePath: finding.filePath, findingId: finding.id },
+          "Dropping legacy finding without a catalog rule id from force-push repost",
+        );
+        continue;
+      }
       this.logger.info(
         { filePath: finding.filePath, findingId: finding.id, newLineNumber },
         "Correlated finding after force-push; reposting at new position",
@@ -249,6 +257,7 @@ class ReviewFindingPublisherService {
             hostNoteId: noteId,
             lineNumber: newLineNumber,
             reviewRunId,
+            ruleId,
           },
         ]);
         addressedFindingIds.push(finding.id);

@@ -52,6 +52,7 @@ function makeFindingInput(
     model: "claude",
     passName: "single-pass",
     reviewRunId: runId,
+    ruleId: "R-013",
     severity: "warning",
     ...overrides,
   };
@@ -176,5 +177,47 @@ describe("ReviewFindingRepository", () => {
 
     const remaining = await findingRepo.findByRunId(run.id);
     expect(remaining).toHaveLength(0);
+  });
+
+  it("stores and reads the rule id", async () => {
+    const run = await createTestRun();
+    await findingRepo.createMany([
+      makeFindingInput(run.id, { ruleId: "R-014" }),
+    ]);
+    const [stored] = await findingRepo.findByRunId(run.id);
+    expect(stored?.ruleId).toBe("R-014");
+  });
+
+  it("refuses a new finding without a rule id", async () => {
+    const run = await createTestRun();
+    await expect(
+      testDb.db
+        .insertInto("review_finding")
+        .values({
+          category: "correctness",
+          comment: "Something is wrong here",
+          confidence: 0.9,
+          dismiss_reason: null,
+          end_line_number: null,
+          file_path: "src/index.ts",
+          host_discussion_id: null,
+          host_note_id: null,
+          hunk_header: null,
+          line_excerpt: null,
+          line_number: 10,
+          line_type: "added",
+          model: "claude",
+          old_path: null,
+          original_snippet: null,
+          pass_name: "single-pass",
+          resolution: "pending",
+          resolved_at: null,
+          resolved_by: null,
+          review_run_id: run.id,
+          rule_id: null,
+          severity: "warning",
+        })
+        .execute(),
+    ).rejects.toThrow(/review_finding_rule_id_required/);
   });
 });

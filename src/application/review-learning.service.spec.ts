@@ -5,8 +5,6 @@ import { CostBudget } from "~/domain/cost-budget";
 import type { DismissedPattern } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
-import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
-import { buildRuleThreadReply } from "~/domain/rule-catalog/thread-reply";
 import type { ReviewFinding } from "~/domain/types/review.types";
 import { createMockLlmClient } from "~/test-utils/mock-llm-client";
 import { createMockLogger } from "~/test-utils/mock-logger";
@@ -14,7 +12,6 @@ import { createMockLogger } from "~/test-utils/mock-logger";
 import { ReviewLearningService } from "./review-learning.service";
 
 const COST_MODEL = OPENROUTER_REVIEW_MODEL;
-const CATALOG_URL = "https://verqen.dev/rules";
 
 function buildMockFinding(
   overrides: Partial<ReviewFinding> = {},
@@ -115,7 +112,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -145,7 +141,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -173,7 +168,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -204,7 +198,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -233,7 +226,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       await service.classifyIntent("bot", "dev", new CostBudget(undefined));
@@ -262,7 +254,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       await service.classifyIntent(
@@ -285,49 +276,6 @@ describe("ReviewLearningService", () => {
         "any request for a fix, code, proposed change, example, or explanation is clarification, never agreement",
       );
       expect(systemText.toLowerCase()).toContain("предложи исправление");
-    });
-  });
-
-  describe("answerClarification", () => {
-    it("returns the fixed rule text for the finding rule without calling the LLM", () => {
-      const llm = createMockLlmClient();
-      const service = new ReviewLearningService(
-        dismissedPatternRepo,
-        reviewFindingRepo,
-        llm,
-        createMockLogger(),
-        COST_MODEL,
-        CATALOG_URL,
-      );
-      const rule = findCatalogRule("R-013");
-      if (rule === undefined) throw new Error("missing");
-
-      const reply = service.answerClarification(
-        buildMockFinding({ ruleId: "R-013" }),
-      );
-
-      expect(reply).toBe(buildRuleThreadReply(rule, CATALOG_URL));
-      expect(llm.calls.chatCompletion).toHaveLength(0);
-      expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
-    });
-
-    it("returns an empty reply for a finding without a catalog rule", () => {
-      const llm = createMockLlmClient();
-      const service = new ReviewLearningService(
-        dismissedPatternRepo,
-        reviewFindingRepo,
-        llm,
-        createMockLogger(),
-        COST_MODEL,
-        CATALOG_URL,
-      );
-
-      const reply = service.answerClarification(
-        buildMockFinding({ ruleId: undefined }),
-      );
-
-      expect(reply).toBe("");
-      expect(llm.calls.chatCompletion).toHaveLength(0);
     });
   });
 
@@ -357,7 +305,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       const finding = buildMockFinding();
@@ -407,7 +354,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger({ warn }),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -456,7 +402,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -489,7 +434,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -530,7 +474,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -558,7 +501,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
 
       await service.learnFromReply({
@@ -595,7 +537,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
       const costBudget = new CostBudget(10);
 
@@ -620,7 +561,6 @@ describe("ReviewLearningService", () => {
         llm,
         logger,
         COST_MODEL,
-        CATALOG_URL,
       );
 
       const result = await service.classifyIntent(
@@ -650,7 +590,6 @@ describe("ReviewLearningService", () => {
         llm,
         createMockLogger(),
         COST_MODEL,
-        CATALOG_URL,
       );
       const costBudget = new CostBudget(10);
 
@@ -691,7 +630,6 @@ describe("ReviewLearningService", () => {
         llm,
         logger,
         COST_MODEL,
-        CATALOG_URL,
       );
       const costBudget = new CostBudget(0.0000001);
       const finding = buildMockFinding();

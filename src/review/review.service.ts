@@ -4,10 +4,9 @@ import type { PipelineConfig } from "~/config/pipeline.config";
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
-import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import {
+  buildFindingThreadReply,
   buildMentionReply,
-  buildRuleThreadReply,
 } from "~/domain/rule-catalog/thread-reply";
 import type {
   CommentContext,
@@ -57,14 +56,11 @@ class ReviewService implements IReviewService {
     _mrIid: number,
     finding: ReviewFinding,
   ): Promise<string> {
-    const rule =
-      finding.ruleId === undefined
-        ? undefined
-        : findCatalogRule(finding.ruleId);
     return Promise.resolve(
-      rule === undefined
-        ? ""
-        : buildRuleThreadReply(rule, this.pipelineConfig.envs.RULE_CATALOG_URL),
+      buildFindingThreadReply(
+        finding.ruleId,
+        this.pipelineConfig.envs.RULE_CATALOG_URL,
+      ),
     );
   }
 

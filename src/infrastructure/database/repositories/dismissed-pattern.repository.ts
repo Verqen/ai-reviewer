@@ -57,7 +57,7 @@ class DismissedPatternRepository implements IDismissedPatternRepository {
         file_path_glob: input.filePathGlob ?? null,
         pattern_description: input.patternDescription,
         project_id: input.projectId,
-        rule_id: input.ruleId ?? null,
+        rule_id: input.ruleId,
         sample_comment: input.sampleComment ?? null,
         sample_reply: input.sampleReply ?? null,
         severity: input.severity,

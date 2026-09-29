@@ -4,7 +4,10 @@ import { GitHubConfig } from "~/config/github.config";
 import { computeReviewRunCostUsd } from "~/config/llm-pricing";
 import { readRuntimeEnv } from "~/config/runtime.env";
 import { RULE_CATALOG_VERSION } from "~/domain/rule-catalog/rule-catalog";
-import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
+import type {
+  RuleCategory,
+  RuleId,
+} from "~/domain/rule-catalog/rule-catalog.types";
 import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
 import type {
   AggregationResult,
@@ -68,7 +71,7 @@ export interface GitHubPullRequestReviewOptions {
 export interface ReviewedFinding {
   ruleId: RuleId;
   severity: Severity;
-  category: string;
+  category: RuleCategory;
   filePath: string;
   line: number;
   lineType: LineType;

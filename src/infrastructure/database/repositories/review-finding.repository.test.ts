@@ -44,7 +44,7 @@ function makeFindingInput(
   overrides: Partial<CreateReviewFindingInput> = {},
 ): CreateReviewFindingInput {
   return {
-    category: "bug",
+    category: "correctness",
     comment: "Something is wrong here",
     confidence: 0.9,
     filePath: "src/index.ts",

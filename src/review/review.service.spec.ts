@@ -70,7 +70,7 @@ function createAggregationPass(
       Promise.resolve({
         findings,
         metadata: {
-          allFindings: findings,
+          acceptedFindings: findings,
           postableFindings: findings,
           repostedFindings: [],
           suppressedCount: 0,

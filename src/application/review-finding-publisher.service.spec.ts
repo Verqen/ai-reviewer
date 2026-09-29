@@ -153,7 +153,7 @@ describe("ReviewFindingPublisherService inline publication", () => {
       undefined,
     );
     await service.publishInlineFindingsAndStore({
-      allFindings: [finding],
+      acceptedFindings: [finding],
       diffs: makeDiffs(),
       mrIid: 1,
       postableFindings: [finding],
@@ -177,7 +177,7 @@ describe("ReviewFindingPublisherService inline publication", () => {
       undefined,
     );
     await service.publishInlineFindingsAndStore({
-      allFindings: [finding],
+      acceptedFindings: [finding],
       diffs: makeDiffs(),
       mrIid: 1,
       postableFindings: [finding],
@@ -204,7 +204,7 @@ describe("ReviewFindingPublisherService inline publication", () => {
       "https://verqen.dev/rules",
     );
     await service.publishInlineFindingsAndStore({
-      allFindings: [finding],
+      acceptedFindings: [finding],
       diffs: makeDiffs(),
       mrIid: 1,
       postableFindings: [finding],

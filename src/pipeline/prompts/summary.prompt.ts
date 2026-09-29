@@ -7,7 +7,7 @@ interface ModelTokenUsage {
 }
 
 interface SummaryParams {
-  allFindings: Finding[];
+  acceptedFindings: Finding[];
   catalogUrl?: string | undefined;
   catalogVersion: string;
   includeCostFooter?: boolean;
@@ -84,7 +84,7 @@ function buildCatalogLine(
 
 function buildSummaryNote(params: SummaryParams): string {
   const {
-    allFindings,
+    acceptedFindings,
     catalogUrl,
     catalogVersion,
     includeCostFooter = false,
@@ -98,12 +98,12 @@ function buildSummaryNote(params: SummaryParams): string {
 
   parts.push(`## Verqen check summary\n\n**Overall:** ${overview}`);
 
-  const severityTable = buildSeverityTable(allFindings);
+  const severityTable = buildSeverityTable(acceptedFindings);
   if (severityTable) {
     parts.push(severityTable);
   }
 
-  const ruleTable = buildRuleTable(allFindings);
+  const ruleTable = buildRuleTable(acceptedFindings);
   if (ruleTable) {
     parts.push(ruleTable);
   }
@@ -125,7 +125,7 @@ function buildSummaryNote(params: SummaryParams): string {
     return `${i + 1}. **${f.ruleId}** [${f.severity.toUpperCase()}] \`${f.filePath}:${f.lineNumber}\` - ${text}`;
   };
 
-  const fileFindings = allFindings.filter(
+  const fileFindings = acceptedFindings.filter(
     (f) => isVisible(f) && f.passName === "file-review",
   );
   if (fileFindings.length > 0) {
@@ -134,7 +134,7 @@ function buildSummaryNote(params: SummaryParams): string {
     );
   }
 
-  const archFindings = allFindings.filter(
+  const archFindings = acceptedFindings.filter(
     (f) => isVisible(f) && f.passName === "cross-file",
   );
   if (archFindings.length > 0) {
@@ -143,7 +143,7 @@ function buildSummaryNote(params: SummaryParams): string {
     );
   }
 
-  const otherFindings = allFindings.filter(
+  const otherFindings = acceptedFindings.filter(
     (f) =>
       isVisible(f) &&
       f.passName !== "file-review" &&

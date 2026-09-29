@@ -15,7 +15,7 @@ Every finding passes gates before it becomes a comment:
 - **Anchor validation** — `file_path`, `line_number` and `line_type` must resolve to a real line of a real hunk in that file's diff. A range must not cross a hunk boundary. `src/review/finding-position-validation.ts`
 - **Snippet grounding** — when the model quotes `original_snippet`, that text must appear in the diff it was given, normalized. `src/pipeline/passes/file-review.pass.ts`
 - **Rule catalog** — the model returns only a `rule_id` and an anchor. A `rule_id` that is unknown or outside the pass's scope drops the finding; text, category and severity come from the versioned catalog, never from the model, and no finding carries a code fix. `src/domain/rule-catalog/catalog-finding.ts`
-- **Confidence floor and caps** — below `inlineMinConfidence` (0.7) nothing is posted inline; 10 findings per file, 25 per run, highest confidence first. `src/pipeline/passes/aggregation.pass.ts`
+- **Confidence floor and caps** — a finding below `inlineMinConfidence` (0.7), below the severity threshold or over the cap of 10 per file and 25 per run is dropped from the run and logged with its reason, never kept in a weaker form; highest severity kept first. `src/pipeline/passes/aggregation.pass.ts`
 
 A finding that fails a gate is dropped and logged, never downgraded to a softer comment. The consequence is stated plainly in the trade-offs section: this optimizes precision and does not measure recall.
 

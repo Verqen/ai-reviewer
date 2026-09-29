@@ -75,7 +75,7 @@ function makeAggPass(findings: Finding[] = []): IReviewPass<AggregationResult> {
       _prior: Map<string, PassResult>,
     ): Promise<PassResult<AggregationResult>> => {
       const agg: AggregationResult = {
-        allFindings: findings,
+        acceptedFindings: findings,
         postableFindings: findings,
         repostedFindings: [],
         suppressedCount: 0,

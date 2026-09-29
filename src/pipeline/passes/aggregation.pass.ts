@@ -69,6 +69,20 @@ function isSeverityAtOrAbove(severity: Severity, threshold: Severity): boolean {
   return SEVERITY_ORDER[severity] >= SEVERITY_ORDER[threshold];
 }
 
+type GateFailure = "below-confidence" | "below-severity-threshold" | "over-cap";
+
+function findGateFailure(
+  finding: Finding,
+  threshold: Severity,
+  minConfidence: number,
+): GateFailure | undefined {
+  if (finding.confidence < minConfidence) return "below-confidence";
+  if (!isSeverityAtOrAbove(finding.severity, threshold)) {
+    return "below-severity-threshold";
+  }
+  return undefined;
+}
+
 function capFindings(
   findings: Finding[],
   maxPerFile: number,
@@ -133,7 +147,7 @@ class AggregationPass implements IReviewPass<AggregationResult> {
       reviewConfig.learning?.minOccurrencesToSuppress ?? 3;
 
     let suppressedCount = 0;
-    const allFindings: Finding[] = [];
+    const unsuppressed: Finding[] = [];
 
     for (const finding of combined) {
       const isDismissed = dismissedPatterns.some(
@@ -145,7 +159,7 @@ class AggregationPass implements IReviewPass<AggregationResult> {
       if (isDismissed) {
         suppressedCount++;
       } else {
-        allFindings.push(finding);
+        unsuppressed.push(finding);
       }
     }
 
@@ -162,41 +176,55 @@ class AggregationPass implements IReviewPass<AggregationResult> {
       repostedByFile.set(reposted.filePath, list);
     }
     const lineShiftTolerance = this.lineShiftDedupTolerance;
-    const postableFindings = allFindings.filter((f) => {
-      if (!isSeverityAtOrAbove(f.severity, threshold)) {
-        return false;
-      }
-      if (f.confidence < reviewConfig.inlineMinConfidence) {
-        return false;
-      }
 
-      const priorPending = priorFindingsByFile?.pending.get(f.filePath) ?? [];
-      if (
-        priorPending.some((existing) =>
-          isFindingDuplicate(existing, f, lineShiftTolerance),
-        )
-      ) {
-        return false;
+    const gatedFindings: Finding[] = [];
+    let droppedCount = 0;
+    for (const finding of unsuppressed) {
+      const reason = findGateFailure(
+        finding,
+        threshold,
+        reviewConfig.inlineMinConfidence,
+      );
+      if (reason === undefined) {
+        gatedFindings.push(finding);
+      } else {
+        this.logDroppedFinding(context, finding, reason);
+        droppedCount++;
       }
+    }
+
+    const isAlreadyOpen = (f: Finding): boolean => {
+      const priorPending = priorFindingsByFile?.pending.get(f.filePath) ?? [];
       const reposted = repostedByFile.get(f.filePath) ?? [];
-      return !reposted.some((existing) =>
+      return [...priorPending, ...reposted].some((existing) =>
         isFindingDuplicate(existing, f, lineShiftTolerance),
       );
-    });
+    };
+    const newFindings = gatedFindings.filter((f) => !isAlreadyOpen(f));
 
-    const sortedAll = sortFindings(allFindings);
+    const sortedNew = sortFindings(newFindings);
     const sortedPostable = capFindings(
-      sortFindings(postableFindings),
+      sortedNew,
       reviewConfig.maxFindingsPerFile,
       reviewConfig.maxFindingsPerReview,
+    );
+    const postableSet = new Set(sortedPostable);
+    const overCap = new Set(sortedNew.filter((f) => !postableSet.has(f)));
+    for (const finding of overCap) {
+      this.logDroppedFinding(context, finding, "over-cap");
+      droppedCount++;
+    }
+    const sortedAccepted = sortFindings(
+      gatedFindings.filter((f) => !overCap.has(f)),
     );
 
     this.logger.info(
       {
-        allFindingsCount: sortedAll.length,
+        acceptedFindingsCount: sortedAccepted.length,
         crossFileFindingsCount: crossFileFindings.length,
         dedupedCount,
         dismissedPatternCount,
+        droppedCount,
         fileReviewFindingsCount: fileReviewFindings.length,
         mrIid: context.mrIid,
         postableFindingsCount: sortedPostable.length,
@@ -210,7 +238,7 @@ class AggregationPass implements IReviewPass<AggregationResult> {
     );
 
     const aggregationResult: AggregationResult = {
-      allFindings: sortedAll,
+      acceptedFindings: sortedAccepted,
       postableFindings: sortedPostable,
       repostedFindings,
       suppressedCount,
@@ -221,6 +249,27 @@ class AggregationPass implements IReviewPass<AggregationResult> {
       metadata: aggregationResult,
       tokenUsage: { completionTokens: 0, promptTokens: 0 },
     };
+  }
+
+  private logDroppedFinding(
+    context: ReviewContext,
+    finding: Finding,
+    reason: GateFailure,
+  ): void {
+    this.logger.info(
+      {
+        confidence: finding.confidence,
+        filePath: finding.filePath,
+        lineNumber: finding.lineNumber,
+        mrIid: context.mrIid,
+        projectId: context.projectId,
+        reason,
+        reviewRunId: context.reviewRunId,
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+      },
+      "Dropped a finding that failed a gate",
+    );
   }
 }
 

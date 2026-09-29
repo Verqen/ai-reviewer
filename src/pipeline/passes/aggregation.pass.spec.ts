@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { DismissedPattern } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
@@ -168,7 +168,7 @@ describe("AggregationPass", () => {
 
     const result = await pass.execute(buildContext(), priorResults);
     const agg = result.metadata;
-    expect(agg.allFindings).toHaveLength(2);
+    expect(agg.acceptedFindings).toHaveLength(2);
   });
 
   it("filters postableFindings by severity threshold", async () => {
@@ -216,7 +216,7 @@ describe("AggregationPass", () => {
 
     const result = await pass.execute(context, priorResults);
     const agg = result.metadata;
-    expect(agg.allFindings).toHaveLength(2);
+    expect(agg.acceptedFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(1);
     expect(agg.postableFindings[0]?.severity).toBe("attention");
   });
@@ -270,12 +270,17 @@ describe("AggregationPass", () => {
       ],
     ]);
 
-    const result = await pass.execute(buildContext(), priorResults);
+    const result = await pass.execute(
+      buildContext({
+        reviewConfig: createMockReviewConfig({ severityThreshold: "nitpick" }),
+      }),
+      priorResults,
+    );
     const agg = result.metadata;
-    expect(agg.allFindings[0]?.severity).toBe("critical");
-    expect(agg.allFindings[1]?.severity).toBe("attention");
-    expect(agg.allFindings[2]?.severity).toBe("warning");
-    expect(agg.allFindings[3]?.severity).toBe("nitpick");
+    expect(agg.acceptedFindings[0]?.severity).toBe("critical");
+    expect(agg.acceptedFindings[1]?.severity).toBe("attention");
+    expect(agg.acceptedFindings[2]?.severity).toBe("warning");
+    expect(agg.acceptedFindings[3]?.severity).toBe("nitpick");
   });
 
   it("breaks severity ties by file path then line number", async () => {
@@ -308,7 +313,7 @@ describe("AggregationPass", () => {
     );
     const agg = result.metadata;
     expect(
-      agg.allFindings.map((f) => `${f.filePath}:${String(f.lineNumber)}`),
+      agg.acceptedFindings.map((f) => `${f.filePath}:${String(f.lineNumber)}`),
     ).toEqual(["src/a.ts:2", "src/a.ts:5", "src/b.ts:2"]);
   });
 
@@ -376,7 +381,7 @@ describe("AggregationPass", () => {
       priorResults,
     );
     const agg = result.metadata;
-    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.acceptedFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
 
@@ -436,7 +441,7 @@ describe("AggregationPass", () => {
       priorResults,
     );
     const agg = result.metadata;
-    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.acceptedFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
 
@@ -501,7 +506,7 @@ describe("AggregationPass", () => {
       priorResults,
     );
     const agg = result.metadata;
-    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.acceptedFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
 
@@ -566,7 +571,7 @@ describe("AggregationPass", () => {
       priorResults,
     );
     const agg = result.metadata;
-    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.acceptedFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
 
@@ -621,7 +626,7 @@ describe("AggregationPass", () => {
       priorResults,
     );
     const agg = result.metadata;
-    expect(agg.allFindings).toHaveLength(1);
+    expect(agg.acceptedFindings).toHaveLength(1);
     expect(agg.postableFindings).toHaveLength(0);
   });
 
@@ -635,7 +640,7 @@ describe("AggregationPass", () => {
         severity: "warning",
       }),
     ]);
-    expect(result.allFindings.map((f) => f.ruleId).sort()).toEqual([
+    expect(result.acceptedFindings.map((f) => f.ruleId).sort()).toEqual([
       "R-013",
       "R-022",
     ]);
@@ -646,7 +651,7 @@ describe("AggregationPass", () => {
       buildFinding({ lineNumber: 5, passName: "file-review" }),
       buildFinding({ lineNumber: 5, passName: "cross-file" }),
     ]);
-    expect(result.allFindings).toHaveLength(1);
+    expect(result.acceptedFindings).toHaveLength(1);
   });
 
   it("never rewrites the catalog text or severity", async () => {
@@ -654,12 +659,12 @@ describe("AggregationPass", () => {
       buildFinding({ lineNumber: line }),
     );
     const result = await runAggregation(input);
-    expect(new Set(result.allFindings.map((f) => f.comment))).toEqual(
+    expect(new Set(result.acceptedFindings.map((f) => f.comment))).toEqual(
       new Set([input[0]?.comment]),
     );
-    expect(result.allFindings.every((f) => f.severity === "attention")).toBe(
-      true,
-    );
+    expect(
+      result.acceptedFindings.every((f) => f.severity === "attention"),
+    ).toBe(true);
   });
 
   it("suppresses by rule id and path glob", async () => {
@@ -670,7 +675,9 @@ describe("AggregationPass", () => {
       ],
       [{ filePathGlob: "src/legacy/**", occurrenceCount: 5, ruleId: "R-013" }],
     );
-    expect(result.allFindings.map((f) => f.filePath)).toEqual(["src/new/a.ts"]);
+    expect(result.acceptedFindings.map((f) => f.filePath)).toEqual([
+      "src/new/a.ts",
+    ]);
     expect(result.suppressedCount).toBe(1);
   });
 
@@ -701,7 +708,7 @@ describe("AggregationPass", () => {
       [buildFinding()],
       [{ occurrenceCount: 0, ruleId: "R-013" }],
     );
-    expect(result.allFindings).toHaveLength(1);
+    expect(result.acceptedFindings).toHaveLength(1);
     expect(result.suppressedCount).toBe(0);
   });
 
@@ -737,5 +744,118 @@ describe("AggregationPass", () => {
     );
     expect(result.metadata.postableFindings).toHaveLength(1);
     expect(result.metadata.postableFindings[0]?.ruleId).toBe("R-014");
+  });
+
+  describe("gates", () => {
+    const gateConfig = createMockReviewConfig({
+      inlineMinConfidence: 0.7,
+      maxFindingsPerFile: 1,
+      maxFindingsPerReview: 25,
+      severityThreshold: "warning",
+    });
+
+    const passing = buildFinding({
+      filePath: "src/a.ts",
+      lineNumber: 1,
+      ruleId: "R-013",
+      severity: "critical",
+    });
+    const lowConfidence = buildFinding({
+      confidence: 0.4,
+      filePath: "src/b.ts",
+      lineNumber: 2,
+      ruleId: "R-014",
+      severity: "critical",
+    });
+    const lowSeverity = buildFinding({
+      filePath: "src/c.ts",
+      lineNumber: 3,
+      ruleId: "R-022",
+      severity: "info",
+    });
+    const overCap = buildFinding({
+      filePath: "src/a.ts",
+      lineNumber: 9,
+      ruleId: "R-022",
+      severity: "warning",
+    });
+
+    async function runGated(): Promise<{
+      info: ReturnType<typeof vi.fn>;
+      result: AggregationResult;
+    }> {
+      const info = vi.fn();
+      const pass = new AggregationPass(
+        buildNoopRepo(),
+        createMockLogger({ info }),
+        3,
+      );
+      const output = await pass.execute(
+        buildContext({ reviewConfig: gateConfig }),
+        fileReviewResults([passing, lowConfidence, lowSeverity, overCap]),
+      );
+      return { info, result: output.metadata };
+    }
+
+    it("keeps only findings that pass every gate in every result list", async () => {
+      const { result } = await runGated();
+      expect(result.acceptedFindings).toEqual([passing]);
+      expect(result.postableFindings).toEqual([passing]);
+      expect(result).not.toHaveProperty("allFindings");
+    });
+
+    it("logs each dropped finding with the gate it failed", async () => {
+      const { info } = await runGated();
+      const drops = info.mock.calls.filter(
+        (call) => call[1] === "Dropped a finding that failed a gate",
+      );
+      expect(drops.map((call) => call[0] as unknown)).toEqual([
+        expect.objectContaining({
+          filePath: "src/b.ts",
+          reason: "below-confidence",
+          ruleId: "R-014",
+        }),
+        expect.objectContaining({
+          filePath: "src/c.ts",
+          reason: "below-severity-threshold",
+          ruleId: "R-022",
+        }),
+        expect.objectContaining({
+          filePath: "src/a.ts",
+          lineNumber: 9,
+          reason: "over-cap",
+          ruleId: "R-022",
+        }),
+      ]);
+    });
+
+    it("keeps a finding that repeats an open thread accepted but not postable", async () => {
+      const pass = new AggregationPass(buildNoopRepo(), createMockLogger(), 3);
+      const output = await pass.execute(
+        buildContext({
+          priorFindingsByFile: {
+            addressed: new Map(),
+            dismissed: new Map(),
+            pending: new Map<string, ReviewFinding[]>([
+              [
+                "src/a.ts",
+                [
+                  {
+                    ...passing,
+                    id: "existing",
+                    resolution: "pending",
+                    reviewRunId: "old-run",
+                  },
+                ],
+              ],
+            ]),
+          },
+          reviewConfig: gateConfig,
+        }),
+        fileReviewResults([passing, lowConfidence, lowSeverity]),
+      );
+      expect(output.metadata.acceptedFindings).toEqual([passing]);
+      expect(output.metadata.postableFindings).toEqual([]);
+    });
   });
 });

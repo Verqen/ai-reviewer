@@ -50,7 +50,7 @@ interface IReviewPass<M = unknown> {
 }
 
 interface AggregationResult {
-  allFindings: Finding[];
+  acceptedFindings: Finding[];
   postableFindings: Finding[];
   repostedFindings: ReviewFinding[];
   suppressedCount: number;

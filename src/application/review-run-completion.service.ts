@@ -20,7 +20,7 @@ interface TriageDegradation {
 }
 
 type CompleteSuccessfulRunParams = {
-  allFindings: Finding[];
+  acceptedFindings: Finding[];
   baseSha: string;
   diffsFileCount: number;
   headSha: string;
@@ -47,7 +47,7 @@ function isTotalTriageFailure(d: TriageDegradation | undefined): boolean {
 }
 
 interface BuildOverviewTextInput {
-  allFindingsCount: number;
+  acceptedFindingsCount: number;
   postableFindingsCount: number;
   repostedFindingsCount: number;
   reviewRunId: string;
@@ -63,15 +63,15 @@ function buildOverviewText(input: BuildOverviewTextInput): string {
     const d = input.triageDegradation!;
     const prefix = `⚠ AI review degraded: triage parser failed on ${d.parseFailures}/${d.totalBatches} batches (model=${d.model})`;
     const suffix = ` See logs reviewRunId=${input.reviewRunId}.`;
-    if (input.allFindingsCount === 0) {
+    if (input.acceptedFindingsCount === 0) {
       return `${prefix}; file-review found no issues.${suffix}`;
     }
-    return `${prefix}. ${input.allFindingsCount} finding(s), ${input.postableFindingsCount} posted inline${repostedSuffix}.${suffix}`;
+    return `${prefix}. ${input.acceptedFindingsCount} finding(s), ${input.postableFindingsCount} posted inline${repostedSuffix}.${suffix}`;
   }
-  if (input.allFindingsCount === 0) {
+  if (input.acceptedFindingsCount === 0) {
     return "AI review complete — no issues found.";
   }
-  return `AI review complete: ${input.allFindingsCount} finding(s), ${input.postableFindingsCount} posted inline${repostedSuffix}.`;
+  return `AI review complete: ${input.acceptedFindingsCount} finding(s), ${input.postableFindingsCount} posted inline${repostedSuffix}.`;
 }
 
 class ReviewRunCompletionService {
@@ -95,7 +95,7 @@ class ReviewRunCompletionService {
     params: CompleteSuccessfulRunParams,
   ): Promise<void> {
     const {
-      allFindings,
+      acceptedFindings,
       baseSha,
       diffsFileCount,
       headSha,
@@ -112,14 +112,14 @@ class ReviewRunCompletionService {
       triageDegradation,
     } = params;
     const overviewText = buildOverviewText({
-      allFindingsCount: allFindings.length,
+      acceptedFindingsCount: acceptedFindings.length,
       postableFindingsCount: postableFindings.length,
       repostedFindingsCount: repostedFindings.length,
       reviewRunId,
       triageDegradation,
     });
     const summaryNote = buildSummaryNote({
-      allFindings,
+      acceptedFindings,
       catalogUrl: this.catalogUrl,
       catalogVersion: RULE_CATALOG_VERSION,
       includeCostFooter: readRuntimeEnv().SHOW_REVIEW_COST_FOOTER,
@@ -145,13 +145,13 @@ class ReviewRunCompletionService {
           rulesSource: reviewConfig.rulesSource ?? "REVIEW.md (local)",
           severityThreshold: reviewConfig.severityThreshold,
         },
-        criticalCount: allFindings.filter((f) => f.severity === "critical")
+        criticalCount: acceptedFindings.filter((f) => f.severity === "critical")
           .length,
         filesReviewed: diffsFileCount,
         promptTokens: totalPromptTokens,
         reviewModel: reviewConfig.models.review,
-        totalFindings: allFindings.length,
-        warningCount: allFindings.filter((f) => f.severity === "warning")
+        totalFindings: acceptedFindings.length,
+        warningCount: acceptedFindings.filter((f) => f.severity === "warning")
           .length,
       },
       timestamp: now,
@@ -162,7 +162,7 @@ class ReviewRunCompletionService {
     await this.applyAutoApproval(
       projectId,
       mrIid,
-      allFindings,
+      acceptedFindings,
       reviewConfig.blockMergeOn,
     );
     this.cache.set(
@@ -172,7 +172,7 @@ class ReviewRunCompletionService {
     );
     this.logger.info(
       {
-        allFindings: allFindings.length,
+        acceptedFindings: acceptedFindings.length,
         mrIid,
         posted: postableFindings.length,
         projectId,

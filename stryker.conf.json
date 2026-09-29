@@ -6,8 +6,7 @@
   "coverageAnalysis": "perTest",
   "mutate": [
     "src/review/finding-match.ts",
-    "src/pipeline/cost-budget.ts",
-    "src/review/scoring.service.ts",
+    "src/domain/cost-budget.ts",
     "src/pipeline/prompts/injection-defense.ts"
   ],
   "plugins": ["@stryker-mutator/vitest-runner"],

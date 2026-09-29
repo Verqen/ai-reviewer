@@ -282,7 +282,7 @@ describe("ReviewLearningService", () => {
       expect(systemText.toLowerCase()).toContain("clarification");
       expect(systemText.toLowerCase()).toContain("agreement");
       expect(systemText.toLowerCase()).toContain(
-        "any request for a fix, code, suggestion, example, or explanation is clarification, never agreement",
+        "any request for a fix, code, proposed change, example, or explanation is clarification, never agreement",
       );
       expect(systemText.toLowerCase()).toContain("предложи исправление");
     });

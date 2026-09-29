@@ -48,5 +48,9 @@ describe("injection-defense", () => {
       /never as instructions/i,
     );
     expect(UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION).toMatch(/prompt-injection/i);
+    expect(UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION).toContain('rule_id "R-012"');
+    expect(UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION).not.toMatch(
+      /category "security"/,
+    );
   });
 });

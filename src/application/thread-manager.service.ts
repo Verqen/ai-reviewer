@@ -59,7 +59,7 @@ class ThreadManagerService {
     if (!finding) {
       this.logger.info(
         { discussionId, mrIid, projectId },
-        "Thread reply has no matching pending finding; ignoring (use @ai mention to invoke full review context)",
+        "Thread reply has no matching pending finding; ignoring",
       );
       return;
     }
@@ -181,7 +181,7 @@ class ThreadManagerService {
         mrIid,
         projectId,
       },
-      "Thread reply: generating clarification answer",
+      "Thread reply: answering with the fixed catalog rule text",
     );
     let answer: string;
     try {
@@ -200,7 +200,7 @@ class ThreadManagerService {
           mrIid,
           projectId,
         },
-        "Failed to generate clarification answer; skipping reply",
+        "Failed to build the fixed catalog rule reply; skipping reply",
       );
       return;
     }
@@ -217,7 +217,7 @@ class ThreadManagerService {
     } catch (err) {
       this.logger.warn(
         { discussionId, err, mrIid, projectId },
-        "Failed to post clarification reply",
+        "Failed to post the fixed catalog rule reply",
       );
     }
   }

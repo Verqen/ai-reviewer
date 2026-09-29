@@ -10,6 +10,10 @@
       "types": "./dist/public.d.ts",
       "default": "./dist/public.js"
     },
+    "./rules": {
+      "types": "./dist/rules.d.ts",
+      "default": "./dist/rules.js"
+    },
     "./server": {
       "default": "./dist/index.js"
     }

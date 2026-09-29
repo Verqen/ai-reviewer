@@ -42,6 +42,12 @@ describe("buildSummaryNote", () => {
     );
   });
 
+  it("titles the summary with the default name for a blank product name", () => {
+    expect(buildSummaryNote(buildParams({ productName: "" }))).toContain(
+      "## AI Reviewer check summary",
+    );
+  });
+
   it("titles the summary with the given product name", () => {
     const note = buildSummaryNote(buildParams({ productName: "Acme" }));
     expect(note).toContain("## Acme check summary\n\n");

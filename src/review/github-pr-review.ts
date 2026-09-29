@@ -4,7 +4,7 @@ import { GitHubConfig } from "~/config/github.config";
 import { computeReviewRunCostUsd } from "~/config/llm-pricing";
 import { readRuntimeEnv } from "~/config/runtime.env";
 import {
-  DEFAULT_PRODUCT_NAME,
+  resolveProductName,
   type ProductNameOption,
 } from "~/domain/product-name";
 import { RULE_CATALOG_VERSION } from "~/domain/rule-catalog/rule-catalog";
@@ -98,7 +98,7 @@ export function buildPullRequestSummaryHeading(
   const incrementalNote = params.incremental
     ? `\n\n> _Incremental check: only the ${String(params.reviewedFileCount)} file(s) changed since the last review were re-analyzed; prior findings on unchanged files still stand._`
     : "";
-  return `## ${params.productName ?? DEFAULT_PRODUCT_NAME} check${partialNote}${incrementalNote}`;
+  return `## ${resolveProductName(params.productName)} check${partialNote}${incrementalNote}`;
 }
 
 export interface GitHubPullRequestReviewResult {

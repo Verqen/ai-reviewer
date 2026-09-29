@@ -1,4 +1,4 @@
-import { DEFAULT_PRODUCT_NAME } from "~/domain/product-name";
+import { resolveProductName } from "~/domain/product-name";
 import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import type { Finding, Severity } from "~/domain/types/review.types";
 
@@ -91,7 +91,7 @@ function buildSummaryNote(params: SummaryParams): string {
     catalogVersion,
     includeCostFooter = false,
     overview,
-    productName = DEFAULT_PRODUCT_NAME,
+    productName,
     suppressedCount,
     tokenCostUsd,
     tokenUsageByModel,
@@ -99,7 +99,9 @@ function buildSummaryNote(params: SummaryParams): string {
 
   const parts: string[] = [];
 
-  parts.push(`## ${productName} check summary\n\n**Overall:** ${overview}`);
+  parts.push(
+    `## ${resolveProductName(productName)} check summary\n\n**Overall:** ${overview}`,
+  );
 
   const severityTable = buildSeverityTable(acceptedFindings);
   if (severityTable) {

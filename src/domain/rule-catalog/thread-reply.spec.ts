@@ -28,6 +28,13 @@ describe("thread replies", () => {
     ).toBe(true);
   });
 
+  it("uses the default product name for an empty or blank name", () => {
+    expect(buildMentionReply(undefined, "")).toBe(buildMentionReply(undefined));
+    expect(buildFindingThreadReply("R-013", undefined, "  ")).toBe(
+      buildFindingThreadReply("R-013", undefined),
+    );
+  });
+
   it("states the given product name in a mention reply", () => {
     expect(buildMentionReply(undefined, "Acme")).toBe(
       "Acme is an automated check against a published rule catalog and does not answer questions.",

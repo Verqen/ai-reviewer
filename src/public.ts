@@ -1,4 +1,7 @@
-export { DEFAULT_PRODUCT_NAME } from "~/domain/product-name";
+export {
+  DEFAULT_PRODUCT_NAME,
+  resolveProductName,
+} from "~/domain/product-name";
 export type { ProductNameOption } from "~/domain/product-name";
 export type {
   CommentContext,

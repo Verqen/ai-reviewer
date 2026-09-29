@@ -270,6 +270,21 @@ describe("reviewRepositoryCommit", () => {
     expect(host.created[0]?.name).toBe("Acme");
   });
 
+  it("names the check run with the default name for a blank product name", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+
+    const { host } = await run(
+      [source("src/a.ts")],
+      llm,
+      100,
+      400,
+      undefined,
+      "  ",
+    );
+
+    expect(host.created[0]?.name).toBe("AI Reviewer");
+  });
+
   it("reviews the tree at the commit and publishes a neutral check run on it", async () => {
     const llm = fakeLlm((filePath) => [finding(filePath)]);
 

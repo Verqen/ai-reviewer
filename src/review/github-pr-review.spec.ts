@@ -34,6 +34,17 @@ describe("buildPullRequestSummaryHeading", () => {
     expect(heading).toBe("## Acme check");
   });
 
+  it("uses the default name for a blank product name", () => {
+    expect(
+      buildPullRequestSummaryHeading({
+        partial: false,
+        incremental: false,
+        reviewedFileCount: 1,
+        productName: "  ",
+      }),
+    ).toBe("## AI Reviewer check");
+  });
+
   it("adds the partial and incremental notes", () => {
     const heading = buildPullRequestSummaryHeading({
       partial: true,
@@ -226,6 +237,59 @@ describe("buildReviewedFindings", () => {
         severity: "attention",
       },
     ]);
+  });
+
+  it("keeps an open thread whose repeat passed the gates and resolves one whose repeat failed them", async () => {
+    const passingRepeat = buildFinding({
+      filePath: "src/a.ts",
+      lineNumber: 10,
+      ruleId: "R-013",
+    });
+    const failedRepeat = buildFinding({
+      confidence: 0.4,
+      filePath: "src/b.ts",
+      lineNumber: 20,
+      ruleId: "R-014",
+      severity: "critical",
+    });
+    const pass = new AggregationPass(
+      noDismissedPatterns,
+      createMockLogger(),
+      3,
+    );
+    const output = await pass.execute(
+      buildContext([]),
+      new Map<string, PassResult>([
+        [
+          "file-review",
+          {
+            findings: [passingRepeat, failedRepeat],
+            metadata: {},
+            tokenUsage: { completionTokens: 0, promptTokens: 0 },
+          },
+        ],
+      ]),
+    );
+    const keptThread = buildThread({
+      filePath: "src/a.ts",
+      hostDiscussionId: "keep",
+      line: 10,
+      ruleId: "R-013",
+    });
+    const staleThread = buildThread({
+      filePath: "src/b.ts",
+      hostDiscussionId: "resolve",
+      line: 20,
+      ruleId: "R-014",
+    });
+
+    const resolved = selectPriorThreadsToResolve(
+      [keptThread, staleThread],
+      new Set(["src/a.ts", "src/b.ts"]),
+      output.metadata?.acceptedFindings ?? [],
+    );
+
+    expect(resolved).toEqual([staleThread]);
   });
 
   it("returns nothing when the aggregation pass did not run", () => {

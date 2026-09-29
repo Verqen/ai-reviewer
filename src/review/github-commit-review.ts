@@ -6,7 +6,7 @@ import {
   assertCostCeilingEnforceable,
   computeReviewRunCostUsd,
 } from "~/config/llm-pricing";
-import { DEFAULT_PRODUCT_NAME } from "~/domain/product-name";
+import { resolveProductName } from "~/domain/product-name";
 import type { ProductNameOption } from "~/domain/product-name";
 import { CostBudget } from "~/domain/cost-budget";
 import { selectConsensusFindings } from "~/domain/finding-consensus";
@@ -381,7 +381,7 @@ async function reviewRepositoryCommit(
   const checkRun = await codeHost.createCheckRun(projectId, {
     detailsUrl: options.catalogUrl,
     headSha: commitSha,
-    name: options.productName ?? DEFAULT_PRODUCT_NAME,
+    name: resolveProductName(options.productName),
   });
 
   try {

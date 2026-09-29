@@ -5,6 +5,8 @@ import {
   RETIRED_RULE_IDS,
   RULE_CATALOG_HISTORY,
   RULE_CATALOG_VERSION,
+  UnknownCatalogVersionError,
+  catalogComparability,
   catalogRulesForScope,
   findCatalogRule,
   getRuleCatalog,
@@ -59,6 +61,26 @@ describe("rule catalog", () => {
     expect(latest?.version).toBe(RULE_CATALOG_VERSION);
     expect(catalog.version).toBe(RULE_CATALOG_VERSION);
     expect(latest?.fingerprint).toBe(computeCatalogFingerprint(catalog.rules));
+  });
+
+  it("records the rule ids of the current catalog in the latest history entry", () => {
+    const latest = RULE_CATALOG_HISTORY.at(-1);
+    expect([...(latest?.ruleIds ?? [])].sort()).toEqual(
+      catalog.rules.map((rule) => rule.id).sort(),
+    );
+  });
+
+  it("compares every rule of the same catalog version", () => {
+    expect(catalogComparability(RULE_CATALOG_VERSION)).toEqual({
+      comparableRuleIds: new Set(catalog.rules.map((rule) => rule.id)),
+      notComparableRuleCount: 0,
+    });
+  });
+
+  it("refuses a catalog version that is not in the history", () => {
+    expect(() => catalogComparability("1999.1.1")).toThrow(
+      UnknownCatalogVersionError,
+    );
   });
 
   it("keeps history versions and fingerprints unique", () => {

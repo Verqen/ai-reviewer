@@ -453,7 +453,7 @@ describe("GitHubCodeHost check runs", () => {
 
     const created = await host.createCheckRun(42, {
       headSha: "abc123",
-      name: "Verqen",
+      name: "AI Reviewer",
     });
 
     expect(created).toEqual({
@@ -462,7 +462,7 @@ describe("GitHubCodeHost check runs", () => {
     });
     expect(calls.find((call) => call.method === "POST")?.body).toEqual({
       head_sha: "abc123",
-      name: "Verqen",
+      name: "AI Reviewer",
       status: "in_progress",
     });
   });
@@ -471,15 +471,15 @@ describe("GitHubCodeHost check runs", () => {
     const { calls, host } = checkRunHost();
 
     await host.createCheckRun(42, {
-      detailsUrl: "https://app.verqen.dev/rules",
+      detailsUrl: "https://rules.example.com/rules",
       headSha: "abc123",
-      name: "Verqen",
+      name: "AI Reviewer",
     });
 
     expect(calls.find((call) => call.method === "POST")?.body).toEqual({
-      details_url: "https://app.verqen.dev/rules",
+      details_url: "https://rules.example.com/rules",
       head_sha: "abc123",
-      name: "Verqen",
+      name: "AI Reviewer",
       status: "in_progress",
     });
   });

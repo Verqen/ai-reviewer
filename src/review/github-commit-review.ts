@@ -6,6 +6,8 @@ import {
   assertCostCeilingEnforceable,
   computeReviewRunCostUsd,
 } from "~/config/llm-pricing";
+import { DEFAULT_PRODUCT_NAME } from "~/domain/product-name";
+import type { ProductNameOption } from "~/domain/product-name";
 import { CostBudget } from "~/domain/cost-budget";
 import { selectConsensusFindings } from "~/domain/finding-consensus";
 import {
@@ -59,7 +61,6 @@ import type { ProviderPins } from "~/review/reproducible-llm";
 import { createReproducibleLlm } from "~/review/reproducible-llm";
 import { buildWholeFileDiffs } from "~/review/whole-file-diff";
 
-const CHECK_RUN_NAME = "Verqen";
 const CONSENSUS_PASSES = 3;
 const CONSENSUS_QUORUM = 2;
 
@@ -73,7 +74,7 @@ type CommitReviewCodeHost = Pick<
   | "updateCheckRun"
 >;
 
-interface GitHubCommitReviewOptions {
+interface GitHubCommitReviewOptions extends ProductNameOption {
   owner: string;
   repo: string;
   installationId?: number | undefined;
@@ -380,7 +381,7 @@ async function reviewRepositoryCommit(
   const checkRun = await codeHost.createCheckRun(projectId, {
     detailsUrl: options.catalogUrl,
     headSha: commitSha,
-    name: CHECK_RUN_NAME,
+    name: options.productName ?? DEFAULT_PRODUCT_NAME,
   });
 
   try {

@@ -20,8 +20,18 @@ describe("buildPullRequestSummaryHeading", () => {
       incremental: false,
       reviewedFileCount: 3,
     });
-    expect(heading).toBe("## Verqen check");
+    expect(heading).toBe("## AI Reviewer check");
     expect(heading).not.toMatch(/score|grade|\/100/i);
+  });
+
+  it("names the check with the given product name", () => {
+    const heading = buildPullRequestSummaryHeading({
+      partial: false,
+      incremental: false,
+      reviewedFileCount: 3,
+      productName: "Acme",
+    });
+    expect(heading).toBe("## Acme check");
   });
 
   it("adds the partial and incremental notes", () => {

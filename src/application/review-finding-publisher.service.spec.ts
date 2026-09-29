@@ -201,7 +201,7 @@ describe("ReviewFindingPublisherService inline publication", () => {
       codeHost,
       createMockCommentResolutionService(),
       createMockLogger(),
-      "https://verqen.dev/rules",
+      "https://rules.example.com/rules",
     );
     await service.publishInlineFindingsAndStore({
       acceptedFindings: [finding],
@@ -223,7 +223,7 @@ describe("ReviewFindingPublisherService inline publication", () => {
     expect(codeHost.postInlineCommentMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.stringContaining("Rule: https://verqen.dev/rules#R-013"),
+      expect.stringContaining("Rule: https://rules.example.com/rules#R-013"),
       expect.anything(),
     );
   });

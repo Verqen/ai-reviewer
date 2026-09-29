@@ -14,7 +14,6 @@ import type {
   Severity,
 } from "~/domain/types/review.types";
 import { matchFilePathGlob } from "~/glob/match-file-path-glob";
-import { escalateVibeCodingSeverity } from "~/pipeline/prompts/vibe-coding-patterns";
 import { findingsMatch, type MatchableFinding } from "~/review/finding-match";
 
 const SEVERITY_ORDER: Record<Severity, number> = {
@@ -33,41 +32,12 @@ function isFindingDuplicate(
   return findingsMatch(left, right, tolerance);
 }
 
-function normalizeFindingKey(f: Finding): string {
-  const normalized = f.comment.toLowerCase().replace(/\s+/g, " ").trim();
-  return `${f.filePath}:${f.lineNumber}:${f.lineType}:${normalized}`;
-}
-
 function dedup(findings: Finding[]): Finding[] {
   const seen = new Map<string, Finding>();
-
   for (const f of findings) {
-    const lineKey = `${f.filePath}:${f.lineNumber}:${f.lineType}`;
-    const exactKey = normalizeFindingKey(f);
-
-    if (seen.has(exactKey)) {
-      continue;
-    }
-
-    const existingOnLine = [...seen.values()].find(
-      (existing) =>
-        `${existing.filePath}:${existing.lineNumber}:${existing.lineType}` ===
-        lineKey,
-    );
-
-    if (existingOnLine) {
-      if (
-        SEVERITY_ORDER[f.severity] > SEVERITY_ORDER[existingOnLine.severity]
-      ) {
-        const existingKey = normalizeFindingKey(existingOnLine);
-        seen.delete(existingKey);
-        seen.set(exactKey, f);
-      }
-    } else {
-      seen.set(exactKey, f);
-    }
+    const key = `${f.filePath}:${String(f.lineNumber)}:${f.lineType}:${f.ruleId}`;
+    if (!seen.has(key)) seen.set(key, f);
   }
-
   return [...seen.values()];
 }
 
@@ -75,25 +45,13 @@ function matchesDismissedPattern(
   finding: Finding,
   pattern: DismissedPattern,
 ): boolean {
-  if (finding.category !== pattern.category) {
+  if (pattern.ruleId === undefined || pattern.ruleId !== finding.ruleId) {
     return false;
   }
-
-  if (
-    pattern.filePathGlob &&
-    !matchFilePathGlob(finding.filePath, pattern.filePathGlob)
-  ) {
-    return false;
-  }
-
-  if (pattern.sampleComment) {
-    const normalizedComment = finding.comment.toLowerCase();
-    const normalizedPattern = pattern.sampleComment.toLowerCase();
-    const keywords = normalizedPattern.split(/\s+/).slice(0, 3);
-    return keywords.every((kw) => normalizedComment.includes(kw));
-  }
-
-  return true;
+  return (
+    pattern.filePathGlob === undefined ||
+    matchFilePathGlob(finding.filePath, pattern.filePathGlob)
+  );
 }
 
 function sortFindings(findings: Finding[]): Finding[] {
@@ -126,56 +84,6 @@ function capFindings(
     capped.push(finding);
   }
   return capped;
-}
-
-function consolidationSignature(finding: Finding): string {
-  const normalized = finding.comment
-    .toLowerCase()
-    .replace(/`[^`]*`/g, "")
-    .replace(/[0-9]+/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 40);
-  return `${finding.filePath}::${finding.category}::${normalized}`;
-}
-
-function consolidateRecurringFindings(
-  findings: Finding[],
-  minOccurrences: number,
-): Finding[] {
-  const groups = new Map<string, Finding[]>();
-  for (const finding of findings) {
-    const key = consolidationSignature(finding);
-    const group = groups.get(key) ?? [];
-    group.push(finding);
-    groups.set(key, group);
-  }
-  const result: Finding[] = [];
-  for (const group of groups.values()) {
-    if (group.length < minOccurrences) {
-      result.push(...group);
-      continue;
-    }
-    const sorted = [...group].sort(
-      (a, b) =>
-        SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] ||
-        b.confidence - a.confidence,
-    );
-    const representative = sorted[0];
-    if (representative === undefined) {
-      result.push(...group);
-      continue;
-    }
-    const otherLines = sorted
-      .slice(1)
-      .map((finding) => finding.lineNumber)
-      .join(", ");
-    result.push({
-      ...representative,
-      comment: `${representative.comment}\n\nThis pattern recurs at ${String(group.length)} locations in this file (also lines ${otherLines}); address them together.`,
-    });
-  }
-  return result;
 }
 
 class AggregationPass implements IReviewPass<AggregationResult> {
@@ -212,12 +120,7 @@ class AggregationPass implements IReviewPass<AggregationResult> {
       "Aggregation pass starting",
     );
 
-    const combined = consolidateRecurringFindings(
-      escalateVibeCodingSeverity(
-        dedup([...fileReviewFindings, ...crossFileFindings]),
-      ),
-      reviewConfig.consolidateMinOccurrences,
-    );
+    const combined = dedup([...fileReviewFindings, ...crossFileFindings]);
 
     const dedupedCount = combined.length;
 

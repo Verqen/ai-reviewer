@@ -61,11 +61,6 @@ export type {
   ProductionReadinessScore,
   ScoreCategory,
 } from "~/review/scoring.service";
-export {
-  buildVibeCodingPatternsInstruction,
-  escalateVibeCodingSeverity,
-  VIBE_CODING_PATTERNS,
-} from "~/pipeline/prompts/vibe-coding-patterns";
 
 export {
   listGitHubInstallationRepositories,

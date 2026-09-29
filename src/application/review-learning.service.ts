@@ -221,6 +221,7 @@ class ReviewLearningService {
         createdBy: authorUsername,
         patternDescription,
         projectId,
+        ruleId: finding.ruleId,
         sampleComment: finding.comment,
         sampleReply: devReply,
         severity: finding.severity,

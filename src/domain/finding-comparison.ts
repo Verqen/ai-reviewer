@@ -1,3 +1,5 @@
+import { compareCodePoints } from "~/domain/code-point-order";
+
 interface FingerprintedFinding {
   filePath: string;
   fingerprint: string;
@@ -36,9 +38,9 @@ function byLocation(
   right: FingerprintedFinding,
 ): number {
   return (
-    left.filePath.localeCompare(right.filePath) ||
+    compareCodePoints(left.filePath, right.filePath) ||
     left.line - right.line ||
-    left.ruleId.localeCompare(right.ruleId)
+    compareCodePoints(left.ruleId, right.ruleId)
   );
 }
 
@@ -120,16 +122,11 @@ function matchRenamed(
 }
 
 function compareFindings(input: FindingComparisonInput): FindingComparison {
-  const current = input.current
-    .filter((finding) => input.comparableRuleIds.has(finding.ruleId))
-    .sort(byLocation);
-  const baseline = input.baseline
-    .filter(
-      (finding) =>
-        input.comparableRuleIds.has(finding.ruleId) &&
-        !input.unreviewedPaths.has(finding.filePath),
-    )
-    .sort(byLocation);
+  const comparable = (finding: FingerprintedFinding): boolean =>
+    input.comparableRuleIds.has(finding.ruleId) &&
+    !input.unreviewedPaths.has(finding.filePath);
+  const current = input.current.filter(comparable).sort(byLocation);
+  const baseline = input.baseline.filter(comparable).sort(byLocation);
 
   const sameFile = matchInSameFile(current, baseline);
   const renamed = matchRenamed(

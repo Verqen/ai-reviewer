@@ -7,6 +7,7 @@ import {
   computeReviewRunCostUsd,
 } from "~/config/llm-pricing";
 import { CostBudget } from "~/domain/cost-budget";
+import { selectConsensusFindings } from "~/domain/finding-consensus";
 import {
   RULE_CATALOG_VERSION,
   catalogComparability,
@@ -44,7 +45,7 @@ import {
   indexLineTexts,
   toCommitReviewFindings,
 } from "~/review/commit-review-finding";
-import type { ReviewModels } from "~/review/review-pass-run";
+import type { ReviewModels, ReviewPassRun } from "~/review/review-pass-run";
 import {
   buildOverlay,
   createReviewLlm,
@@ -59,6 +60,8 @@ import { createReproducibleLlm } from "~/review/reproducible-llm";
 import { buildWholeFileDiffs } from "~/review/whole-file-diff";
 
 const CHECK_RUN_NAME = "Verqen";
+const CONSENSUS_PASSES = 3;
+const CONSENSUS_QUORUM = 2;
 
 type CommitReviewCodeHost = Pick<
   GitHubCodeHost,
@@ -173,6 +176,7 @@ function buildCheckRunSummary(params: {
     ? "> **Partial result.** The cost ceiling for this run was reached before every file was reviewed. Files that were not reviewed carry no findings."
     : "";
   const catalog = `Rule catalog ${params.catalogVersion}. Each finding is a match of a published rule; the check makes no code changes.`;
+  const consensus = `Each finding was detected in at least ${String(CONSENSUS_QUORUM)} of ${String(CONSENSUS_PASSES)} independent passes over the same code.`;
   const findings =
     params.findingCount === 0
       ? `No rule of the catalog matched. Checked ${String(params.filesReviewed)} of ${String(params.filesTotal)} files.`
@@ -183,6 +187,7 @@ function buildCheckRunSummary(params: {
     scope,
     partialNote,
     catalog,
+    consensus,
     findings,
     params.comparisonSummary,
     cleanup,
@@ -256,34 +261,42 @@ async function reviewTree(
     versions: { baseSha: commitSha, headSha: commitSha, startSha: commitSha },
   };
 
-  const { partial, passResults } = await runReviewPasses({
-    context,
-    costBudget,
-    llm,
-    logger,
-  });
-
-  const skipped = pathsSkippedForCost(passResults);
-  const reported = toCommitReviewFindings(
-    publishedFindings(passResults),
-    projectId,
-    indexLineTexts(prepared.diffs),
-  );
-  for (const dropped of reported.dropped) {
-    logger.warn(
-      dropped,
-      "Dropped a commit-review finding whose rule or anchored line is missing",
-    );
+  const runs: ReviewPassRun[] = [];
+  for (let pass = 0; pass < CONSENSUS_PASSES; pass++) {
+    runs.push(await runReviewPasses({ context, costBudget, llm, logger }));
   }
+
+  const lineTexts = indexLineTexts(prepared.diffs);
+  const skipped = new Set(
+    runs.flatMap((passRun) => [...pathsSkippedForCost(passRun.passResults)]),
+  );
+  const findingsByPass = runs.map((passRun) => {
+    const reported = toCommitReviewFindings(
+      publishedFindings(passRun.passResults),
+      projectId,
+      lineTexts,
+    );
+    for (const dropped of reported.dropped) {
+      logger.warn(
+        dropped,
+        "Dropped a commit-review finding whose rule or anchored line is missing",
+      );
+    }
+    return reported.findings;
+  });
   return {
     review: {
       catalogVersion: RULE_CATALOG_VERSION,
       filesReviewed: reviewablePaths.filter((path) => !skipped.has(path))
         .length,
       filesTotal: reviewablePaths.length,
-      findings: reported.findings,
-      partial,
-      tokenCostUsd: computeReviewRunCostUsd(passResults, models),
+      findings: selectConsensusFindings(findingsByPass, CONSENSUS_QUORUM),
+      partial: runs.some((passRun) => passRun.partial),
+      tokenCostUsd: runs.reduce(
+        (total, passRun) =>
+          total + computeReviewRunCostUsd(passRun.passResults, models),
+        0,
+      ),
     },
     unreviewedPaths: skipped,
   };

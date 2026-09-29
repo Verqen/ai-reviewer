@@ -7,6 +7,11 @@ import {
   computeReviewRunCostUsd,
 } from "~/config/llm-pricing";
 import { CostBudget } from "~/domain/cost-budget";
+import {
+  RULE_CATALOG_VERSION,
+  findCatalogRule,
+} from "~/domain/rule-catalog/rule-catalog";
+import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
 import type {
@@ -52,11 +57,12 @@ interface GitHubCommitReviewOptions {
   commitSha: string;
   maxCostUsd: number;
   pathRules?: ReviewPathRule[] | undefined;
+  catalogUrl?: string | undefined;
   logger?: FastifyBaseLogger;
 }
 
 interface CommitReviewFinding {
-  rule: string;
+  ruleId: RuleId;
   severity: Severity;
   condition: string;
   filePath: string;
@@ -69,6 +75,7 @@ interface GitHubCommitReviewResult {
   filesTotal: number;
   partial: boolean;
   findings: CommitReviewFinding[];
+  catalogVersion: string;
   tokenCostUsd: number;
 }
 
@@ -103,27 +110,13 @@ function pathsSkippedForCost(
   return new Set(coverage.pathsSkippedCostCeiling);
 }
 
-const CODE_FENCE = "```";
-
 function publishedFindings(
   passResults: ReadonlyMap<string, PassResult>,
-  logger: FastifyBaseLogger,
 ): Finding[] {
   const aggregation = passResults.get("aggregation")?.metadata as
     | Partial<AggregationResult>
     | undefined;
-  return (aggregation?.postableFindings ?? []).filter((finding) => {
-    if (!finding.comment.includes(CODE_FENCE)) return true;
-    logger.warn(
-      {
-        filePath: finding.filePath,
-        lineNumber: finding.lineNumber,
-        passName: finding.passName,
-      },
-      "Dropping commit-review finding with code in comment",
-    );
-    return false;
-  });
+  return aggregation?.postableFindings ?? [];
 }
 
 function toCommitReviewFinding(finding: Finding): CommitReviewFinding {
@@ -131,18 +124,27 @@ function toCommitReviewFinding(finding: Finding): CommitReviewFinding {
     condition: finding.comment,
     filePath: finding.filePath,
     line: finding.lineNumber,
-    rule: finding.category,
+    ruleId: finding.ruleId,
     severity: finding.severity,
   };
 }
 
-function toAnnotation(finding: CommitReviewFinding): CheckRunAnnotation {
+function toAnnotation(
+  finding: CommitReviewFinding,
+  catalogUrl: string | undefined,
+): CheckRunAnnotation {
+  const rule = findCatalogRule(finding.ruleId);
+  const details = [
+    rule === undefined ? "" : `Condition: ${rule.condition}`,
+    catalogUrl === undefined ? "" : `Rule: ${catalogUrl}#${finding.ruleId}`,
+  ].filter((part) => part.length > 0);
   return {
     line: finding.line,
     message: finding.condition,
     path: finding.filePath,
+    ...(details.length > 0 ? { rawDetails: details.join("\n") } : {}),
     severity: finding.severity,
-    title: finding.rule,
+    title: `${finding.ruleId} · ${rule?.title ?? finding.ruleId}`,
   };
 }
 
@@ -153,6 +155,7 @@ function buildCheckRunTitle(findingCount: number): string {
 }
 
 function buildCheckRunSummary(params: {
+  catalogVersion: string;
   commitSha: string;
   filesReviewed: number;
   filesTotal: number;
@@ -163,10 +166,11 @@ function buildCheckRunSummary(params: {
   const partialNote = params.partial
     ? "> **Partial result.** The cost ceiling for this run was reached before every file was reviewed. Files that were not reviewed carry no findings."
     : "";
+  const catalog = `Rule catalog ${params.catalogVersion}. Each finding is a match of a published rule; the check makes no code changes.`;
   const findings = `${buildCheckRunTitle(params.findingCount)}; each one is attached to its file and line below.`;
   const cleanup =
     "The run is complete. Please uninstall the GitHub App from your account or organisation now: it keeps read access to the repositories you selected until you remove it.";
-  return [scope, partialNote, findings, cleanup]
+  return [scope, partialNote, catalog, findings, cleanup]
     .filter((part) => part.length > 0)
     .join("\n\n");
 }
@@ -244,9 +248,10 @@ async function reviewTree(
 
   const skipped = pathsSkippedForCost(passResults);
   return {
+    catalogVersion: RULE_CATALOG_VERSION,
     filesReviewed: reviewablePaths.filter((path) => !skipped.has(path)).length,
     filesTotal: reviewablePaths.length,
-    findings: publishedFindings(passResults, logger).map(toCommitReviewFinding),
+    findings: publishedFindings(passResults).map(toCommitReviewFinding),
     partial,
     tokenCostUsd: computeReviewRunCostUsd(passResults, models),
   };
@@ -290,9 +295,12 @@ async function reviewRepositoryCommit(
   try {
     const review = await reviewTree(dependencies, options, projectId);
     await codeHost.updateCheckRun(projectId, checkRun.id, {
-      annotations: review.findings.map(toAnnotation),
+      annotations: review.findings.map((finding) =>
+        toAnnotation(finding, options.catalogUrl),
+      ),
       conclusion: "neutral",
       summary: buildCheckRunSummary({
+        catalogVersion: review.catalogVersion,
         commitSha,
         filesReviewed: review.filesReviewed,
         filesTotal: review.filesTotal,

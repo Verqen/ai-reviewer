@@ -799,3 +799,102 @@ describe("FileReviewPass", () => {
     expect(result.findings[0]?.comment).not.toContain("[verified_repo_path:");
   });
 });
+
+describe("FileReviewPass with suggestions omitted", () => {
+  function singleFinding(comment: string, suggestion: string | null): string {
+    return JSON.stringify({
+      findings: [
+        {
+          category: "bug",
+          comment,
+          confidence: 0.95,
+          end_line: null,
+          file_path: "src/utils.ts",
+          line_number: 1,
+          line_type: "added",
+          severity: "warning",
+          suggestion,
+        },
+      ],
+    });
+  }
+
+  it("asks the extraction phase to leave suggestion null", async () => {
+    const llm = createTwoPhaseMockLlm(singleFinding("Issue", null));
+    const pass = new FileReviewPass(llm, createMockLogger());
+
+    await pass.execute(
+      buildContext({ findingSuggestions: "omitted" }),
+      new Map(),
+    );
+
+    const extractionSystem = llm.calls.chatCompletion[0]?.[0][0]?.content;
+    expect(JSON.stringify(extractionSystem)).toContain(
+      "Always set suggestion to null",
+    );
+  });
+
+  it("drops the suggestion the model returned anyway and keeps the comment intact", async () => {
+    const llm = createTwoPhaseMockLlm(
+      singleFinding("Division by zero when count is 0", "const x = 2;"),
+    );
+    const pass = new FileReviewPass(llm, createMockLogger());
+
+    const result = await pass.execute(
+      buildContext({ findingSuggestions: "omitted" }),
+      new Map(),
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.suggestion).toBeUndefined();
+    expect(result.findings[0]?.comment).toBe(
+      "Division by zero when count is 0",
+    );
+  });
+
+  it("drops a finding whose comment carries a fenced code block", async () => {
+    const llm = createTwoPhaseMockLlm(
+      singleFinding("Wrong value.\n\n```suggestion\nconst x = 2;\n```", null),
+    );
+    const pass = new FileReviewPass(llm, createMockLogger());
+
+    const result = await pass.execute(
+      buildContext({ findingSuggestions: "omitted" }),
+      new Map(),
+    );
+
+    expect(result.findings).toEqual([]);
+  });
+
+  it("keeps a fenced comment when suggestions are allowed", async () => {
+    const llm = createTwoPhaseMockLlm(
+      singleFinding("Wrong value.\n\n```ts\nconst x = 2;\n```", null),
+    );
+    const pass = new FileReviewPass(llm, createMockLogger());
+
+    const result = await pass.execute(buildContext(), new Map());
+
+    expect(result.findings).toHaveLength(1);
+  });
+});
+
+describe("FileReviewPass cost ceiling coverage", () => {
+  it("reports the paths it skipped because the cost ceiling was reached", async () => {
+    const budget = new CostBudget(1);
+    budget.record(5);
+    const pass = new FileReviewPass(createMockLlmClient(), createMockLogger());
+
+    const result = await pass.execute(
+      buildContext({
+        costBudget: budget,
+        diffs: [buildDiff("src/a.ts"), buildDiff("src/b.ts")],
+      }),
+      new Map(),
+    );
+
+    expect(result.metadata["pathsSkippedCostCeiling"]).toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+  });
+});

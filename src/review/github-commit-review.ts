@@ -211,7 +211,6 @@ async function reviewTree(
   const context: ReviewContext = {
     costBudget,
     diffs,
-    findingSuggestions: "omitted",
     isIncremental: false,
     mrIid: 0,
     mrInfo: {

@@ -9,13 +9,8 @@ import type { VersionInfo } from "~/domain/types/code-host.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { ForcePushCorrelationCandidate } from "~/domain/types/force-push-correlation.types";
 import type { Finding, TriggerType } from "~/domain/types/review.types";
-import { formatCommentWithSuggestion } from "~/pipeline/prompts/suggestion-formatter";
-import {
-  buildPosition,
-  originalSnippetMatchesDiff,
-} from "~/review/finding-inline-position";
-import { validateMissingImportFinding } from "~/review/import-path-existence-validator";
-import { sanitizeSuggestionAndComment } from "~/review/suggestion-sanitizer";
+import { formatFindingComment } from "~/review/finding-comment";
+import { buildPosition } from "~/review/finding-inline-position";
 
 type PublishInlineParams = {
   allFindings: Finding[];
@@ -76,6 +71,7 @@ class ReviewFindingPublisherService {
     InjectionTokens.CodeHost,
     ReviewTokens.CommentResolutionService,
     InjectionTokens.Logger,
+    ReviewTokens.CatalogUrl,
   ] as const;
 
   constructor(
@@ -83,6 +79,7 @@ class ReviewFindingPublisherService {
     private readonly codeHost: ICodeHost,
     private readonly commentResolutionService: CommentResolutionService,
     private readonly logger: FastifyBaseLogger,
+    private readonly catalogUrl: string | undefined,
   ) {}
 
   async publishInlineFindingsAndStore(
@@ -105,24 +102,6 @@ class ReviewFindingPublisherService {
       }
     > = [];
     for (const finding of postableFindings) {
-      const missingImportValidation = await validateMissingImportFinding({
-        codeHost: this.codeHost,
-        finding,
-        headSha: versions.headSha,
-        projectId,
-      });
-      if (missingImportValidation.shouldDrop) {
-        this.logger.info(
-          {
-            extractedPath: missingImportValidation.extractedPath,
-            filePath: finding.filePath,
-            reason: missingImportValidation.reason,
-            resolvedPath: missingImportValidation.resolvedPath,
-          },
-          "Dropping missing-file finding after deterministic validation",
-        );
-        continue;
-      }
       const positionResult = buildPosition(finding, versions, diffs);
       if (!positionResult) {
         this.logger.warn(
@@ -147,27 +126,7 @@ class ReviewFindingPublisherService {
         continue;
       }
       try {
-        const sanitized = sanitizeSuggestionAndComment({
-          comment: finding.comment,
-          suggestion: finding.suggestion,
-        });
-        const snippetMatchesDiff =
-          sanitized.suggestion !== undefined && finding.originalSnippet
-            ? originalSnippetMatchesDiff(
-                finding.originalSnippet,
-                finding,
-                diffs,
-              )
-            : false;
-        const commentBody = formatCommentWithSuggestion(
-          sanitized.comment,
-          finding.severity,
-          snippetMatchesDiff ? sanitized.suggestion : undefined,
-          snippetMatchesDiff ? finding.originalSnippet : undefined,
-          finding.lineType,
-          position.newLine ?? finding.lineNumber,
-          finding.endLineNumber,
-        );
+        const commentBody = formatFindingComment(finding, this.catalogUrl);
         const { discussionId, noteId } = await this.codeHost.postInlineComment(
           projectId,
           mrIid,
@@ -223,18 +182,9 @@ class ReviewFindingPublisherService {
         "Correlated finding after force-push; reposting at new position",
       );
       try {
-        const sanitized = sanitizeSuggestionAndComment({
-          comment: finding.comment,
-          suggestion: finding.suggestion,
-        });
-        const commentBody = formatCommentWithSuggestion(
-          sanitized.comment,
-          finding.severity,
-          sanitized.suggestion,
-          finding.originalSnippet,
-          finding.lineType,
-          newLineNumber,
-          finding.endLineNumber,
+        const commentBody = formatFindingComment(
+          { comment: finding.comment, ruleId, severity: finding.severity },
+          this.catalogUrl,
         );
         const { discussionId, noteId } = await this.codeHost.postInlineComment(
           projectId,

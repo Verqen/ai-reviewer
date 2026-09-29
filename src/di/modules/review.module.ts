@@ -67,6 +67,7 @@ class ReviewModule {
       .provideValue(InjectionTokens.OpenRouterConfig, openRouterConfig)
       .provideValue(InjectionTokens.PipelineMetrics, pipelineMetrics)
       .provideValue(InfraPortsTokens.SnapshotRepo, infraRepoPorts.snapshotRepo)
+      .provideValue(ReviewTokens.CatalogUrl, undefined)
       .provideValue(
         ReviewTokens.ReviewPasses,
         buildPasses(

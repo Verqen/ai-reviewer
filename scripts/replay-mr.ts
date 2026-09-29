@@ -8,6 +8,7 @@ import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import type { IDismissedPatternRepository } from "~/domain/ports/dismissed-pattern.repository.port";
 import type { IOverlayView } from "~/domain/ports/overlay-view.port";
+import { RULE_CATALOG_VERSION } from "~/domain/rule-catalog/rule-catalog";
 import type { DiffFile } from "~/domain/types/code-host.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { Severity } from "~/domain/types/review.types";
@@ -26,9 +27,9 @@ import {
   TriagePass,
   type TriagePassMetadata,
 } from "~/pipeline/passes/triage.pass";
-import { formatCommentWithSuggestion } from "~/pipeline/prompts/suggestion-formatter";
 import { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 import { parseDiff } from "~/review/diff-parser";
+import { formatFindingComment } from "~/review/finding-comment";
 import { buildPosition } from "~/review/finding-inline-position";
 import { computeProductionReadinessScore } from "~/review/scoring.service";
 import { createMockReviewConfig } from "~/test-utils/mock-review-config";
@@ -631,14 +632,9 @@ function printGitLabPreview(
         snappedFromLine !== undefined && position.newLine !== undefined
           ? `${finding.comment}\n\n_[Snapped from L${String(snappedFromLine)} → L${String(position.newLine)}: original line is outside the diff hunk]_`
           : finding.comment;
-      const commentBody = formatCommentWithSuggestion(
-        snappedComment,
-        finding.severity,
-        finding.suggestion,
-        finding.originalSnippet,
-        finding.lineType,
-        position.newLine ?? finding.lineNumber,
-        finding.endLineNumber,
+      const commentBody = formatFindingComment(
+        { ...finding, comment: snappedComment },
+        undefined,
       );
       threadIdx++;
       const targetLine = position.newLine ?? position.oldLine ?? "?";
@@ -665,6 +661,7 @@ function printGitLabPreview(
 
   const summaryNote = buildSummaryNote({
     allFindings,
+    catalogVersion: RULE_CATALOG_VERSION,
     overview:
       allFindings.length === 0
         ? "AI review complete — no issues found."

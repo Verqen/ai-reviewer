@@ -55,15 +55,11 @@ async function runNarrowFindingClarification(
     ? `\nReferenced code (may be outdated):\n\`\`\`\n${finding.lineExcerpt}\n\`\`\`\n`
     : "";
 
-  const suggestionBlock = finding.suggestion
-    ? `\nPreviously suggested fix:\n\`\`\`\n${finding.suggestion}\n\`\`\`\n`
-    : "";
-
   const systemPrompt = [
     UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION,
     "",
     "You answer a developer's follow-up question in a code-review thread.",
-    "You have access ONLY to: the original reviewer comment, an optional code excerpt, an optional suggested fix, and the developer's reply.",
+    "You have access ONLY to: the original reviewer comment, an optional code excerpt, and the developer's reply.",
     "",
     "STRICT RULES:",
     "- Answer the developer's specific question about THIS comment.",
@@ -77,7 +73,6 @@ async function runNarrowFindingClarification(
     `Reviewer comment at ${location}:`,
     `"${finding.comment}"`,
     excerptBlock,
-    suggestionBlock,
     `Developer reply:`,
     wrapUntrusted("developer_message", developerNote),
   ].join("\n");

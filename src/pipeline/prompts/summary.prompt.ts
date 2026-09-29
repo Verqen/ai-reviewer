@@ -1,3 +1,4 @@
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import type { Finding, Severity } from "~/domain/types/review.types";
 
 interface ModelTokenUsage {
@@ -7,6 +8,8 @@ interface ModelTokenUsage {
 
 interface SummaryParams {
   allFindings: Finding[];
+  catalogUrl?: string | undefined;
+  catalogVersion: string;
   includeCostFooter?: boolean;
   overview: string;
   postableFindings: Finding[];
@@ -54,9 +57,36 @@ function buildSeverityTable(findings: Finding[]): string {
   return `| Severity | Count |\n|----------|-------|\n${rows}`;
 }
 
+function buildRuleTable(findings: Finding[]): string {
+  const counts = new Map<string, number>();
+  for (const f of findings) {
+    counts.set(f.ruleId, (counts.get(f.ruleId) ?? 0) + 1);
+  }
+  const rows = [...counts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([id, count]) =>
+        `| ${id} | ${findCatalogRule(id)?.title ?? id} | ${String(count)} |`,
+    );
+  return rows.length === 0
+    ? ""
+    : `| Rule | Title | Count |\n|------|-------|-------|\n${rows.join("\n")}`;
+}
+
+function buildCatalogLine(
+  catalogVersion: string,
+  catalogUrl: string | undefined,
+): string {
+  return catalogUrl === undefined
+    ? `Rule catalog ${catalogVersion}`
+    : `Rule catalog ${catalogVersion}: ${catalogUrl}`;
+}
+
 function buildSummaryNote(params: SummaryParams): string {
   const {
     allFindings,
+    catalogUrl,
+    catalogVersion,
     includeCostFooter = false,
     overview,
     suppressedCount,
@@ -66,12 +96,19 @@ function buildSummaryNote(params: SummaryParams): string {
 
   const parts: string[] = [];
 
-  parts.push(`## AI Review Summary\n\n**Overall:** ${overview}`);
+  parts.push(`## Verqen check summary\n\n**Overall:** ${overview}`);
 
   const severityTable = buildSeverityTable(allFindings);
   if (severityTable) {
     parts.push(severityTable);
   }
+
+  const ruleTable = buildRuleTable(allFindings);
+  if (ruleTable) {
+    parts.push(ruleTable);
+  }
+
+  parts.push(buildCatalogLine(catalogVersion, catalogUrl));
 
   if (suppressedCount > 0) {
     parts.push(
@@ -85,12 +122,7 @@ function buildSummaryNote(params: SummaryParams): string {
     f.severity === "warning";
   const formatItem = (f: Finding, i: number): string => {
     const text = normalizeCommentForSummaryLine(f.comment);
-    const head = `${i + 1}. **[${f.severity.toUpperCase()}]** \`${f.filePath}:${f.lineNumber}\` - ${text}`;
-    const fix =
-      f.suggestion !== undefined && f.suggestion.trim() !== ""
-        ? `\n\n   _Suggested fix:_\n\n   \`\`\`suggestion\n${f.suggestion}\n   \`\`\``
-        : "";
-    return `${head}${fix}`;
+    return `${i + 1}. **${f.ruleId}** [${f.severity.toUpperCase()}] \`${f.filePath}:${f.lineNumber}\` - ${text}`;
   };
 
   const fileFindings = allFindings.filter(

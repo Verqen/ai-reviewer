@@ -3,6 +3,9 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
 import type { IReviewFindingRepository } from "~/domain/ports/review-finding.repository.port";
+import { buildCatalogFinding } from "~/domain/rule-catalog/catalog-finding";
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
+import type { CatalogRule } from "~/domain/rule-catalog/rule-catalog.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { Finding } from "~/domain/types/review.types";
 import { createMockCommentResolutionService } from "~/test-utils/mock-comment-resolution-service";
@@ -12,19 +15,23 @@ import { createMockReviewFindingRepository } from "~/test-utils/mock-review-find
 
 import { ReviewFindingPublisherService } from "./review-finding-publisher.service";
 
-function makeFinding(comment: string): Finding {
-  return {
-    category: "correctness",
-    comment,
+function requireRule(id: string): CatalogRule {
+  const rule = findCatalogRule(id);
+  if (rule === undefined) {
+    throw new Error(`Missing catalog rule ${id}`);
+  }
+  return rule;
+}
+
+function makeFinding(): Finding {
+  return buildCatalogFinding(requireRule("R-013"), {
     confidence: 0.9,
     filePath: "src/app.ts",
     lineNumber: 1,
     lineType: "added",
     model: "test-model",
     passName: "file-review",
-    ruleId: "R-013",
-    severity: "warning",
-  };
+  });
 }
 
 function makeDiffs(): ParsedFileDiff[] {
@@ -132,95 +139,9 @@ function makeCodeHost(params: {
   };
 }
 
-describe("ReviewFindingPublisherService missing-file validator", () => {
-  it("drops finding when referenced import path exists at MR head", async () => {
-    const finding = makeFinding(
-      "Imports a file that does not exist './user/user.router.ts'. File not found in the repository.",
-    );
-    const infra = makeInfraRepoPorts();
-    const codeHost = makeCodeHost({
-      existingFilePathsAtHead: ["src/user/user.router.ts"],
-    });
-    const service = new ReviewFindingPublisherService(
-      infra,
-      codeHost,
-      createMockCommentResolutionService(),
-      createMockLogger(),
-    );
-
-    await service.publishInlineFindingsAndStore({
-      allFindings: [finding],
-      diffs: makeDiffs(),
-      mrIid: 1,
-      postableFindings: [finding],
-      projectId: 1,
-      reviewRunId: "run-1",
-      versions: { baseSha: "base", headSha: "head", startSha: "start" },
-    });
-
-    expect(codeHost.postInlineCommentMock).not.toHaveBeenCalled();
-    expect(infra.createManyMock).not.toHaveBeenCalled();
-  });
-
-  it("keeps finding when referenced import path does not exist at MR head", async () => {
-    const finding = makeFinding(
-      "Imports a file that does not exist './user/missing.router.ts'. File not found in the repository.",
-    );
-    const infra = makeInfraRepoPorts();
-    const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
-    const service = new ReviewFindingPublisherService(
-      infra,
-      codeHost,
-      createMockCommentResolutionService(),
-      createMockLogger(),
-    );
-
-    await service.publishInlineFindingsAndStore({
-      allFindings: [finding],
-      diffs: makeDiffs(),
-      mrIid: 1,
-      postableFindings: [finding],
-      projectId: 1,
-      reviewRunId: "run-1",
-      versions: { baseSha: "base", headSha: "head", startSha: "start" },
-    });
-
-    expect(codeHost.postInlineCommentMock).toHaveBeenCalledTimes(1);
-    expect(infra.createManyMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("drops finding when import path cannot be extracted or resolved safely", async () => {
-    const finding = makeFinding(
-      "Imports a file that does not exist '@alias/user.router'. File not found in the repository.",
-    );
-    const infra = makeInfraRepoPorts();
-    const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
-    const service = new ReviewFindingPublisherService(
-      infra,
-      codeHost,
-      createMockCommentResolutionService(),
-      createMockLogger(),
-    );
-
-    await service.publishInlineFindingsAndStore({
-      allFindings: [finding],
-      diffs: makeDiffs(),
-      mrIid: 1,
-      postableFindings: [finding],
-      projectId: 1,
-      reviewRunId: "run-1",
-      versions: { baseSha: "base", headSha: "head", startSha: "start" },
-    });
-
-    expect(codeHost.postInlineCommentMock).not.toHaveBeenCalled();
-    expect(infra.createManyMock).not.toHaveBeenCalled();
-  });
-
+describe("ReviewFindingPublisherService inline publication", () => {
   it("does not publish finding when line is outside current diff hunk", async () => {
-    const finding = {
-      ...makeFinding("Outside hunk line"),
-      lineNumber: 999,
-    };
+    const finding = { ...makeFinding(), lineNumber: 999 };
     const infra = makeInfraRepoPorts();
     const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
     const service = new ReviewFindingPublisherService(
@@ -228,6 +149,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
       codeHost,
       createMockCommentResolutionService(),
       createMockLogger(),
+      undefined,
     );
     await service.publishInlineFindingsAndStore({
       allFindings: [finding],
@@ -243,7 +165,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
   });
 
   it("publishes valid finding without snapped-from marker", async () => {
-    const finding = makeFinding("Valid in-hunk finding");
+    const finding = makeFinding();
     const infra = makeInfraRepoPorts();
     const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
     const service = new ReviewFindingPublisherService(
@@ -251,6 +173,7 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
       codeHost,
       createMockCommentResolutionService(),
       createMockLogger(),
+      undefined,
     );
     await service.publishInlineFindingsAndStore({
       allFindings: [finding],
@@ -267,6 +190,80 @@ describe("ReviewFindingPublisherService missing-file validator", () => {
       | undefined;
     expect(postedBody).not.toContain("Snapped from");
   });
+
+  it("posts the catalog comment format", async () => {
+    const finding = makeFinding();
+    const infra = makeInfraRepoPorts();
+    const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
+    const service = new ReviewFindingPublisherService(
+      infra,
+      codeHost,
+      createMockCommentResolutionService(),
+      createMockLogger(),
+      "https://verqen.dev/rules",
+    );
+    await service.publishInlineFindingsAndStore({
+      allFindings: [finding],
+      diffs: makeDiffs(),
+      mrIid: 1,
+      postableFindings: [finding],
+      projectId: 1,
+      reviewRunId: "run-1",
+      versions: { baseSha: "base", headSha: "head", startSha: "start" },
+    });
+    expect(codeHost.postInlineCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining(
+        "**R-013 · Identifier used but not declared or imported** · attention",
+      ),
+      expect.anything(),
+    );
+    expect(codeHost.postInlineCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining("Rule: https://verqen.dev/rules#R-013"),
+      expect.anything(),
+    );
+  });
+
+  it("reposts a correlated finding in the catalog comment format", async () => {
+    const infra = makeInfraRepoPorts();
+    const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
+    const service = new ReviewFindingPublisherService(
+      infra,
+      codeHost,
+      createMockCommentResolutionService(),
+      createMockLogger(),
+      undefined,
+    );
+    await service.repostCorrelatedFindings({
+      correlated: [
+        {
+          finding: {
+            ...makeFinding(),
+            hostDiscussionId: "old-discussion-id",
+            id: "finding-1",
+            resolution: "pending",
+            reviewRunId: "run-old",
+          },
+          newLineNumber: 10,
+        },
+      ],
+      mrIid: 1,
+      projectId: 1,
+      reviewRunId: "run-new",
+      versions: { baseSha: "base", headSha: "head", startSha: "start" },
+    });
+    expect(codeHost.postInlineCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining(
+        "**R-013 · Identifier used but not declared or imported** · attention",
+      ),
+      expect.anything(),
+    );
+  });
 });
 
 describe("ReviewFindingPublisherService force-push correlation lifecycle", () => {
@@ -278,12 +275,13 @@ describe("ReviewFindingPublisherService force-push correlation lifecycle", () =>
       codeHost,
       createMockCommentResolutionService(),
       createMockLogger(),
+      undefined,
     );
     await service.repostCorrelatedFindings({
       correlated: [
         {
           finding: {
-            ...makeFinding("Correlated finding"),
+            ...makeFinding(),
             hostDiscussionId: "old-discussion-id",
             id: "finding-1",
             resolution: "pending",
@@ -315,8 +313,9 @@ describe("ReviewFindingPublisherService force-push correlation lifecycle", () =>
       codeHost,
       createMockCommentResolutionService(),
       createMockLogger({ warn }),
+      undefined,
     );
-    const { ruleId: _ruleId, ...legacyFinding } = makeFinding("Legacy finding");
+    const { ruleId: _ruleId, ...legacyFinding } = makeFinding();
     await service.repostCorrelatedFindings({
       correlated: [
         {

@@ -96,10 +96,6 @@ function buildFindingThreadClarificationUserPrompt(
     ? `\nStored excerpt from review (may be outdated):\n\`\`\`\n${finding.lineExcerpt}\n\`\`\`\n`
     : "";
 
-  const suggestionBlock = finding.suggestion
-    ? `\nPreviously suggested fix:\n\`\`\`\n${finding.suggestion}\n\`\`\`\n`
-    : "";
-
   const archBlock =
     architectureSnapshot && architectureSnapshot.trim().length > 0
       ? `Architecture snapshot (baseline):\n${architectureSnapshot}\n`
@@ -127,7 +123,6 @@ function buildFindingThreadClarificationUserPrompt(
     `Finding location: ${location}`,
     `Original bot comment: "${finding.comment}"`,
     excerptBlock,
-    suggestionBlock,
     threadBlock,
     "",
     `Developer's latest message:`,

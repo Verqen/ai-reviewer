@@ -5,6 +5,7 @@ import type { ReviewInfraRepoPorts } from "~/application/review.infra-repo-ports
 import { InjectionTokens } from "~/di/injection-tokens";
 import { ReviewTokens } from "~/di/review-tokens";
 import type { ICodeHost } from "~/domain/ports/code-host.port";
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import type { VersionInfo } from "~/domain/types/code-host.types";
 import type { ParsedFileDiff } from "~/domain/types/diff.types";
 import type { ForcePushCorrelationCandidate } from "~/domain/types/force-push-correlation.types";
@@ -169,8 +170,11 @@ class ReviewFindingPublisherService {
       if (!hostDiscussionId) {
         continue;
       }
-      const ruleId = finding.ruleId;
-      if (ruleId === undefined) {
+      const rule =
+        finding.ruleId === undefined
+          ? undefined
+          : findCatalogRule(finding.ruleId);
+      if (rule === undefined) {
         this.logger.warn(
           { filePath: finding.filePath, findingId: finding.id },
           "Dropping legacy finding without a catalog rule id from force-push repost",
@@ -183,7 +187,7 @@ class ReviewFindingPublisherService {
       );
       try {
         const commentBody = formatFindingComment(
-          { comment: finding.comment, ruleId, severity: finding.severity },
+          { comment: rule.finding, ruleId: rule.id, severity: rule.severity },
           this.catalogUrl,
         );
         const { discussionId, noteId } = await this.codeHost.postInlineComment(
@@ -203,11 +207,14 @@ class ReviewFindingPublisherService {
         await this.infraRepoPorts.reviewFindingRepo.createMany([
           {
             ...finding,
+            category: rule.category,
+            comment: rule.finding,
             hostDiscussionId: discussionId,
             hostNoteId: noteId,
             lineNumber: newLineNumber,
             reviewRunId,
-            ruleId,
+            ruleId: rule.id,
+            severity: rule.severity,
           },
         ]);
         addressedFindingIds.push(finding.id);

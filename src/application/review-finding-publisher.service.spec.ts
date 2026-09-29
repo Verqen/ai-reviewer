@@ -12,6 +12,7 @@ import { createMockCommentResolutionService } from "~/test-utils/mock-comment-re
 import { createMockInfraRepoPorts } from "~/test-utils/mock-infra-repo-ports";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockReviewFindingRepository } from "~/test-utils/mock-review-finding-repository";
+import { formatFindingComment } from "~/review/finding-comment";
 
 import { ReviewFindingPublisherService } from "./review-finding-publisher.service";
 
@@ -267,6 +268,94 @@ describe("ReviewFindingPublisherService inline publication", () => {
 });
 
 describe("ReviewFindingPublisherService force-push correlation lifecycle", () => {
+  it("reposts the catalog text and severity instead of the stored comment", async () => {
+    const infra = makeInfraRepoPorts();
+    const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
+    const service = new ReviewFindingPublisherService(
+      infra,
+      codeHost,
+      createMockCommentResolutionService(),
+      createMockLogger(),
+      undefined,
+    );
+    const rule = requireRule("R-013");
+    await service.repostCorrelatedFindings({
+      correlated: [
+        {
+          finding: {
+            ...makeFinding(),
+            category: "correctness",
+            comment: "stored free text from an older run",
+            hostDiscussionId: "old-discussion-id",
+            id: "finding-1",
+            resolution: "pending",
+            reviewRunId: "run-old",
+            severity: "nitpick",
+          },
+          newLineNumber: 10,
+        },
+      ],
+      mrIid: 1,
+      projectId: 1,
+      reviewRunId: "run-new",
+      versions: { baseSha: "base", headSha: "head", startSha: "start" },
+    });
+    expect(codeHost.postInlineCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      formatFindingComment(
+        { comment: rule.finding, ruleId: rule.id, severity: rule.severity },
+        undefined,
+      ),
+      expect.anything(),
+    );
+    expect(infra.createManyMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        category: rule.category,
+        comment: rule.finding,
+        severity: rule.severity,
+      }),
+    ]);
+  });
+
+  it("drops a finding whose rule id is not in the catalog instead of reposting it", async () => {
+    const infra = makeInfraRepoPorts();
+    const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
+    const warn = vi.fn();
+    const service = new ReviewFindingPublisherService(
+      infra,
+      codeHost,
+      createMockCommentResolutionService(),
+      createMockLogger({ warn }),
+      undefined,
+    );
+    await service.repostCorrelatedFindings({
+      correlated: [
+        {
+          finding: {
+            ...makeFinding(),
+            hostDiscussionId: "old-discussion-id",
+            id: "finding-unknown",
+            resolution: "pending",
+            reviewRunId: "run-old",
+            ruleId: "R-999",
+          },
+          newLineNumber: 10,
+        },
+      ],
+      mrIid: 1,
+      projectId: 1,
+      reviewRunId: "run-new",
+      versions: { baseSha: "base", headSha: "head", startSha: "start" },
+    });
+    expect(codeHost.postInlineCommentMock).not.toHaveBeenCalled();
+    expect(infra.createManyMock).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      { filePath: "src/app.ts", findingId: "finding-unknown" },
+      "Dropping legacy finding without a catalog rule id from force-push repost",
+    );
+  });
+
   it("marks original correlated finding as addressed after successful repost", async () => {
     const infra = makeInfraRepoPorts();
     const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });

@@ -1,6 +1,6 @@
 {
   "name": "@gkosach/core",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Source-available AI code-review pipeline: anchor-grounded, multi-pass, self-hostable.",
   "license": "LicenseRef-FSL-1.1-ALv2",
   "author": "German Kosach",

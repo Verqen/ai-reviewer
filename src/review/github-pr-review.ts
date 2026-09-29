@@ -49,12 +49,6 @@ export interface PriorThreadRef {
   hostDiscussionId: string;
 }
 
-export interface ReviewPathRule {
-  path: string;
-  extraRules?: string | undefined;
-  focus?: string[] | undefined;
-}
-
 export interface GitHubPullRequestReviewOptions {
   owner: string;
   repo: string;
@@ -66,7 +60,6 @@ export interface GitHubPullRequestReviewOptions {
   maxCostUsd?: number | undefined;
   sinceSha?: string | undefined;
   resolverToken?: string | undefined;
-  pathRules?: ReviewPathRule[] | undefined;
   showCostFooter?: boolean | undefined;
   catalogUrl?: string | undefined;
   logger?: FastifyBaseLogger;
@@ -289,7 +282,7 @@ export async function reviewGitHubPullRequest(
       severityThreshold: "info",
       modelOverrides: { review: true, triage: true },
       models: { premium: null, review: models.review, triage: models.triage },
-      pathRules: options.pathRules ?? [],
+      pathRules: [],
     }),
     reviewRunId: "github-pr-review",
     toolCallCache: new Map(),

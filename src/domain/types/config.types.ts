@@ -62,10 +62,15 @@ const ResolvedReviewPipelineConfigSchema = ReviewPipelineConfigSchema.extend({
 
 type LoadedReviewPipelineConfig = z.infer<typeof ReviewPipelineConfigSchema>;
 type ReviewPipelineConfig = z.infer<typeof ResolvedReviewPipelineConfigSchema>;
+type ReviewPathRule = LoadedReviewPipelineConfig["pathRules"][number];
 
 export {
   ResolvedReviewPipelineConfigSchema,
   ReviewPipelineConfigSchema,
   SeverityThresholdSchema,
 };
-export type { LoadedReviewPipelineConfig, ReviewPipelineConfig };
+export type {
+  LoadedReviewPipelineConfig,
+  ReviewPathRule,
+  ReviewPipelineConfig,
+};

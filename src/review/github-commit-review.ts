@@ -29,7 +29,6 @@ import {
   GitHubCodeHost as GitHubCodeHostAdapter,
 } from "~/infrastructure/code-host/github/github.code-host";
 import { createSilentLogger } from "~/infrastructure/logging/silent-logger";
-import type { ReviewPathRule } from "~/review/github-pr-review";
 import type { ReviewModels } from "~/review/review-pass-run";
 import {
   buildOverlay,
@@ -58,7 +57,6 @@ interface GitHubCommitReviewOptions {
   commitSha: string;
   maxCostUsd: number;
   maxReviewableFiles: number;
-  pathRules?: ReviewPathRule[] | undefined;
   catalogUrl?: string | undefined;
   logger?: FastifyBaseLogger;
 }
@@ -235,7 +233,7 @@ async function reviewTree(
       severityThreshold: "info",
       modelOverrides: { review: true, triage: true },
       models: { premium: null, review: models.review, triage: models.triage },
-      pathRules: options.pathRules ?? [],
+      pathRules: [],
     }),
     reviewRunId: "github-commit-review",
     toolCallCache: new Map(),

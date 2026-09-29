@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
+import { fingerprintFinding } from "~/domain/finding-fingerprint";
 import type { ArchiveEntry } from "~/domain/types/code-host.types";
 import type {
   ChatMessage,
@@ -27,7 +28,7 @@ const COMMIT_SHA = "0123456789abcdef0123456789abcdef01234567";
 interface FakeCodeHost extends CommitReviewCodeHost {
   archiveRefs: string[];
   completions: CheckRunCompletion[];
-  created: { headSha: string; name: string }[];
+  created: { detailsUrl?: string | undefined; headSha: string; name: string }[];
 }
 
 function fakeCodeHost(entries: readonly ArchiveEntry[]): FakeCodeHost {
@@ -37,7 +38,11 @@ function fakeCodeHost(entries: readonly ArchiveEntry[]): FakeCodeHost {
     created: [],
     createCheckRun(
       _projectId: number,
-      params: { headSha: string; name: string },
+      params: {
+        detailsUrl?: string | undefined;
+        headSha: string;
+        name: string;
+      },
     ): Promise<CreatedCheckRun> {
       host.created.push(params);
       return Promise.resolve({
@@ -247,7 +252,13 @@ describe("reviewRepositoryCommit", () => {
     );
 
     expect(host.archiveRefs).toEqual([COMMIT_SHA]);
-    expect(host.created).toEqual([{ headSha: COMMIT_SHA, name: "Verqen" }]);
+    expect(host.created).toEqual([
+      {
+        detailsUrl: "https://verqen.dev/rules",
+        headSha: COMMIT_SHA,
+        name: "Verqen",
+      },
+    ]);
     expect(host.completions).toHaveLength(1);
     expect(host.completions[0]?.conclusion).toBe("neutral");
     expect(host.completions[0]?.annotations).toEqual([
@@ -291,9 +302,12 @@ describe("reviewRepositoryCommit", () => {
     expect(result.findings).toEqual([
       {
         condition:
-          "A value that can be absent is dereferenced here without a check.",
+          "A value that can be null, undefined or empty is dereferenced without a check.",
         filePath: "src/a.ts",
+        fingerprint: fingerprintFinding(42, "R-014", "export const v0 = 0;"),
         line: 1,
+        message:
+          "A value that can be absent is dereferenced here without a check.",
         ruleId: "R-014",
         severity: "attention",
       },
@@ -305,6 +319,18 @@ describe("reviewRepositoryCommit", () => {
     expect(published).not.toContain("```suggestion");
     expect(published).not.toContain("const fixed = true;");
     expect(llm.extractionSystemPrompts[0]).toContain("rule_id MUST be one of");
+  });
+
+  it("says that no rule matched and how many files were checked when there are no findings", async () => {
+    const llm = fakeLlm(() => []);
+
+    const { host } = await run([source("src/a.ts"), source("src/b.ts")], llm);
+
+    const summary = host.completions[0]?.summary ?? "";
+    expect(summary).toContain(
+      "No rule of the catalog matched. Checked 2 of 2 files.",
+    );
+    expect(summary).not.toContain("each one is attached");
   });
 
   it("publishes catalog text even when the model returns free text", async () => {

@@ -11,7 +11,6 @@ import {
   RULE_CATALOG_VERSION,
   findCatalogRule,
 } from "~/domain/rule-catalog/rule-catalog";
-import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
 import type { ILlmClient } from "~/domain/ports/llm.port";
 import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
 import type {
@@ -19,7 +18,7 @@ import type {
   PassResult,
   ReviewContext,
 } from "~/domain/types/pipeline.types";
-import type { Finding, Severity } from "~/domain/types/review.types";
+import type { Finding } from "~/domain/types/review.types";
 import type {
   CheckRunAnnotation,
   GitHubCodeHost,
@@ -29,6 +28,11 @@ import {
   GitHubCodeHost as GitHubCodeHostAdapter,
 } from "~/infrastructure/code-host/github/github.code-host";
 import { createSilentLogger } from "~/infrastructure/logging/silent-logger";
+import type { CommitReviewFinding } from "~/review/commit-review-finding";
+import {
+  indexLineTexts,
+  toCommitReviewFindings,
+} from "~/review/commit-review-finding";
 import type { ReviewModels } from "~/review/review-pass-run";
 import {
   buildOverlay,
@@ -64,14 +68,6 @@ interface GitHubCommitReviewOptions {
   maxReviewableFiles: number;
   catalogUrl?: string | undefined;
   logger?: FastifyBaseLogger;
-}
-
-interface CommitReviewFinding {
-  ruleId: RuleId;
-  severity: Severity;
-  condition: string;
-  filePath: string;
-  line: number;
 }
 
 interface GitHubCommitReviewResult {
@@ -125,32 +121,21 @@ function publishedFindings(
   return aggregation?.postableFindings ?? [];
 }
 
-function toCommitReviewFinding(finding: Finding): CommitReviewFinding {
-  return {
-    condition: finding.comment,
-    filePath: finding.filePath,
-    line: finding.lineNumber,
-    ruleId: finding.ruleId,
-    severity: finding.severity,
-  };
-}
-
 function toAnnotation(
   finding: CommitReviewFinding,
   catalogUrl: string | undefined,
 ): CheckRunAnnotation {
-  const rule = findCatalogRule(finding.ruleId);
   const details = [
-    rule === undefined ? "" : `Condition: ${rule.condition}`,
+    `Condition: ${finding.condition}`,
     catalogUrl === undefined ? "" : `Rule: ${catalogUrl}#${finding.ruleId}`,
   ].filter((part) => part.length > 0);
   return {
     line: finding.line,
-    message: finding.condition,
+    message: finding.message,
     path: finding.filePath,
-    ...(details.length > 0 ? { rawDetails: details.join("\n") } : {}),
+    rawDetails: details.join("\n"),
     severity: finding.severity,
-    title: `${finding.ruleId} · ${rule?.title ?? finding.ruleId}`,
+    title: `${finding.ruleId} · ${findCatalogRule(finding.ruleId)?.title ?? finding.ruleId}`,
   };
 }
 
@@ -173,7 +158,10 @@ function buildCheckRunSummary(params: {
     ? "> **Partial result.** The cost ceiling for this run was reached before every file was reviewed. Files that were not reviewed carry no findings."
     : "";
   const catalog = `Rule catalog ${params.catalogVersion}. Each finding is a match of a published rule; the check makes no code changes.`;
-  const findings = `${buildCheckRunTitle(params.findingCount)}; each one is attached to its file and line below.`;
+  const findings =
+    params.findingCount === 0
+      ? `No rule of the catalog matched. Checked ${String(params.filesReviewed)} of ${String(params.filesTotal)} files.`
+      : `${buildCheckRunTitle(params.findingCount)}; each one is attached to its file and line below.`;
   const cleanup =
     "The run is complete. Please uninstall the GitHub App from your account or organisation now: it keeps read access to the repositories you selected until you remove it.";
   return [scope, partialNote, catalog, findings, cleanup]
@@ -254,11 +242,22 @@ async function reviewTree(
   });
 
   const skipped = pathsSkippedForCost(passResults);
+  const reported = toCommitReviewFindings(
+    publishedFindings(passResults),
+    projectId,
+    indexLineTexts(prepared.diffs),
+  );
+  for (const dropped of reported.dropped) {
+    logger.warn(
+      dropped,
+      "Dropped a commit-review finding whose rule or anchored line is missing",
+    );
+  }
   return {
     catalogVersion: RULE_CATALOG_VERSION,
     filesReviewed: reviewablePaths.filter((path) => !skipped.has(path)).length,
     filesTotal: reviewablePaths.length,
-    findings: publishedFindings(passResults).map(toCommitReviewFinding),
+    findings: reported.findings,
     partial,
     tokenCostUsd: computeReviewRunCostUsd(passResults, models),
   };
@@ -312,6 +311,7 @@ async function reviewRepositoryCommit(
     );
   }
   const checkRun = await codeHost.createCheckRun(projectId, {
+    detailsUrl: options.catalogUrl,
     headSha: commitSha,
     name: CHECK_RUN_NAME,
   });

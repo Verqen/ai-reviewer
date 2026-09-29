@@ -117,6 +117,23 @@ describe("buildComparisonSummary", () => {
     );
   });
 
+  it("states nothing about uncompared findings when every finding was compared", () => {
+    const summary = buildComparisonSummary(comparison(), sameCatalog);
+
+    expect(summary).not.toContain("were not compared");
+  });
+
+  it("states how many findings were not compared right after the counts", () => {
+    const summary = buildComparisonSummary(
+      comparison({ notComparable: 3 }),
+      sameCatalog,
+    );
+
+    expect(summary).toContain(
+      "New: 1 · Persisting: 1 · Resolved: 1\n\n3 findings were not compared: their rule is outside one of the two catalog versions or their file was not fully reviewed in one of the runs.",
+    );
+  });
+
   it("says a first run has nothing to compare with", () => {
     expect(FIRST_RUN_SUMMARY).toBe(
       "First run for this repository: there is no earlier result to compare with.",

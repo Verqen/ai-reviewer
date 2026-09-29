@@ -1,5 +1,6 @@
 import { getReviewLanguage } from "~/config/review-language";
 import type { MergeRequestInfo } from "~/domain/types/code-host.types";
+import type { FindingSuggestions } from "~/domain/types/pipeline.types";
 import type { TextBlock } from "~/domain/types/llm.types";
 import { buildAnalysisDisciplineInstruction } from "~/pipeline/prompts/file-review-analysis-discipline";
 import {
@@ -68,9 +69,26 @@ function buildFileReviewAnalysisSystemBlocks(
   return [block];
 }
 
+function buildSuggestionInstructions(
+  suggestions: FindingSuggestions,
+): string[] {
+  if (suggestions === "omitted") {
+    return [
+      "Keep rationale strictly in comment. Always set suggestion to null.",
+      "Never include replacement code, patches or fenced code blocks in comment; describe the problem and where it is, not how to fix it.",
+    ];
+  }
+  return [
+    "Keep rationale strictly in comment. suggestion must contain only replacement code lines (patch content) with no explanation text.",
+    "Provide suggestion only when confidence >= 0.8 and fix is unambiguous; never for removed lines.",
+    "When the fix is deleting the selected range, suggestion may be an empty string to produce deletion-only apply suggestion (allowed only with line_type added or context).",
+  ];
+}
+
 function buildFileReviewExtractionSystemBlocks(
   applyCacheControl: boolean,
   language: string = getReviewLanguage(),
+  suggestions: FindingSuggestions = "allowed",
 ): TextBlock[] {
   const text = [
     `You convert a prior ${language} code-review analysis into a machine-readable findings list.`,
@@ -85,13 +103,13 @@ function buildFileReviewExtractionSystemBlocks(
     'severity MUST be one of: "critical", "attention", "warning", "info", "nitpick". Apply the rubric stated in the analysis-phase system prompt; map polish/style to "info" or "nitpick" only.',
     "category SHOULD reuse one of the documented tokens (bug, security, performance, architecture, types, contract, error_handling, concurrency, validation, observability, dx, style, best_practice). Stick to lowercase snake_case; do not introduce synonyms — duplicate detection depends on stable categories.",
     "confidence MUST follow the rubric in the analysis-phase prompt (0.5 hypothesis / 0.7 corroborated / 0.9 directly demonstrable).",
-    "Keep rationale strictly in comment. suggestion must contain only replacement code lines (patch content) with no explanation text.",
-    "Provide suggestion only when confidence >= 0.8 and fix is unambiguous; never for removed lines.",
-    "When the fix is deleting the selected range, suggestion may be an empty string to produce deletion-only apply suggestion (allowed only with line_type added or context).",
+    ...buildSuggestionInstructions(suggestions),
     "Never emit a missing-import-path finding unless the analysis explicitly documents tool verification.",
     "For every missing-file import finding, include a marker in comment: [verified_repo_path: <repo-relative-path>] matching the analysis.",
     buildJsonOutputInstructions(FILE_REVIEW_FINDINGS_SCHEMA_EXAMPLE),
-    `You MUST write every finding comment and suggestion in ${language}.`,
+    suggestions === "omitted"
+      ? `You MUST write every finding comment in ${language}.`
+      : `You MUST write every finding comment and suggestion in ${language}.`,
   ].join("\n");
   const block: TextBlock = applyCacheControl
     ? { cacheControl: { ttl: "1h", type: "ephemeral" }, text, type: "text" }

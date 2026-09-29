@@ -68,6 +68,11 @@ const IMPORT_MENTION_REGEX = /(import|импорт)/i;
 const MIN_GROUNDABLE_SNIPPET_LENGTH = 12;
 const VERIFIED_REPO_PATH_MARKER_REGEX =
   /\[\s*verified_repo_path\s*:\s*([^\]\s]+)\s*\]/i;
+const CODE_FENCE = "```";
+
+function carriesCodeFence(comment: string): boolean {
+  return comment.includes(CODE_FENCE);
+}
 
 function mapToFinding(
   item: z.infer<typeof FileFindingSchema>,
@@ -195,6 +200,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
     _priorResults: Map<string, PassResult>,
   ): Promise<PassResult<Record<string, unknown>>> {
     const { diffs, mrInfo, reviewConfig } = context;
+    const suggestions = context.findingSuggestions ?? "allowed";
 
     if (diffs.length === 0) {
       this.logger.debug(
@@ -243,6 +249,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
       diffs.flatMap((diff) => [diff.newPath, diff.oldPath]),
     );
     let totalUserPromptChars = 0;
+    const pathsSkippedCostCeiling: string[] = [];
     let totalToolCalls = 0;
     let totalToolRounds = 0;
     let totalRequestedToolRounds = 0;
@@ -258,6 +265,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
       queue.add(async () => {
         if (budget?.isExhausted()) {
           fileReviewCounters.filesSkippedCostCeiling++;
+          pathsSkippedCostCeiling.push(diff.newPath);
           return;
         }
         const model = reviewConfig.models.review;
@@ -442,7 +450,11 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
               );
             } else {
               const extractionSystemBlocks =
-                buildFileReviewExtractionSystemBlocks(true);
+                buildFileReviewExtractionSystemBlocks(
+                  true,
+                  undefined,
+                  suggestions,
+                );
               const extractionUserPrompt = buildFileReviewExtractionUserPrompt({
                 allowableAnchorsText: diffPromptPayload.allowableAnchorsText,
                 analysisText,
@@ -567,6 +579,26 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
                       );
                       return false;
                     })
+                    .filter((item) => {
+                      if (
+                        suggestions === "allowed" ||
+                        !carriesCodeFence(item.comment)
+                      ) {
+                        return true;
+                      }
+                      this.logger.warn(
+                        {
+                          filePath: item.file_path,
+                          lineNumber: item.line_number,
+                          mrIid: context.mrIid,
+                          pass: "file-review",
+                          projectId: context.projectId,
+                          reviewRunId: context.reviewRunId,
+                        },
+                        "Dropping finding with code in comment while suggestions are omitted",
+                      );
+                      return false;
+                    })
                     .map((item) => {
                       const gating = applyMissingFileVerificationGate({
                         comment: item.comment,
@@ -581,7 +613,8 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
                       }
                       const sanitized = sanitizeSuggestionAndComment({
                         comment: gating.normalizedComment,
-                        suggestion: item.suggestion,
+                        suggestion:
+                          suggestions === "omitted" ? null : item.suggestion,
                       });
                       return mapToFinding(
                         {
@@ -690,6 +723,7 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
           diffs.length > 0 ? totalUserPromptChars / diffs.length : 0,
         costCeilingHit: fileReviewCounters.filesSkippedCostCeiling > 0,
         filesSkippedCostCeiling: fileReviewCounters.filesSkippedCostCeiling,
+        pathsSkippedCostCeiling,
         filesWithTools: fileReviewCounters.filesWithTools,
         totalRequestedToolRounds,
         totalToolCalls,

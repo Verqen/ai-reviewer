@@ -107,6 +107,10 @@ function buildComparisonSummary(
 ): string {
   const heading = `**Comparison with run ${comparison.baselineCommitSha.slice(0, SHORT_SHA_LENGTH)} (${comparison.baselineFinishedAt.slice(0, DATE_LENGTH)})**`;
   const counts = `New: ${String(comparison.new)} · Persisting: ${String(comparison.persisting)} · Resolved: ${String(comparison.resolved.length)}`;
+  const notCompared =
+    comparison.notComparable > 0
+      ? `${String(comparison.notComparable)} findings were not compared: their rule is outside one of the two catalog versions or their file was not fully reviewed in one of the runs.`
+      : "";
   const catalogLine =
     comparison.baselineCatalogVersion === catalog.currentVersion
       ? ""
@@ -117,7 +121,15 @@ function buildComparisonSummary(
     .join("\n");
   const hidden = comparison.resolved.length - RESOLVED_LIST_LIMIT;
   const more = hidden > 0 ? `and ${String(hidden)} more` : "";
-  return [heading, counts, catalogLine, listed, more, COMPARISON_CAVEAT]
+  return [
+    heading,
+    counts,
+    notCompared,
+    catalogLine,
+    listed,
+    more,
+    COMPARISON_CAVEAT,
+  ]
     .filter((part) => part.length > 0)
     .join("\n\n");
 }

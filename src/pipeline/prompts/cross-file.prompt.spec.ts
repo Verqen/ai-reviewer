@@ -34,6 +34,15 @@ describe("buildCrossFileSystemPrompt", () => {
     expect(prompt).not.toContain('"comment"');
   });
 
+  it("asks only for what the cross-file catalog rules cover", () => {
+    const prompt = buildCrossFileSystemPrompt(null, null);
+    expect(prompt).toContain("(R-025)");
+    expect(prompt).toContain("(R-026)");
+    expect(prompt).not.toMatch(/circular dependenc/i);
+    expect(prompt).not.toMatch(/error propagation/i);
+    expect(prompt).not.toMatch(/bounded-context/i);
+  });
+
   it("requires findings to match allowable anchors tables in user MR diffs section", () => {
     const prompt = buildCrossFileSystemPrompt(null, null);
     expect(prompt).toContain("allowable anchors table");

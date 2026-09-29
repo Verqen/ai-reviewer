@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
 import { fingerprintFinding } from "~/domain/finding-fingerprint";
+import { UnknownCatalogVersionError } from "~/domain/rule-catalog/rule-catalog";
 import type { ArchiveEntry } from "~/domain/types/code-host.types";
 import type {
   ChatMessage,
@@ -13,7 +14,10 @@ import type {
   CheckRunCompletion,
   CreatedCheckRun,
 } from "~/infrastructure/code-host/github/github.code-host";
-import type { CommitReviewCodeHost } from "~/review/github-commit-review";
+import type {
+  CommitReviewBaseline,
+  CommitReviewCodeHost,
+} from "~/review/github-commit-review";
 import {
   countRepositoryReviewableFiles,
   resolveDefaultBranchHead,
@@ -169,6 +173,7 @@ async function run(
   llm: FakeLlm,
   maxCostUsd = 100,
   maxReviewableFiles = 400,
+  baseline?: CommitReviewBaseline,
 ): Promise<{
   host: FakeCodeHost;
   result: Awaited<ReturnType<typeof reviewRepositoryCommit>>;
@@ -190,6 +195,7 @@ async function run(
       commitSha: COMMIT_SHA,
       maxCostUsd,
       maxReviewableFiles,
+      ...(baseline === undefined ? {} : { baseline }),
       owner: "owner",
       repo: "repo",
     },
@@ -404,6 +410,95 @@ describe("reviewRepositoryCommit", () => {
     expect(summary).toContain(COMMIT_SHA);
     expect(summary).toContain("uninstall the GitHub App");
     expect(summary).not.toContain("Partial result");
+  });
+});
+
+describe("reviewRepositoryCommit comparison with an earlier run", () => {
+  const baseline: CommitReviewBaseline = {
+    catalogVersion: "2026.10.1",
+    commitSha: "abcdef1234567890abcdef1234567890abcdef12",
+    findings: [
+      {
+        filePath: "src/a.ts",
+        fingerprint: fingerprintFinding(42, "R-014", "export const v0 = 0;"),
+        line: 7,
+        ruleId: "R-014",
+      },
+      {
+        filePath: "src/gone.ts",
+        fingerprint: "0123456789abcdef0123456789abcdef",
+        line: 4,
+        ruleId: "R-014",
+      },
+    ],
+    finishedAt: "2026-09-29T10:15:00.000Z",
+    runId: "11111111-1111-4111-8111-111111111111",
+  };
+
+  it("says a first run has nothing to compare with and returns no comparison", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+
+    const { host, result } = await run([source("src/a.ts")], llm);
+
+    expect(result.comparison).toBeNull();
+    expect(host.completions[0]?.summary).toContain(
+      "First run for this repository: there is no earlier result to compare with.",
+    );
+  });
+
+  it("publishes new, persisting and resolved findings against the baseline", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+
+    const { host, result } = await run(
+      [source("src/a.ts"), source("src/b.ts")],
+      llm,
+      100,
+      400,
+      baseline,
+    );
+
+    expect(result.comparison).toEqual({
+      baselineCatalogVersion: "2026.10.1",
+      baselineCommitSha: baseline.commitSha,
+      baselineFinishedAt: baseline.finishedAt,
+      baselineRunId: baseline.runId,
+      new: 1,
+      notComparable: 0,
+      persisting: 1,
+      resolved: [
+        {
+          fileRemoved: true,
+          filePath: "src/gone.ts",
+          line: 4,
+          ruleId: "R-014",
+        },
+      ],
+    });
+    const titles = host.completions[0]?.annotations.map(
+      (annotation) => `${annotation.path} ${annotation.title}`,
+    );
+    expect(titles).toEqual([
+      "src/a.ts R-014 · Access to a possibly absent value without a guard · persisting",
+      "src/b.ts R-014 · Access to a possibly absent value without a guard · new",
+    ]);
+    const summary = host.completions[0]?.summary ?? "";
+    expect(summary).toContain("Comparison with run abcdef1 (2026-09-29)");
+    expect(summary).toContain("New: 1 · Persisting: 1 · Resolved: 1");
+    expect(summary).toContain("R-014 · src/gone.ts:4 (file removed)");
+    expect(summary).not.toContain("First run");
+  });
+
+  it("refuses a baseline of an unknown catalog version before creating a check run", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+
+    await expect(
+      run([source("src/a.ts")], llm, 100, 400, {
+        ...baseline,
+        catalogVersion: "1999.1.1",
+      }),
+    ).rejects.toThrow(UnknownCatalogVersionError);
+
+    expect(llm.options).toEqual([]);
   });
 });
 

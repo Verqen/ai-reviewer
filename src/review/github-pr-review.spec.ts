@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildPullRequestSummaryHeading } from "~/review/github-pr-review";
 
 describe("buildPullRequestSummaryHeading", () => {
-  it("names the check and the catalog without any score", () => {
+  it("names the check without any score", () => {
     const heading = buildPullRequestSummaryHeading({
       partial: false,
       incremental: false,

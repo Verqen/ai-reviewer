@@ -14,6 +14,7 @@ import type {
 } from "~/infrastructure/code-host/github/github.code-host";
 import type { CommitReviewCodeHost } from "~/review/github-commit-review";
 import {
+  countRepositoryReviewableFiles,
   resolveDefaultBranchHead,
   reviewRepositoryCommit,
 } from "~/review/github-commit-review";
@@ -151,6 +152,7 @@ async function run(
   entries: readonly ArchiveEntry[],
   llm: FakeLlm,
   maxCostUsd = 100,
+  maxReviewableFiles = 400,
 ): Promise<{
   host: FakeCodeHost;
   result: Awaited<ReturnType<typeof reviewRepositoryCommit>>;
@@ -170,6 +172,7 @@ async function run(
       catalogUrl: "https://verqen.dev/rules",
       commitSha: COMMIT_SHA,
       maxCostUsd,
+      maxReviewableFiles,
       owner: "owner",
       repo: "repo",
     },
@@ -340,6 +343,7 @@ describe("reviewRepositoryCommit check run lifecycle", () => {
   const options = {
     commitSha: COMMIT_SHA,
     maxCostUsd: 100,
+    maxReviewableFiles: 400,
     owner: "owner",
     repo: "repo",
   };
@@ -354,7 +358,6 @@ describe("reviewRepositoryCommit check run lifecycle", () => {
       reviewRepositoryCommit(deps(host, llm), options),
     ).rejects.toThrow("Resource not accessible by integration");
 
-    expect(host.archiveRefs).toEqual([]);
     expect(llm.analysisPrompts).toEqual([]);
   });
 
@@ -379,7 +382,7 @@ describe("reviewRepositoryCommit check run lifecycle", () => {
     expect(llm.analysisPrompts).toEqual([]);
   });
 
-  it("closes the check run as cancelled when the review fails", async () => {
+  it("creates no check run when the archive cannot be downloaded", async () => {
     const llm = fakeLlm(() => []);
     const host = fakeCodeHost([]);
     host.getRepositoryArchive = (): Promise<ArchiveEntry[]> =>
@@ -389,11 +392,111 @@ describe("reviewRepositoryCommit check run lifecycle", () => {
       reviewRepositoryCommit(deps(host, llm), options),
     ).rejects.toThrow("archive timeout");
 
+    expect(host.created).toEqual([]);
+    expect(host.completions).toEqual([]);
+  });
+
+  it("closes the check run as cancelled when the review fails", async () => {
+    const llm = fakeLlm(() => []);
+    const host = fakeCodeHost([source("src/a.ts")]);
+    const failing: FakeLlm = {
+      ...llm,
+      chatCompletion: () => Promise.reject(new Error("model unavailable")),
+      chatCompletionWithTools: () =>
+        Promise.reject(new Error("model unavailable")),
+    };
+
+    await expect(
+      reviewRepositoryCommit(deps(host, failing), options),
+    ).rejects.toThrow();
+
     expect(host.completions).toHaveLength(1);
     expect(host.completions[0]).toMatchObject({
       annotations: [],
       conclusion: "cancelled",
     });
+  });
+});
+
+describe("repository size limit", () => {
+  it("refuses a repository over the file limit before creating a check run or calling the model", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+    const calls = { completion: 0 };
+    const counting: FakeLlm = {
+      ...llm,
+      chatCompletion(messages, options) {
+        calls.completion++;
+        return llm.chatCompletion(messages, options);
+      },
+      chatCompletionWithTools(messages, tools, toolExecutor, options) {
+        calls.completion++;
+        return llm.chatCompletionWithTools(
+          messages,
+          tools,
+          toolExecutor,
+          options,
+        );
+      },
+    };
+    const host = fakeCodeHost([
+      source("src/a.ts"),
+      source("src/b.ts"),
+      source("src/c.ts"),
+    ]);
+
+    await expect(
+      reviewRepositoryCommit(
+        {
+          codeHost: host,
+          llm: counting,
+          logger: createMockLogger(),
+          models: {
+            review: OPENROUTER_REVIEW_MODEL,
+            triage: OPENROUTER_REVIEW_MODEL,
+          },
+        },
+        {
+          commitSha: COMMIT_SHA,
+          maxCostUsd: 100,
+          maxReviewableFiles: 2,
+          owner: "owner",
+          repo: "repo",
+        },
+      ),
+    ).rejects.toMatchObject({
+      maxReviewableFiles: 2,
+      name: "RepositoryTooLargeError",
+      reviewableFiles: 3,
+    });
+
+    expect(host.created).toEqual([]);
+    expect(calls.completion).toBe(0);
+  });
+
+  it("counts only reviewable files", async () => {
+    const host = fakeCodeHost([
+      source("src/a.ts"),
+      { content: Buffer.from("{}"), path: "pnpm-lock.yaml" },
+      { content: Buffer.from([0, 1, 2]), path: "logo.png" },
+    ]);
+    await expect(
+      countRepositoryReviewableFiles(host, {
+        commitSha: COMMIT_SHA,
+        owner: "owner",
+        repo: "repo",
+      }),
+    ).resolves.toEqual({ reviewableFiles: 1 });
+  });
+
+  it("reviews a repository exactly at the limit", async () => {
+    const llm = fakeLlm(() => []);
+    const { host } = await run(
+      [source("src/a.ts"), source("src/b.ts")],
+      llm,
+      100,
+      2,
+    );
+    expect(host.created).toHaveLength(1);
   });
 });
 

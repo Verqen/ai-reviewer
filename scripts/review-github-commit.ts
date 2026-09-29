@@ -18,9 +18,10 @@ function parseNumber(name: string): number | undefined {
 }
 
 const DEFAULT_MAX_COST_USD = 20;
+const DEFAULT_MAX_REVIEWABLE_FILES = 400;
 
 const USAGE =
-  "usage: pnpm run review:github:commit -- --owner <login> --repo <name> [--installation <id>] [--sha <commit>] [--max-cost <usd>] [--catalog-url <url>]";
+  "usage: pnpm run review:github:commit -- --owner <login> --repo <name> [--installation <id>] [--sha <commit>] [--max-cost <usd>] [--max-files <n>] [--catalog-url <url>]";
 
 async function main(): Promise<void> {
   const owner = parseString("--owner");
@@ -28,6 +29,8 @@ async function main(): Promise<void> {
   const installationId = parseNumber("--installation");
   const catalogUrl = parseString("--catalog-url");
   const maxCostUsd = parseNumber("--max-cost") ?? DEFAULT_MAX_COST_USD;
+  const maxReviewableFiles =
+    parseNumber("--max-files") ?? DEFAULT_MAX_REVIEWABLE_FILES;
 
   if (owner === undefined || repo === undefined) {
     process.stderr.write(`${USAGE}\n`);
@@ -48,6 +51,7 @@ async function main(): Promise<void> {
     commitSha,
     installationId,
     maxCostUsd,
+    maxReviewableFiles,
     owner,
     repo,
   });

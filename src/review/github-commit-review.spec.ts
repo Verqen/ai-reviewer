@@ -377,6 +377,27 @@ describe("reviewRepositoryCommit check run lifecycle", () => {
     expect(llm.analysisPrompts).toEqual([]);
   });
 
+  it("refuses before creating a check run when a model has no price", async () => {
+    const llm = fakeLlm((filePath) => [finding(filePath)]);
+    const host = fakeCodeHost([source("src/a.ts")]);
+
+    await expect(
+      reviewRepositoryCommit(
+        {
+          ...deps(host, llm),
+          models: {
+            review: "vendor/unpriced",
+            triage: OPENROUTER_REVIEW_MODEL,
+          },
+        },
+        options,
+      ),
+    ).rejects.toThrow(/no pricing/);
+
+    expect(host.created).toEqual([]);
+    expect(llm.analysisPrompts).toEqual([]);
+  });
+
   it("closes the check run as cancelled when the review fails", async () => {
     const llm = fakeLlm(() => []);
     const host = fakeCodeHost([]);

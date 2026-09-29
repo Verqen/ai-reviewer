@@ -20,6 +20,11 @@ const PRICING: Readonly<Record<string, ModelPricing>> = {
     inputPerMTokens: 0.2,
     outputPerMTokens: 1.1,
   },
+  "deepseek/deepseek-chat": {
+    cachedInputPerMTokens: 0.2574,
+    inputPerMTokens: 0.2574,
+    outputPerMTokens: 1.0287,
+  },
 };
 
 const ZERO_PRICING: ModelPricing = {
@@ -54,6 +59,46 @@ function hasPricing(model: string): boolean {
   return Object.prototype.hasOwnProperty.call(PRICING, model);
 }
 
+class UnpricedModelError extends Error {
+  constructor(readonly models: readonly string[]) {
+    super(
+      `A cost ceiling is set but there is no pricing for: ${models.join(", ")}. Spend on these models would count as zero and the ceiling would never trigger.`,
+    );
+    this.name = "UnpricedModelError";
+  }
+}
+
+function assertCostCeilingEnforceable(
+  models: { review: string; triage: string },
+  maxCostUsd: number | undefined,
+): void {
+  if (maxCostUsd === undefined) return;
+  const unpriced = [...new Set([models.review, models.triage])].filter(
+    (model) => !hasPricing(model),
+  );
+  if (unpriced.length > 0) throw new UnpricedModelError(unpriced);
+}
+
+interface PricingWarningLogger {
+  warn(context: { unpricedModels: string[] }, message: string): void;
+}
+
+function reportModelPricing(
+  models: readonly string[],
+  maxCostUsd: number | undefined,
+  logger: PricingWarningLogger,
+): void {
+  const unpricedModels = [...new Set(models)].filter(
+    (model) => !hasPricing(model),
+  );
+  if (unpricedModels.length === 0) return;
+  if (maxCostUsd !== undefined) throw new UnpricedModelError(unpricedModels);
+  logger.warn(
+    { unpricedModels },
+    "No pricing entry for these models: spend is estimated as zero and the cost metrics stay at zero",
+  );
+}
+
 interface PassTokenUsage {
   tokenUsage: { completionTokens: number; promptTokens: number };
   tokenUsageByModel?: Record<
@@ -82,5 +127,18 @@ function computeReviewRunCostUsd(
   return total;
 }
 
-export { computeCostUsd, computeReviewRunCostUsd, getModelPricing, hasPricing };
-export type { ModelPricing, PassTokenUsage, TokenCostInput };
+export {
+  assertCostCeilingEnforceable,
+  computeCostUsd,
+  computeReviewRunCostUsd,
+  getModelPricing,
+  hasPricing,
+  reportModelPricing,
+  UnpricedModelError,
+};
+export type {
+  ModelPricing,
+  PassTokenUsage,
+  PricingWarningLogger,
+  TokenCostInput,
+};

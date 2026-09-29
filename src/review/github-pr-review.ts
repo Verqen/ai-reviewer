@@ -246,7 +246,7 @@ export async function reviewGitHubPullRequest(
   const parsedDiffs = reviewable.map(parseDiff);
   const reviewedFilePaths = new Set(reviewable.map((file) => file.newPath));
 
-  const { llm, models } = createReviewLlm(logger);
+  const { llm, models } = createReviewLlm(logger, options.maxCostUsd);
 
   const costBudget = new CostBudget(options.maxCostUsd);
 

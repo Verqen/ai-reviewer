@@ -305,4 +305,42 @@ describe("ReviewFindingPublisherService force-push correlation lifecycle", () =>
       "addressed",
     );
   });
+
+  it("drops a legacy finding without a catalog rule id instead of reposting it", async () => {
+    const infra = makeInfraRepoPorts();
+    const codeHost = makeCodeHost({ existingFilePathsAtHead: [] });
+    const warn = vi.fn();
+    const service = new ReviewFindingPublisherService(
+      infra,
+      codeHost,
+      createMockCommentResolutionService(),
+      createMockLogger({ warn }),
+    );
+    const { ruleId: _ruleId, ...legacyFinding } = makeFinding("Legacy finding");
+    await service.repostCorrelatedFindings({
+      correlated: [
+        {
+          finding: {
+            ...legacyFinding,
+            hostDiscussionId: "old-discussion-id",
+            id: "finding-legacy",
+            resolution: "pending",
+            reviewRunId: "run-old",
+          },
+          newLineNumber: 10,
+        },
+      ],
+      mrIid: 1,
+      projectId: 1,
+      reviewRunId: "run-new",
+      versions: { baseSha: "base", headSha: "head", startSha: "start" },
+    });
+    expect(codeHost.postInlineCommentMock).not.toHaveBeenCalled();
+    expect(infra.createManyMock).not.toHaveBeenCalled();
+    expect(infra.updateResolutionManyMock).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      { filePath: "src/app.ts", findingId: "finding-legacy" },
+      "Dropping legacy finding without a catalog rule id from force-push repost",
+    );
+  });
 });

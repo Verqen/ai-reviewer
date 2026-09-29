@@ -561,8 +561,8 @@ describe("ReviewRunRepository", () => {
         resolved_at: null,
         resolved_by: null,
         review_run_id: run.id,
+        rule_id: "R-013",
         severity: "warning",
-        suggestion: null,
       })
       .execute();
     const deletedCount = await repo.deleteCompletedOrFailedBefore(new Date());

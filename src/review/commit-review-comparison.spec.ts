@@ -121,5 +121,14 @@ describe("buildComparisonSummary", () => {
     expect(FIRST_RUN_SUMMARY).toBe(
       "First run for this repository: there is no earlier result to compare with.",
     );
+    expect(FIRST_RUN_SUMMARY).not.toContain("borderline");
+  });
+
+  it("states in the caveat that borderline matches can differ between runs", () => {
+    const summary = buildComparisonSummary(comparison(), sameCatalog);
+
+    expect(summary).toMatch(
+      /The same code can yield a different borderline match between runs, so a single new or resolved match is not by itself proof of a code change\.$/,
+    );
   });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPullRequestSummaryHeading } from "~/review/github-pr-review";
+import type { Finding } from "~/domain/types/review.types";
+import {
+  buildPullRequestSummaryHeading,
+  selectPriorThreadsToResolve,
+  type PriorThreadRef,
+} from "~/review/github-pr-review";
 
 describe("buildPullRequestSummaryHeading", () => {
   it("names the check without any score", () => {
@@ -23,5 +28,72 @@ describe("buildPullRequestSummaryHeading", () => {
     expect(heading).toContain(
       "only the 2 file(s) changed since the last review were re-analyzed",
     );
+  });
+});
+
+function buildThread(overrides: Partial<PriorThreadRef> = {}): PriorThreadRef {
+  return {
+    filePath: "src/a.ts",
+    hostDiscussionId: "thread-1",
+    line: 10,
+    lineType: "added",
+    ruleId: "R-014",
+    severity: "attention",
+    ...overrides,
+  };
+}
+
+function buildFinding(overrides: Partial<Finding> = {}): Finding {
+  return {
+    category: "correctness",
+    comment: "text",
+    confidence: 0.9,
+    filePath: "src/a.ts",
+    lineNumber: 10,
+    lineType: "added",
+    model: "test-model",
+    passName: "file-review",
+    ruleId: "R-014",
+    severity: "attention",
+    ...overrides,
+  };
+}
+
+describe("selectPriorThreadsToResolve", () => {
+  const reviewed = new Set(["src/a.ts"]);
+
+  it("resolves a catalog-rule thread whose finding is gone", () => {
+    const thread = buildThread();
+    expect(selectPriorThreadsToResolve([thread], reviewed, [])).toEqual([
+      thread,
+    ]);
+  });
+
+  it("keeps a thread whose finding is still present", () => {
+    expect(
+      selectPriorThreadsToResolve([buildThread()], reviewed, [
+        buildFinding({ lineNumber: 12 }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("never resolves a legacy thread without a rule id", () => {
+    expect(
+      selectPriorThreadsToResolve(
+        [buildThread({ ruleId: null })],
+        reviewed,
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  it("leaves threads on files that were not reviewed", () => {
+    expect(
+      selectPriorThreadsToResolve(
+        [buildThread({ filePath: "src/b.ts" })],
+        reviewed,
+        [],
+      ),
+    ).toEqual([]);
   });
 });

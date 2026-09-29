@@ -67,7 +67,7 @@ function buildNoopRepo(): IDismissedPatternRepository {
   return {
     create: () => Promise.reject(new Error("not implemented")),
     findByProject: () => Promise.resolve([]),
-    findSimilar: () => Promise.resolve(undefined),
+    findByRule: () => Promise.resolve(undefined),
     incrementOccurrence: () => Promise.resolve(),
   };
 }
@@ -108,7 +108,7 @@ function repoWithPatterns(
   return {
     create: () => Promise.reject(new Error("not implemented")),
     findByProject: () => Promise.resolve(patterns),
-    findSimilar: () => Promise.resolve(undefined),
+    findByRule: () => Promise.resolve(undefined),
     incrementOccurrence: () => Promise.resolve(),
   };
 }

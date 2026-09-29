@@ -7,7 +7,8 @@ import type {
   IDismissedPatternRepository,
 } from "~/domain/ports/dismissed-pattern.repository.port";
 import { toRuleId } from "~/domain/rule-catalog/rule-catalog";
-import type { FindingCategory, Severity } from "~/domain/types/review.types";
+import type { RuleId } from "~/domain/rule-catalog/rule-catalog.types";
+import type { Severity } from "~/domain/types/review.types";
 import type { Database } from "~/infrastructure/database/types";
 
 function rowToDismissedPattern(row: {
@@ -78,48 +79,21 @@ class DismissedPatternRepository implements IDismissedPatternRepository {
     return rows.map(rowToDismissedPattern);
   }
 
-  async findSimilar(
+  async findByRule(
     projectId: number,
-    category: FindingCategory,
-    comment: string,
+    ruleId: RuleId,
   ): Promise<DismissedPattern | undefined> {
-    const rows = await this.db
+    const row = await this.db
       .selectFrom("dismissed_pattern")
       .selectAll()
       .where("project_id", "=", projectId)
-      .where("category", "=", category)
-      .execute();
+      .where("rule_id", "=", ruleId)
+      .orderBy("created_at", "asc")
+      .orderBy("id", "asc")
+      .limit(1)
+      .executeTakeFirst();
 
-    const normalizedComment = comment.toLowerCase().trim();
-    const commentWords = new Set(
-      normalizedComment.split(/\s+/).filter((w) => w.length > 3),
-    );
-
-    let bestMatch: DismissedPattern | undefined;
-    let bestOverlap = 0;
-
-    for (const row of rows) {
-      const patternWords = new Set(
-        row.pattern_description
-          .toLowerCase()
-          .split(/\s+/)
-          .filter((w) => w.length > 3),
-      );
-      let overlap = 0;
-      for (const word of commentWords) {
-        if (patternWords.has(word)) {
-          overlap++;
-        }
-      }
-      const overlapRatio =
-        commentWords.size > 0 ? overlap / commentWords.size : 0;
-      if (overlapRatio >= 0.5 && overlap > bestOverlap) {
-        bestOverlap = overlap;
-        bestMatch = rowToDismissedPattern(row);
-      }
-    }
-
-    return bestMatch;
+    return row === undefined ? undefined : rowToDismissedPattern(row);
   }
 
   async incrementOccurrence(id: string): Promise<void> {

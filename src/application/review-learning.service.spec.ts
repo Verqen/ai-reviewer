@@ -55,7 +55,7 @@ function buildMockDismissedPattern(
 
 describe("ReviewLearningService", () => {
   let createFn: Mock<IDismissedPatternRepository["create"]>;
-  let findSimilarFn: Mock<IDismissedPatternRepository["findSimilar"]>;
+  let findByRuleFn: Mock<IDismissedPatternRepository["findByRule"]>;
   let incrementOccurrenceFn: Mock<
     IDismissedPatternRepository["incrementOccurrence"]
   >;
@@ -67,8 +67,8 @@ describe("ReviewLearningService", () => {
     createFn = vi
       .fn<IDismissedPatternRepository["create"]>()
       .mockResolvedValue(buildMockDismissedPattern());
-    findSimilarFn = vi
-      .fn<IDismissedPatternRepository["findSimilar"]>()
+    findByRuleFn = vi
+      .fn<IDismissedPatternRepository["findByRule"]>()
       .mockResolvedValue(undefined);
     incrementOccurrenceFn = vi
       .fn<IDismissedPatternRepository["incrementOccurrence"]>()
@@ -80,7 +80,7 @@ describe("ReviewLearningService", () => {
     dismissedPatternRepo = {
       create: createFn,
       findByProject: vi.fn().mockResolvedValue([]),
-      findSimilar: findSimilarFn,
+      findByRule: findByRuleFn,
       incrementOccurrence: incrementOccurrenceFn,
     };
 
@@ -371,11 +371,7 @@ describe("ReviewLearningService", () => {
         projectId: 1,
       });
 
-      expect(findSimilarFn).toHaveBeenCalledWith(
-        1,
-        "best_practice",
-        finding.comment,
-      );
+      expect(findByRuleFn).toHaveBeenCalledWith(1, "R-013");
       expect(createFn).toHaveBeenCalledWith(
         expect.objectContaining({
           category: "best_practice",
@@ -423,6 +419,7 @@ describe("ReviewLearningService", () => {
         projectId: 1,
       });
 
+      expect(findByRuleFn).not.toHaveBeenCalled();
       expect(createFn).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalledWith(
         { findingId: "finding-1", projectId: 1 },
@@ -438,7 +435,7 @@ describe("ReviewLearningService", () => {
 
     it("increments existing pattern occurrence", async () => {
       const existingPattern = buildMockDismissedPattern();
-      findSimilarFn.mockResolvedValue(existingPattern);
+      findByRuleFn.mockResolvedValue(existingPattern);
 
       const llm = createMockLlmClient({
         responses: [
@@ -504,7 +501,7 @@ describe("ReviewLearningService", () => {
         projectId: 1,
       });
 
-      expect(findSimilarFn).not.toHaveBeenCalled();
+      expect(findByRuleFn).not.toHaveBeenCalled();
       expect(updateResolutionFn).not.toHaveBeenCalled();
     });
 

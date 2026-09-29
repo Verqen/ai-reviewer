@@ -211,7 +211,7 @@ function buildEmptyDismissedRepo(): IDismissedPatternRepository {
   return {
     create: () => Promise.reject(new Error("replay does not persist patterns")),
     findByProject: () => Promise.resolve([]),
-    findSimilar: () => Promise.resolve(undefined),
+    findByRule: () => Promise.resolve(undefined),
     incrementOccurrence: () => Promise.resolve(),
   };
 }

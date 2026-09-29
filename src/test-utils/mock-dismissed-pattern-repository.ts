@@ -25,7 +25,7 @@ function createMockDismissedPatternRepository(
   return {
     create: () => Promise.resolve(createMockDismissedPattern()),
     findByProject: () => Promise.resolve([]),
-    findSimilar: () => Promise.resolve(undefined),
+    findByRule: () => Promise.resolve(undefined),
     incrementOccurrence: () => Promise.resolve(),
     ...overrides,
   };

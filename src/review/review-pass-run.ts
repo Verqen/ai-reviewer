@@ -37,7 +37,7 @@ type OverlaySource = Pick<ICodeHost, "getFileContent" | "getFileTree">;
 const noopDismissedPatternRepo: IDismissedPatternRepository = {
   create: () => Promise.reject(new Error("not supported in stateless review")),
   findByProject: () => Promise.resolve([]),
-  findSimilar: () => Promise.resolve(undefined),
+  findByRule: () => Promise.resolve(undefined),
   incrementOccurrence: () => Promise.resolve(),
 };
 

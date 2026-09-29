@@ -145,7 +145,7 @@ describe("buildReviewedFindings", () => {
     };
   }
 
-  it("returns only findings that passed every gate, each anchored", async () => {
+  it("returns every finding that passed the gates, anchored only when newly postable", async () => {
     const passing = buildFinding({ filePath: "src/a.ts", ruleId: "R-013" });
     const lowConfidence = buildFinding({
       confidence: 0.4,
@@ -198,6 +198,18 @@ describe("buildReviewedFindings", () => {
         filePath: "src/a.ts",
         hostDiscussionId: "d-1",
         hostNoteId: "n-1",
+        line: 10,
+        lineType: "added",
+        ruleId: "R-013",
+        severity: "attention",
+      },
+      {
+        anchored: false,
+        category: "correctness",
+        comment: "text",
+        filePath: "src/d.ts",
+        hostDiscussionId: null,
+        hostNoteId: null,
         line: 10,
         lineType: "added",
         ruleId: "R-013",

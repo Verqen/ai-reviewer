@@ -80,7 +80,7 @@ class ThreadManagerService {
           noteBody,
           authorUsername,
           classifiedIntent,
-          "Understood, marking as false positive.",
+          "Recorded as a false positive.",
           costBudget,
         );
         break;
@@ -94,7 +94,7 @@ class ThreadManagerService {
           noteBody,
           authorUsername,
           classifiedIntent,
-          "Acknowledged as accepted technical debt.",
+          "Recorded; resolving this thread.",
           costBudget,
         );
         break;
@@ -108,7 +108,7 @@ class ThreadManagerService {
           noteBody,
           authorUsername,
           classifiedIntent,
-          "Good point, resolving.",
+          "Recorded; resolving this thread.",
           costBudget,
         );
         break;
@@ -124,12 +124,7 @@ class ThreadManagerService {
           },
           "Developer agreed with finding; posting ack and resolving",
         );
-        await this.ackAndResolve(
-          projectId,
-          mrIid,
-          discussionId,
-          "Acknowledged, thanks.",
-        );
+        await this.ackAndResolve(projectId, mrIid, discussionId, "Recorded.");
         break;
 
       case "clarification":

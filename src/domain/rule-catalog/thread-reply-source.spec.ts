@@ -11,7 +11,8 @@ import {
 import { getRuleCatalog } from "~/domain/rule-catalog/rule-catalog";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const IMPORT_PATTERN = /(?:from|import)\s+["']([^"']+)["']/g;
+const IMPORT_PATTERN =
+  /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']([^"']+)["']/g;
 const MODEL_ACCESS_PATTERN = /llm|openrouter|ollama|anthropic|openai/i;
 
 function resolveModule(specifier: string, importer: string): string | null {
@@ -59,6 +60,20 @@ function moduleGraph(entry: string): {
     modules: [...seen].map((file) => relative(SRC, file)),
   };
 }
+
+describe("import specifier detection", () => {
+  it("matches static, side-effect, dynamic and require forms", () => {
+    const source = [
+      'import { a } from "static-mod";',
+      'import "side-effect-mod";',
+      'const b = await import("dynamic-mod");',
+      "const c = require('require-mod');",
+    ].join("\n");
+    expect(
+      [...source.matchAll(IMPORT_PATTERN)].map((match) => match[1]),
+    ).toEqual(["static-mod", "side-effect-mod", "dynamic-mod", "require-mod"]);
+  });
+});
 
 describe("thread replies come only from fixed catalog text", () => {
   it("builds replies from a module graph that reaches no model client", () => {

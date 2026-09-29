@@ -14,7 +14,7 @@ Every finding passes gates before it becomes a comment:
 
 - **Anchor validation** — `file_path`, `line_number` and `line_type` must resolve to a real line of a real hunk in that file's diff. A range must not cross a hunk boundary. `src/review/finding-position-validation.ts`
 - **Snippet grounding** — when the model quotes `original_snippet`, that text must appear in the diff it was given, normalized. `src/pipeline/passes/file-review.pass.ts`
-- **Claim re-checking** — a finding that claims an import target is missing has that path resolved against the real repository at HEAD; if the file is there, the finding is dropped rather than softened. `src/review/import-path-existence-validator.ts`
+- **Rule catalog** — the model returns only a `rule_id` and an anchor. A `rule_id` that is unknown or outside the pass's scope drops the finding; text, category and severity come from the versioned catalog, never from the model, and no finding carries a code fix. `src/domain/rule-catalog/catalog-finding.ts`
 - **Confidence floor and caps** — below `inlineMinConfidence` (0.7) nothing is posted inline; 10 findings per file, 25 per run, highest confidence first. `src/pipeline/passes/aggregation.pass.ts`
 
 A finding that fails a gate is dropped and logged, never downgraded to a softer comment. The consequence is stated plainly in the trade-offs section: this optimizes precision and does not measure recall.
@@ -51,7 +51,7 @@ flowchart LR
 - **triage** — a cheap model classifies each hunk so trivial ones never reach the expensive pass. Batched under a 6k prompt-token budget. It is capped at discarding 40% of hunks: if the cheap model wants to skip more than that, the cap wins, because a mis-tuned triage silently gutting a review is worse than the tokens it saves. `src/pipeline/passes/triage.pass.ts`
 - **file-review** — the main per-file pass. Prompt caching on the system prompt and the static context prefix; temperature 0. The model has tools (`read_file`, `list_files`, `search_content`, `diff_hunk`) rather than a prepacked context blob, so it pulls what it needs.
 - **cross-file** — findings that exist only between files: a caller and a signature that disagree.
-- **aggregation** — deduplicates, consolidates a pattern recurring 3+ times into one finding, applies dismissed patterns, scores the change.
+- **aggregation** — deduplicates, suppresses findings of a catalog rule the project has dismissed, applies the severity and confidence thresholds and the caps. It does not score or grade the change.
 
 Passes implement `IReviewPass` and are injected as an ordered array. Adding a pass is a DI-list edit, not a change to the orchestrator.
 
@@ -71,7 +71,7 @@ A review is incremental by default. `IncrementalReviewService` diffs the previou
 
 Force pushes are the hard case. `ForcePushCorrelationService` correlates old and new commits to decide whether history was rewritten or the branch genuinely moved; when the commit-range check fails, the system refuses to guess and falls back rather than inventing a correlation. This is heuristic and remains the least settled part of the design.
 
-Developer replies feed back in. `ReviewLearningService` classifies a reply into `false_positive`, `accepted_debt`, `clarification`, `agreement` or `dispute`; each false positive records a dismissed pattern for that project, and the aggregation pass suppresses matching findings once a pattern's occurrence count reaches `minOccurrencesToSuppress` (3). One developer disagreeing does not silence a rule; three do.
+Developer replies feed back in. `ReviewLearningService` classifies a reply into `false_positive`, `accepted_debt`, `clarification`, `agreement` or `dispute`. A false positive, accepted debt or dispute on a finding counts toward the dismissed pattern of that finding's catalog rule in that project, and the aggregation pass suppresses findings of that rule once the pattern's occurrence count reaches `minOccurrencesToSuppress` (3). One developer disagreeing does not silence a rule; three do. Replies to the developer are fixed text: a question gets the catalog text of the finding's rule, never model-written prose.
 
 ## Boundaries
 
@@ -80,7 +80,7 @@ Hexagonal, DDD-light, enforced by structure rather than by convention.
 - `src/domain/` — ports and types. No infrastructure imports, and `CostBudget` lives here because a spend ceiling is a domain rule, not an adapter detail.
 - `src/application/` — use cases: webhook orchestration, baseline, snapshots, overlays, run lifecycle, learning, thread management.
 - `src/pipeline/` — pass orchestrator, prompts, tools, doc context.
-- `src/review/` — diff parser, anchor validators, suggestion sanitizer, threading.
+- `src/review/` — diff parser, anchor validators, catalog finding comments, threading.
 - `src/infrastructure/` — code-host adapters (GitLab, GitHub), LLM adapters (OpenRouter, Ollama), Kysely repositories, queue, metrics, rate limiter.
 - `src/di/` — composition root. Every injected class declares `static inject = [...] as const` matching its constructor order; wiring is a compile-time error when it is wrong.
 
@@ -88,7 +88,7 @@ Adapters depend on domain interfaces and never the reverse. The public entry poi
 
 ## Conventions
 
-`AGENTS.md` in the repository root is the single source of truth for how code is written here, for AI agents and humans alike. Its organizing claim is that a rule which is not mechanically checked is a suggestion, so every rule is listed against the check that enforces it — and the two rules that currently have no check are named as such rather than presented as enforced.
+`AGENTS.md` in the repository root is the single source of truth for how code is written here, for AI agents and humans alike. Its organizing claim is that a rule which is not mechanically checked is a suggestion, so every rule is listed against the check that enforces it — and the three rules that currently have no check are named as such rather than presented as enforced.
 
 Two of those conventions shape every file and are worth agreeing with before contributing: no comments anywhere in `src/` or `scripts/` (enforced by `src/no-code-comments.spec.ts`, which parses each file with the TypeScript compiler API), and no `any` / `as unknown as` / `@ts-ignore`. Migrations are raw SQL with no re-runnability guards and no defaults on domain columns — those rules and their one documented exception are in `src/infrastructure/database/migrations/README.md`.
 
@@ -105,14 +105,14 @@ Stated up front so they can be argued with rather than discovered.
 - **The queue is in-memory and the process is single-node.** `/webhook` answers `202` once queued, so a crash or restart drops every accepted review that has not finished; recovery is a re-push or a comment. Deduplication keys are in-process, so running two instances would double-review the same MR. Durable queueing is the main thing standing between this and a multi-instance deployment.
 - **Snapshot storage is unbounded by default.** Retention is an authenticated endpoint someone has to call, not a background policy.
 - **Recall is unmeasured.** Every gate is a one-way filter toward precision. Dropped findings are logged with a reason, but there is no corpus establishing how many real defects the gates discard along with the noise.
-- **The missing-import re-check is regex-driven** over the finding's prose (English and Russian phrasings), so it catches the common phrasing of a common hallucination, not the general class of ungrounded claims.
+- **The catalog bounds what is reported.** A defect that no catalog rule describes is not reported at all, however clear it is in the diff.
 - **Force-push correlation is heuristic.** It degrades safely, but "the same finding after a rebase" is not identity-stable in the way it would be with content-hash anchoring.
 - **Triage runs a cheap model on the hot path.** The 40% cap bounds the damage; it does not eliminate the failure mode.
 - **`REVIEW.md` is read from the target repository**, which means the reviewed project partly configures its own reviewer. Path rules and focus areas are in scope; thresholds and model selection are host-side.
 
 ## Supported hosts and providers
 
-GitLab (MR webhooks, discussions, inline comments, suggestions) and GitHub (App auth, PR webhooks, review threads, replies, `Retry-After` backoff). OpenRouter and Ollama for inference; Anthropic and OpenAI direct adapters are on the roadmap and are a port implementation each, not a refactor.
+GitLab (MR webhooks, discussions, inline comments) and GitHub (App auth, PR webhooks, review threads, replies, `Retry-After` backoff). OpenRouter and Ollama for inference; Anthropic and OpenAI direct adapters are on the roadmap and are a port implementation each, not a refactor.
 
 ## Verifying the claims cheaply
 

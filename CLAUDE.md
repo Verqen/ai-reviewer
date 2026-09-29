@@ -10,10 +10,10 @@ TypeScript (strict, `@tsconfig/strictest`), Node 24, pnpm, Fastify, Kysely + Pos
 
 ## What `AGENTS.md` governs
 
-- **The one idea** — a rule that is not mechanically checked is a suggestion; the table maps every rule to the check that enforces it, and names the two gaps that have no check.
+- **The one idea** — a rule that is not mechanically checked is a suggestion; the table maps every rule to the check that enforces it, and names the three gaps that have no check.
 - **Code** — no comments anywhere in `src/` or `scripts/`; no `any` or `as unknown as`; never disable a rule to make a build pass; pino logger, not `console.*`; English only.
 - **Architecture** — hexagonal dependency direction, what belongs in `domain/` vs `application/` vs `infrastructure/`, the `static inject` contract.
-- **Pipeline** — the severity set, category vocabulary, suggestion threshold, anchor rules, and the rule that a finding failing a gate is dropped and never softened.
+- **Pipeline** — the severity set, findings only from the versioned rule catalog, no code fixes, scores or grades, fixed-text thread replies, anchor rules, and the rule that a finding failing a gate is dropped and never softened.
 - **Tests** — the three tiers and what each may touch.
 - **Configuration and secrets** — every env var through the Zod schemas in `src/config/`, and what must never enter the repository or its history.
 - **Commits** — single line, `type(scope): description`, no body, no `Co-Authored-By` trailer, no tool signature, no emoji. This overrides your default trailer behaviour.

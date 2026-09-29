@@ -9,6 +9,7 @@ import {
 import { CostBudget } from "~/domain/cost-budget";
 import {
   RULE_CATALOG_VERSION,
+  catalogComparability,
   findCatalogRule,
 } from "~/domain/rule-catalog/rule-catalog";
 import type { ILlmClient } from "~/domain/ports/llm.port";
@@ -28,6 +29,16 @@ import {
   GitHubCodeHost as GitHubCodeHostAdapter,
 } from "~/infrastructure/code-host/github/github.code-host";
 import { createSilentLogger } from "~/infrastructure/logging/silent-logger";
+import type {
+  CommitReviewBaseline,
+  CommitReviewComparison,
+  ComparisonLabel,
+} from "~/review/commit-review-comparison";
+import {
+  buildComparisonSummary,
+  compareCommitRun,
+  FIRST_RUN_SUMMARY,
+} from "~/review/commit-review-comparison";
 import type { CommitReviewFinding } from "~/review/commit-review-finding";
 import {
   indexLineTexts,
@@ -67,6 +78,7 @@ interface GitHubCommitReviewOptions {
   maxCostUsd: number;
   maxReviewableFiles: number;
   catalogUrl?: string | undefined;
+  baseline?: CommitReviewBaseline | undefined;
   logger?: FastifyBaseLogger;
 }
 
@@ -77,6 +89,7 @@ interface GitHubCommitReviewResult {
   partial: boolean;
   findings: CommitReviewFinding[];
   catalogVersion: string;
+  comparison: CommitReviewComparison | null;
   tokenCostUsd: number;
 }
 
@@ -124,6 +137,7 @@ function publishedFindings(
 function toAnnotation(
   finding: CommitReviewFinding,
   catalogUrl: string | undefined,
+  label: ComparisonLabel | undefined,
 ): CheckRunAnnotation {
   const details = [
     `Condition: ${finding.condition}`,
@@ -135,7 +149,7 @@ function toAnnotation(
     path: finding.filePath,
     rawDetails: details.join("\n"),
     severity: finding.severity,
-    title: `${finding.ruleId} · ${findCatalogRule(finding.ruleId)?.title ?? finding.ruleId}`,
+    title: `${finding.ruleId} · ${findCatalogRule(finding.ruleId)?.title ?? finding.ruleId}${label === undefined ? "" : ` · ${label}`}`,
   };
 }
 
@@ -148,6 +162,7 @@ function buildCheckRunTitle(findingCount: number): string {
 function buildCheckRunSummary(params: {
   catalogVersion: string;
   commitSha: string;
+  comparisonSummary: string;
   filesReviewed: number;
   filesTotal: number;
   findingCount: number;
@@ -164,7 +179,14 @@ function buildCheckRunSummary(params: {
       : `${buildCheckRunTitle(params.findingCount)}; each one is attached to its file and line below.`;
   const cleanup =
     "The run is complete. Please uninstall the GitHub App from your account or organisation now: it keeps read access to the repositories you selected until you remove it.";
-  return [scope, partialNote, catalog, findings, cleanup]
+  return [
+    scope,
+    partialNote,
+    catalog,
+    findings,
+    params.comparisonSummary,
+    cleanup,
+  ]
     .filter((part) => part.length > 0)
     .join("\n\n");
 }
@@ -194,14 +216,14 @@ async function resolveGitHubDefaultBranchHead(options: {
 
 type WholeFileDiffs = ReturnType<typeof buildWholeFileDiffs>;
 
-type TreeReview = Omit<GitHubCommitReviewResult, "checkRunUrl">;
+type TreeReview = Omit<GitHubCommitReviewResult, "checkRunUrl" | "comparison">;
 
 async function reviewTree(
   dependencies: CommitReviewDependencies,
   options: GitHubCommitReviewOptions,
   projectId: number,
   prepared: WholeFileDiffs,
-): Promise<TreeReview> {
+): Promise<{ review: TreeReview; unreviewedPaths: ReadonlySet<string> }> {
   const { codeHost, llm, logger, models } = dependencies;
   const { commitSha } = options;
   const { diffs, reviewablePaths } = prepared;
@@ -254,12 +276,16 @@ async function reviewTree(
     );
   }
   return {
-    catalogVersion: RULE_CATALOG_VERSION,
-    filesReviewed: reviewablePaths.filter((path) => !skipped.has(path)).length,
-    filesTotal: reviewablePaths.length,
-    findings: reported.findings,
-    partial,
-    tokenCostUsd: computeReviewRunCostUsd(passResults, models),
+    review: {
+      catalogVersion: RULE_CATALOG_VERSION,
+      filesReviewed: reviewablePaths.filter((path) => !skipped.has(path))
+        .length,
+      filesTotal: reviewablePaths.length,
+      findings: reported.findings,
+      partial,
+      tokenCostUsd: computeReviewRunCostUsd(passResults, models),
+    },
+    unreviewedPaths: skipped,
   };
 }
 
@@ -301,6 +327,12 @@ async function reviewRepositoryCommit(
     ),
   };
 
+  const baseline = options.baseline;
+  const catalog =
+    baseline === undefined
+      ? null
+      : catalogComparability(baseline.catalogVersion);
+
   const projectId = await codeHost.getRepoId(options.owner, options.repo);
   const archive = await codeHost.getRepositoryArchive(projectId, commitSha);
   const prepared = buildWholeFileDiffs(archive);
@@ -317,15 +349,43 @@ async function reviewRepositoryCommit(
   });
 
   try {
-    const review = await reviewTree(reproducible, options, projectId, prepared);
+    const { review, unreviewedPaths } = await reviewTree(
+      reproducible,
+      options,
+      projectId,
+      prepared,
+    );
+    const compared =
+      baseline === undefined || catalog === null
+        ? null
+        : compareCommitRun({
+            baseline,
+            comparableRuleIds: catalog.comparableRuleIds,
+            currentPaths: new Set(archive.map((entry) => entry.path)),
+            findings: review.findings,
+            unreviewedPaths,
+          });
+    const comparisonSummary =
+      compared === null || catalog === null
+        ? FIRST_RUN_SUMMARY
+        : buildComparisonSummary(compared.comparison, {
+            comparableRuleCount: catalog.comparableRuleIds.size,
+            currentVersion: review.catalogVersion,
+            notComparableRuleCount: catalog.notComparableRuleCount,
+          });
     await codeHost.updateCheckRun(projectId, checkRun.id, {
       annotations: review.findings.map((finding) =>
-        toAnnotation(finding, options.catalogUrl),
+        toAnnotation(
+          finding,
+          options.catalogUrl,
+          compared?.labels.get(finding),
+        ),
       ),
       conclusion: "neutral",
       summary: buildCheckRunSummary({
         catalogVersion: review.catalogVersion,
         commitSha,
+        comparisonSummary,
         filesReviewed: review.filesReviewed,
         filesTotal: review.filesTotal,
         findingCount: review.findings.length,
@@ -333,7 +393,11 @@ async function reviewRepositoryCommit(
       }),
       title: buildCheckRunTitle(review.findings.length),
     });
-    return { ...review, checkRunUrl: checkRun.url };
+    return {
+      ...review,
+      checkRunUrl: checkRun.url,
+      comparison: compared?.comparison ?? null,
+    };
   } catch (error) {
     await closeCheckRunAsCancelled(reproducible, projectId, checkRun.id);
     throw error;
@@ -394,7 +458,9 @@ export {
   reviewRepositoryCommit,
 };
 export type {
+  CommitReviewBaseline,
   CommitReviewCodeHost,
+  CommitReviewComparison,
   CommitReviewFinding,
   GitHubDefaultBranchHead,
   GitHubCommitReviewOptions,

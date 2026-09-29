@@ -94,6 +94,19 @@ export { buildPosition } from "~/review/finding-inline-position";
 export { formatFindingComment } from "~/review/finding-comment";
 export { buildSummaryNote } from "~/pipeline/prompts/summary.prompt";
 
+export {
+  RULE_CATALOG_VERSION,
+  findCatalogRule,
+  getRuleCatalog,
+} from "~/domain/rule-catalog/rule-catalog";
+export type {
+  CatalogRule,
+  RuleCatalog,
+  RuleCategory,
+  RuleId,
+  RuleScope,
+} from "~/domain/rule-catalog/rule-catalog.types";
+
 export { OpenRouterClient } from "~/infrastructure/llm/openrouter/openrouter.client";
 export { OllamaClient } from "~/infrastructure/llm/ollama/ollama.client";
 

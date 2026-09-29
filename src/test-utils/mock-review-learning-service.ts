@@ -15,6 +15,7 @@ function createMockReviewLearningService(
     createMockLlmClient(),
     createMockLogger(),
     OPENROUTER_REVIEW_MODEL,
+    undefined,
   );
 
   return Object.assign(service, overrides);

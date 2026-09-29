@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOverviewText } from "./review-run-completion.service";
+import { RULE_CATALOG_VERSION } from "~/domain/rule-catalog/rule-catalog";
+import { MemoryCache } from "~/infrastructure/cache/memory-cache";
+import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockInfraRepoPorts } from "~/test-utils/mock-infra-repo-ports";
+import { createMockLogger } from "~/test-utils/mock-logger";
+import { createMockReviewConfig } from "~/test-utils/mock-review-config";
+
+import {
+  buildOverviewText,
+  ReviewRunCompletionService,
+} from "./review-run-completion.service";
 
 describe("buildOverviewText", () => {
   it("degraded: no findings", () => {
@@ -137,5 +147,39 @@ describe("buildOverviewText", () => {
     });
 
     expect(text).toBe("AI review complete — no issues found.");
+  });
+});
+
+describe("ReviewRunCompletionService.completeSuccessfulRun", () => {
+  it("links the rule catalog in the summary note", async () => {
+    const codeHost = createMockCodeHost();
+    const service = new ReviewRunCompletionService(
+      createMockInfraRepoPorts(),
+      codeHost,
+      new MemoryCache<boolean>(),
+      createMockLogger(),
+      "https://verqen.dev/rules",
+    );
+
+    await service.completeSuccessfulRun({
+      allFindings: [],
+      baseSha: "base-sha",
+      diffsFileCount: 1,
+      headSha: "head-sha",
+      mrIid: 42,
+      postableFindings: [],
+      projectId: 1,
+      repostedFindings: [],
+      reviewConfig: createMockReviewConfig(),
+      reviewRunId: "run-1",
+      suppressedCount: 0,
+      tokenUsageByModel: {},
+      totalCompletionTokens: 0,
+      totalPromptTokens: 0,
+    });
+
+    expect(codeHost.calls.postNote[0]?.[2]).toContain(
+      `Rule catalog ${RULE_CATALOG_VERSION}: https://verqen.dev/rules`,
+    );
   });
 });

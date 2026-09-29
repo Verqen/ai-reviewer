@@ -61,6 +61,10 @@ class AnalyticsModule {
         pipelineConfig.envs.REVIEW_MAX_COST_USD,
       )
       .provideValue(
+        ReviewTokens.CatalogUrl,
+        pipelineConfig.envs.RULE_CATALOG_URL,
+      )
+      .provideValue(
         AnalyticsTokens.CostModel,
         resolveDefaultLlmModel(llmConfig, openRouterConfig),
       )

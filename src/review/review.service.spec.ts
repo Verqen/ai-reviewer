@@ -1,13 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { ReviewConfigLoader } from "~/application/review-config.loader";
+import type { ReviewConfigLoader } from "~/application/review-config.loader";
 import { ReviewContextBuilderService } from "~/application/review-context-builder.service";
 import { ReviewFindingPublisherService } from "~/application/review-finding-publisher.service";
 import { ReviewRunCompletionService } from "~/application/review-run-completion.service";
 import { ReviewRunLifecycleService } from "~/application/review-run-lifecycle.service";
-import { OPENROUTER_TRIAGE_MODEL } from "~/config/models";
 import { PipelineConfig } from "~/config/pipeline.config";
-import { CostBudget } from "~/domain/cost-budget";
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
+import {
+  buildMentionReply,
+  buildRuleThreadReply,
+} from "~/domain/rule-catalog/thread-reply";
 import type { DiffFile } from "~/domain/types/code-host.types";
 import type {
   IReviewPass,
@@ -16,33 +19,23 @@ import type {
 } from "~/domain/types/pipeline.types";
 import type { ReviewFinding } from "~/domain/types/review.types";
 import { MemoryCache } from "~/infrastructure/cache/memory-cache";
-import { PromptTokenBudgetExceededError } from "~/infrastructure/llm/estimate-prompt-tokens";
 import { PipelineOrchestrator } from "~/pipeline/pipeline.orchestrator";
-import { buildReplyCompletionInstruction } from "~/review/reply-completion-instruction";
-import { CLARIFICATION_REPLY_COST_CEILING } from "~/review/review-narrow-finding-clarification";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
 import { createMockCommentResolutionService } from "~/test-utils/mock-comment-resolution-service";
 import {
   createMockInfraRepoPorts,
   createMockReviewRun,
 } from "~/test-utils/mock-infra-repo-ports";
-import { createMockLlmClient } from "~/test-utils/mock-llm-client";
 import {
   createMockLlmConfig,
   createMockOpenRouterConfig,
 } from "~/test-utils/mock-llm-config";
 import { createMockLogger } from "~/test-utils/mock-logger";
 import { createMockPipelineMetrics } from "~/test-utils/mock-pipeline-metrics";
-import { createMockReviewConfig } from "~/test-utils/mock-review-config";
 import { createMockReviewConfigLoader } from "~/test-utils/mock-review-config-loader";
 import { createMockReviewHistoryService } from "~/test-utils/mock-review-history-service";
 
 import { ReviewService } from "./review.service";
-
-const COMMENT_RESPONSE_FALLBACK_TEXT =
-  "Could not generate a reply. Please refine your question and reference a specific code location.";
-const COMMENT_RESPONSE_COST_CEILING_REPLY =
-  "Could not generate a reply: the configured cost ceiling for this operation has been reached.";
 
 const MINIMAL_DIFF: DiffFile = {
   diff: "@@ -1,2 +1,3 @@\n context\n+added line\n-removed line\n",
@@ -89,35 +82,15 @@ function createAggregationPass(
   };
 }
 
-function createPipelineConfig(
-  threshold = "info",
-  commentResponseMaxToolRounds?: number,
-): PipelineConfig {
+function createPipelineConfig(threshold = "info"): PipelineConfig {
   const savedThreshold = process.env["SEVERITY_THRESHOLD"];
-  const savedCommentResponseMaxToolRounds =
-    process.env["COMMENT_RESPONSE_MAX_TOOL_ROUNDS"];
-
   process.env["SEVERITY_THRESHOLD"] = threshold;
-  if (commentResponseMaxToolRounds !== undefined) {
-    process.env["COMMENT_RESPONSE_MAX_TOOL_ROUNDS"] = String(
-      commentResponseMaxToolRounds,
-    );
-  }
-
   const config = new PipelineConfig();
-
   if (savedThreshold === undefined) {
     delete process.env["SEVERITY_THRESHOLD"];
   } else {
     process.env["SEVERITY_THRESHOLD"] = savedThreshold;
   }
-  if (savedCommentResponseMaxToolRounds === undefined) {
-    delete process.env["COMMENT_RESPONSE_MAX_TOOL_ROUNDS"];
-  } else {
-    process.env["COMMENT_RESPONSE_MAX_TOOL_ROUNDS"] =
-      savedCommentResponseMaxToolRounds;
-  }
-
   return config;
 }
 
@@ -164,7 +137,13 @@ function createTestOrchestrator(
       logger,
       undefined,
     ),
-    new ReviewRunCompletionService(infraRepoPorts, codeHost, cache, logger),
+    new ReviewRunCompletionService(
+      infraRepoPorts,
+      codeHost,
+      cache,
+      logger,
+      undefined,
+    ),
     passes,
     createMockPipelineMetrics(),
     logger,
@@ -174,7 +153,6 @@ function createTestOrchestrator(
 describe("ReviewService", () => {
   it("delegates to orchestrator.run with triggerType", async () => {
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient();
     const infraRepoPorts = createMockInfraRepoPorts();
     const cache = new MemoryCache<boolean>();
     const pipelineConfig = createPipelineConfig("info");
@@ -191,14 +169,8 @@ describe("ReviewService", () => {
 
     const service = new ReviewService(
       codeHost,
-      llm,
       orchestrator,
       pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
       logger,
     );
 
@@ -212,7 +184,6 @@ describe("ReviewService", () => {
 
   it("does not post inline comments when no findings", async () => {
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient();
     const infraRepoPorts = createMockInfraRepoPorts();
     const cache = new MemoryCache<boolean>();
     const pipelineConfig = createPipelineConfig("warning");
@@ -229,14 +200,8 @@ describe("ReviewService", () => {
 
     const service = new ReviewService(
       codeHost,
-      llm,
       orchestrator,
       pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
       logger,
     );
 
@@ -248,7 +213,6 @@ describe("ReviewService", () => {
 
   it("posts inline comments for findings with valid diff position", async () => {
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient();
     const infraRepoPorts = createMockInfraRepoPorts();
     const cache = new MemoryCache<boolean>();
     const pipelineConfig = createPipelineConfig("warning");
@@ -280,14 +244,8 @@ describe("ReviewService", () => {
 
     const service = new ReviewService(
       codeHost,
-      llm,
       orchestrator,
       pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
       logger,
     );
 
@@ -299,7 +257,6 @@ describe("ReviewService", () => {
   it("skips review when orchestrator finds completed run (DB dedup)", async () => {
     const completedRun = createMockReviewRun({ status: "completed" });
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient();
     const infraRepoPorts = createMockInfraRepoPorts();
     infraRepoPorts.setCompletedRun(completedRun);
     const cache = new MemoryCache<boolean>();
@@ -330,14 +287,8 @@ describe("ReviewService", () => {
 
     const service = new ReviewService(
       codeHost,
-      llm,
       orchestrator,
       pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
       logger,
     );
 
@@ -354,7 +305,6 @@ describe("ReviewService", () => {
       startSha: "start-sha",
     };
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF], versions });
-    const llm = createMockLlmClient();
     const infraRepoPorts = createMockInfraRepoPorts();
     const cache = new MemoryCache<boolean>();
     const pipelineConfig = createPipelineConfig("info");
@@ -371,14 +321,8 @@ describe("ReviewService", () => {
 
     const service = new ReviewService(
       codeHost,
-      llm,
       orchestrator,
       pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
       logger,
     );
 
@@ -386,413 +330,43 @@ describe("ReviewService", () => {
 
     expect(cache.has("review:1:42:head-sha")).toBe(true);
   });
-
-  it("loads repo config and injects path rules in respondToComment system prompt", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const commentRule = "Follow REVIEW.md for comment responses";
-    const loadReviewConfig = vi.fn().mockResolvedValue(
-      createMockReviewConfig({
-        pathRules: [{ extraRules: commentRule, path: "**" }],
-      }),
-    );
-    const reviewConfigLoader = createMockReviewConfigLoader({
-      load: loadReviewConfig,
-    });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      reviewConfigLoader,
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "What about this line?",
-    });
-    expect(loadReviewConfig).toHaveBeenCalledWith(1, "head-sha");
-    expect(codeHost.calls.getMergeRequestVersions).toHaveLength(1);
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    const systemMessage = firstCall?.[0]?.find((m) => m.role === "system");
-    expect(systemMessage?.content).toContain(commentRule);
-  });
-
-  it("respondToComment skips tools when triage model is in blocklist (gpt-oss)", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const reviewConfigLoader = createMockReviewConfigLoader({
-      load: vi.fn().mockResolvedValue(
-        createMockReviewConfig({
-          modelOverrides: { review: false, triage: true },
-          models: {
-            premium: null,
-            review: "review-model",
-            triage: "gpt-oss:120b-cloud",
-          },
-        }),
-      ),
-    });
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      reviewConfigLoader,
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "What about this line?",
-    });
-    expect(llm.calls.chatCompletion).toHaveLength(1);
-    expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
-    const [messageArgs] = llm.calls.chatCompletion[0] ?? [];
-    const userMessage = messageArgs?.find((m) => m.role === "user");
-    expect(userMessage?.content).not.toContain("Completion rule");
-  });
-
-  it("filters diff to only the comment file when context.newPath is set", async () => {
-    const diffs = [
-      {
-        diff: "@@ -1,1 +1,1 @@\n+line\n",
-        newPath: "src/index.ts",
-        oldPath: "src/index.ts",
-      },
-      {
-        diff: "@@ -1,1 +1,1 @@\n+other\n",
-        newPath: "src/other.ts",
-        oldPath: "src/other.ts",
-      },
-      {
-        diff: "@@ -1,1 +1,1 @@\n+third\n",
-        newPath: "src/third.ts",
-        oldPath: "src/third.ts",
-      },
-    ];
-    const codeHost = createMockCodeHost({ diffs });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "What about this?",
-    });
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    const userMessage = firstCall?.[0]?.find((m) => m.role === "user");
-    expect(userMessage?.content).toContain("src/index.ts");
-    expect(userMessage?.content).not.toContain("src/other.ts");
-    expect(userMessage?.content).not.toContain("src/third.ts");
-  });
-
-  it("uses triage model for respondToComment LLM call", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const triajeModel = "fast-triage-model";
-    const loadReviewConfig = vi.fn().mockResolvedValue(
-      createMockReviewConfig({
-        modelOverrides: { review: false, triage: true },
-        models: { premium: null, review: "review-model", triage: triajeModel },
-      }),
-    );
-    const reviewConfigLoader = createMockReviewConfigLoader({
-      load: loadReviewConfig,
-    });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      reviewConfigLoader,
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "Fix this?",
-    });
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    expect(firstCall?.[2]?.model).toBe(triajeModel);
-  });
-
-  it("sets maxTokens=2000 and maxPromptTokensHard on respondToComment", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "What about this?",
-    });
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    expect(firstCall?.[2]?.maxTokens).toBe(2000);
-    expect(firstCall?.[2]?.maxPromptTokensHard).toBeGreaterThan(0);
-  });
-
-  it("uses COMMENT_RESPONSE_MAX_TOOL_ROUNDS from config for comment prompt and llm options", async () => {
-    const expectedMaxToolRounds = 4;
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info", expectedMaxToolRounds);
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "Verify this logic",
-    });
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    expect(firstCall?.[2]?.maxToolRounds).toBe(expectedMaxToolRounds);
-    const systemMessage = firstCall?.[0]?.find((m) => m.role === "system");
-    expect(systemMessage?.content).toContain(
-      `max ${String(expectedMaxToolRounds)} tool rounds`,
-    );
-  });
-
-  it("appends completion instruction to user message when model supports tools", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "Verify this logic",
-    });
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    const userMessage = firstCall?.[0]?.find((m) => m.role === "user");
-    expect(userMessage?.content).toContain(
-      buildReplyCompletionInstruction("English"),
-    );
-  });
-
-  it("posts fallback reply and does not rethrow when LLM throws PromptTokenBudgetExceededError", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    llm.chatCompletionWithTools = () =>
-      Promise.reject(new PromptTokenBudgetExceededError(9000, 8000));
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "Very long question with enormous context",
-    });
-    expect(codeHost.calls.postNote).toHaveLength(1);
-    expect(codeHost.calls.postNote[0]?.[2]).toContain("too large to process");
-  });
-
-  it("posts fallback text when respondToComment receives null content", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({
-      responses: [
-        {
-          content: null,
-          toolCalls: [],
-          usage: { completionTokens: 10, promptTokens: 5 },
-        },
-      ],
-    });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToComment(1, 42, {
-      newLine: 1,
-      newPath: "src/index.ts",
-      note: "What about this line?",
-    });
-    expect(codeHost.calls.postNote).toHaveLength(1);
-    expect(codeHost.calls.postNote[0]?.[2]).toBe(
-      COMMENT_RESPONSE_FALLBACK_TEXT,
-    );
-  });
 });
 
-function buildPendingFindingForThread(): ReviewFinding {
+function createPipelineConfigWithCatalogUrl(
+  catalogUrl: string | undefined,
+): PipelineConfig {
+  return new PipelineConfig({
+    ...createPipelineConfig("info").envs,
+    RULE_CATALOG_URL: catalogUrl,
+  });
+}
+
+function createReplyServiceUnderTest(catalogUrl: string | undefined): {
+  codeHost: ReturnType<typeof createMockCodeHost>;
+  service: ReviewService;
+} {
+  const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
+  const logger = createMockLogger();
+  const pipelineConfig = createPipelineConfigWithCatalogUrl(catalogUrl);
+  const orchestrator = createTestOrchestrator({
+    cache: new MemoryCache<boolean>(),
+    codeHost,
+    config: pipelineConfig,
+    infraRepoPorts: createMockInfraRepoPorts(),
+    logger,
+    passes: [createAggregationPass()],
+  });
   return {
-    category: "best_practice",
+    codeHost,
+    service: new ReviewService(codeHost, orchestrator, pipelineConfig, logger),
+  };
+}
+
+function buildPendingFindingForThread(
+  ruleId: ReviewFinding["ruleId"],
+): ReviewFinding {
+  return {
+    category: "correctness",
     comment: "Bot comment text",
     confidence: 1,
     filePath: MINIMAL_DIFF.newPath,
@@ -804,423 +378,70 @@ function buildPendingFindingForThread(): ReviewFinding {
     passName: "file-review",
     resolution: "pending",
     reviewRunId: "run-1",
+    ruleId,
     severity: "warning",
   };
 }
 
-describe("ReviewService.respondToFindingThreadClarification", () => {
-  it("uses narrow chatCompletion without MR tools when baseline is not ready", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "narrow-reply" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    vi.spyOn(infraRepoPorts.snapshotRepo, "getBaselineState").mockResolvedValue(
-      null,
+describe("ReviewService.respondToComment", () => {
+  it("replies in the discussion with the fixed mention text", async () => {
+    const { codeHost, service } = createReplyServiceUnderTest(
+      "https://verqen.dev/rules",
     );
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
+
+    await service.respondToComment(1, 42, {
+      discussionId: "disc-9",
+      newLine: 1,
+      newPath: "src/index.ts",
+      note: "@ai what about this line?",
     });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
 
-    const actualText = await service.respondToFindingThreadClarification(
-      1,
-      42,
-      buildPendingFindingForThread(),
-      "explain this",
-    );
-
-    expect(actualText).toBe("narrow-reply");
-    expect(llm.calls.chatCompletion.length).toBeGreaterThanOrEqual(1);
-    expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
+    expect(codeHost.calls.replyToDiscussion).toEqual([
+      [1, 42, "disc-9", buildMentionReply("https://verqen.dev/rules")],
+    ]);
+    expect(codeHost.calls.postNote).toHaveLength(0);
     expect(codeHost.calls.getMergeRequestDiff).toHaveLength(0);
   });
 
-  it("uses chatCompletionWithTools when baseline is ready and model supports tools", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "with-tools-reply" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    vi.spyOn(infraRepoPorts.snapshotRepo, "getBaselineState").mockResolvedValue(
-      {
-        commitSha: "baseline-sha",
-        errorMessage: null,
-        status: "ready",
-      },
-    );
-    vi.spyOn(codeHost, "getFileContent").mockResolvedValue("blob");
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
+  it("posts a note with the fixed mention text when the comment has no discussion", async () => {
+    const { codeHost, service } = createReplyServiceUnderTest(undefined);
 
-    const actualText = await service.respondToFindingThreadClarification(
-      1,
-      42,
-      buildPendingFindingForThread(),
-      "please verify fix",
-    );
+    await service.respondToComment(1, 42, { note: "@ai explain this MR" });
 
-    expect(actualText).toBe("with-tools-reply");
-    expect(llm.calls.chatCompletionWithTools).toHaveLength(1);
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    const userMessage = firstCall?.[0]?.find((m) => m.role === "user");
-    expect(userMessage?.content).toContain(
-      buildReplyCompletionInstruction("English"),
-    );
-    expect(firstCall?.[2]?.maxPromptTokensHard).toBe(
-      pipelineConfig.envs.FINDING_THREAD_PROMPT_HARD_LIMIT,
-    );
-  });
-
-  it("uses COMMENT_RESPONSE_MAX_TOOL_ROUNDS from config for finding-thread prompt and llm options", async () => {
-    const expectedMaxToolRounds = 6;
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "with-tools-reply" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    vi.spyOn(infraRepoPorts.snapshotRepo, "getBaselineState").mockResolvedValue(
-      {
-        commitSha: "baseline-sha",
-        errorMessage: null,
-        status: "ready",
-      },
-    );
-    vi.spyOn(codeHost, "getFileContent").mockResolvedValue("blob");
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info", expectedMaxToolRounds);
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      logger,
-    );
-    await service.respondToFindingThreadClarification(
-      1,
-      42,
-      buildPendingFindingForThread(),
-      "please verify fix",
-    );
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    expect(firstCall?.[2]?.maxToolRounds).toBe(expectedMaxToolRounds);
-    const systemMessage = firstCall?.[0]?.find((m) => m.role === "system");
-    expect(systemMessage?.content).toContain(
-      `max ${String(expectedMaxToolRounds)} rounds`,
-    );
-  });
-
-  it("includes full MR diff paths and prior findings summary in thread user prompt", async () => {
-    const otherDiff: DiffFile = {
-      diff: "@@ -1 +1 @@\n-old\n+new\n",
-      newPath: "src/other.ts",
-      oldPath: "src/other.ts",
-    };
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF, otherDiff] });
-    const llm = createMockLlmClient({ defaultContent: "reply" });
-    const infraRepoPorts = createMockInfraRepoPorts();
-    vi.spyOn(infraRepoPorts.snapshotRepo, "getBaselineState").mockResolvedValue(
-      {
-        commitSha: "baseline-sha",
-        errorMessage: null,
-        status: "ready",
-      },
-    );
-    vi.spyOn(codeHost, "getFileContent").mockResolvedValue("blob");
-    const cache = new MemoryCache<boolean>();
-    const pipelineConfig = createPipelineConfig("info");
-    const logger = createMockLogger();
-    const orchestrator = createTestOrchestrator({
-      cache,
-      codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger,
-      passes: [createAggregationPass()],
-    });
-    const otherFinding: ReviewFinding = {
-      ...buildPendingFindingForThread(),
-      comment: "Prior finding on other file",
-      filePath: "src/other.ts",
-      id: "finding-2",
-      lineNumber: 5,
-    };
-    const reviewHistoryService = createMockReviewHistoryService({
-      loadPriorFindings: () =>
-        Promise.resolve({
-          addressed: [],
-          dismissed: [],
-          pending: [buildPendingFindingForThread(), otherFinding],
-        }),
-    });
-    const service = new ReviewService(
-      codeHost,
-      llm,
-      orchestrator,
-      pipelineConfig,
-      createMockReviewConfigLoader(),
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      reviewHistoryService,
-      logger,
-    );
-    await service.respondToFindingThreadClarification(
-      1,
-      42,
-      buildPendingFindingForThread(),
-      "question",
-    );
-    const [firstCall] = llm.calls.chatCompletionWithTools;
-    const userMessage = firstCall?.[0]?.find((m) => m.role === "user");
-    expect(userMessage?.content).toContain("src/other.ts");
-    expect(userMessage?.content).toContain("Other findings on this MR");
-    expect(userMessage?.content).toContain("Prior finding on other file");
+    expect(codeHost.calls.postNote).toEqual([
+      [1, 42, buildMentionReply(undefined)],
+    ]);
+    expect(codeHost.calls.replyToDiscussion).toHaveLength(0);
   });
 });
 
-describe("ReviewService cost ceiling", () => {
-  class RecordingCostBudget extends CostBudget {
-    readonly recordedCosts: number[] = [];
-
-    override record(usd: number): void {
-      this.recordedCosts.push(usd);
-      super.record(usd);
-    }
-  }
-
-  function createReplyModelLoader(triageModel: string): ReviewConfigLoader {
-    const loader = new ReviewConfigLoader(
-      createMockCodeHost(),
-      createMockLogger(),
+describe("ReviewService.respondToFindingThreadClarification", () => {
+  it("returns the fixed rule text for a finding with a catalog rule", async () => {
+    const { codeHost, service } = createReplyServiceUnderTest(
+      "https://verqen.dev/rules",
     );
-    vi.spyOn(loader, "load").mockResolvedValue(
-      createMockReviewConfig({
-        modelOverrides: { review: false, triage: true },
-        models: {
-          premium: null,
-          review: "review-model",
-          triage: triageModel,
-        },
-      }),
-    );
-    return loader;
-  }
-
-  function createServiceUnderTest(options: {
-    codeHost: ReturnType<typeof createMockCodeHost>;
-    llm: ReturnType<typeof createMockLlmClient>;
-    logger: ReturnType<typeof createMockLogger>;
-    reviewConfigLoader: ReviewConfigLoader;
-  }): ReviewService {
-    const infraRepoPorts = createMockInfraRepoPorts();
-    const pipelineConfig = createPipelineConfig("info");
-    const orchestrator = createTestOrchestrator({
-      cache: new MemoryCache<boolean>(),
-      codeHost: options.codeHost,
-      config: pipelineConfig,
-      infraRepoPorts,
-      logger: options.logger,
-      passes: [createAggregationPass()],
-    });
-    return new ReviewService(
-      options.codeHost,
-      options.llm,
-      orchestrator,
-      pipelineConfig,
-      options.reviewConfigLoader,
-      createMockLlmConfig(),
-      createMockOpenRouterConfig(),
-      infraRepoPorts.snapshotRepo,
-      createMockReviewHistoryService(),
-      options.logger,
-    );
-  }
-
-  it("records the cost of a tool-enabled comment reply on the operation budget", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({
-      responses: [
-        {
-          content: "ok",
-          toolCalls: [],
-          usage: { completionTokens: 500, promptTokens: 20_000 },
-        },
-      ],
-    });
-    const service = createServiceUnderTest({
-      codeHost,
-      llm,
-      logger: createMockLogger(),
-      reviewConfigLoader: createReplyModelLoader(OPENROUTER_TRIAGE_MODEL),
-    });
-    const costBudget = new RecordingCostBudget(10);
-
-    await service.respondToComment(
-      1,
-      42,
-      { newLine: 1, newPath: "src/index.ts", note: "What about this line?" },
-      costBudget,
-    );
-
-    expect(llm.calls.chatCompletionWithTools).toHaveLength(1);
-    expect(costBudget.recordedCosts).toHaveLength(1);
-    expect(costBudget.spent).toBeGreaterThan(0);
-  });
-
-  it("records the cost of a tool-less comment reply on the operation budget", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const service = createServiceUnderTest({
-      codeHost,
-      llm,
-      logger: createMockLogger(),
-      reviewConfigLoader: createReplyModelLoader("gpt-oss:120b-cloud"),
-    });
-    const costBudget = new RecordingCostBudget(10);
-
-    await service.respondToComment(
-      1,
-      42,
-      { newLine: 1, newPath: "src/index.ts", note: "What about this line?" },
-      costBudget,
-    );
-
-    expect(llm.calls.chatCompletion).toHaveLength(1);
-    expect(costBudget.recordedCosts).toHaveLength(1);
-  });
-
-  it("posts the ceiling notice without calling the LLM when the comment budget is exhausted", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const logger = createMockLogger();
-    const warn = vi.spyOn(logger, "warn");
-    const service = createServiceUnderTest({
-      codeHost,
-      llm,
-      logger,
-      reviewConfigLoader: createReplyModelLoader(OPENROUTER_TRIAGE_MODEL),
-    });
-
-    await service.respondToComment(
-      1,
-      42,
-      { newLine: 1, newPath: "src/index.ts", note: "What about this line?" },
-      new CostBudget(0),
-    );
-
-    expect(llm.calls.chatCompletion).toHaveLength(0);
-    expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
-    expect(codeHost.calls.postNote[0]?.[2]).toBe(
-      COMMENT_RESPONSE_COST_CEILING_REPLY,
-    );
-    expect(warn).toHaveBeenCalled();
-  });
-
-  it("skips the tool-less comment reply when the budget is exhausted", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const service = createServiceUnderTest({
-      codeHost,
-      llm,
-      logger: createMockLogger(),
-      reviewConfigLoader: createReplyModelLoader("gpt-oss:120b-cloud"),
-    });
-
-    await service.respondToComment(
-      1,
-      42,
-      { newLine: 1, newPath: "src/index.ts", note: "What about this line?" },
-      new CostBudget(0),
-    );
-
-    expect(llm.calls.chatCompletion).toHaveLength(0);
-    expect(codeHost.calls.postNote[0]?.[2]).toBe(
-      COMMENT_RESPONSE_COST_CEILING_REPLY,
-    );
-  });
-
-  it("returns the ceiling notice for a finding thread clarification when the budget is exhausted", async () => {
-    const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
-    const llm = createMockLlmClient({ defaultContent: "ok" });
-    const service = createServiceUnderTest({
-      codeHost,
-      llm,
-      logger: createMockLogger(),
-      reviewConfigLoader: createReplyModelLoader(OPENROUTER_TRIAGE_MODEL),
-    });
+    const rule = findCatalogRule("R-013");
+    if (rule === undefined) throw new Error("missing");
 
     const reply = await service.respondToFindingThreadClarification(
       1,
       42,
-      {
-        category: "best_practice",
-        comment: "This branch is unreachable",
-        confidence: 0.9,
-        filePath: "src/index.ts",
-        id: "finding-1",
-        lineNumber: 1,
-        lineType: "added",
-        model: "review-model",
-        passName: "file-review",
-        resolution: "pending",
-        reviewRunId: "run-1",
-        severity: "warning",
-      },
-      "How do I fix it?",
-      new CostBudget(0),
+      buildPendingFindingForThread("R-013"),
     );
 
-    expect(reply).toBe(CLARIFICATION_REPLY_COST_CEILING);
-    expect(llm.calls.chatCompletion).toHaveLength(0);
-    expect(llm.calls.chatCompletionWithTools).toHaveLength(0);
+    expect(reply).toBe(buildRuleThreadReply(rule, "https://verqen.dev/rules"));
+    expect(codeHost.calls.getMergeRequestDiff).toHaveLength(0);
+  });
+
+  it("returns an empty reply for a finding without a catalog rule", async () => {
+    const { service } = createReplyServiceUnderTest("https://verqen.dev/rules");
+
+    const reply = await service.respondToFindingThreadClarification(
+      1,
+      42,
+      buildPendingFindingForThread(undefined),
+    );
+
+    expect(reply).toBe("");
   });
 });

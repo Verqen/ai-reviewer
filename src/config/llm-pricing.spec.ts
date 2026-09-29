@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { OPENROUTER_PINNED_PROVIDERS } from "~/config/models";
 import {
   assertCostCeilingEnforceable,
   computeCostUsd,
@@ -218,6 +219,26 @@ describe("llm-pricing", () => {
       reportModelPricing([MODELS.review, MODELS.triage], 5, { warn });
 
       expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("qwen/qwen3-235b-a22b-2507", () => {
+    it("has pricing configured", () => {
+      expect(hasPricing("qwen/qwen3-235b-a22b-2507")).toBe(true);
+    });
+
+    it("returns correct pricing", () => {
+      expect(getModelPricing("qwen/qwen3-235b-a22b-2507")).toEqual({
+        cachedInputPerMTokens: 0.09,
+        inputPerMTokens: 0.09,
+        outputPerMTokens: 0.58,
+      });
+    });
+
+    it("has provider pinned to novita/fp8", () => {
+      expect(OPENROUTER_PINNED_PROVIDERS["qwen/qwen3-235b-a22b-2507"]).toBe(
+        "novita/fp8",
+      );
     });
   });
 });

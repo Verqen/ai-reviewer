@@ -25,6 +25,11 @@ const PRICING: Readonly<Record<string, ModelPricing>> = {
     inputPerMTokens: 0.32,
     outputPerMTokens: 1.0287,
   },
+  "qwen/qwen3-235b-a22b-2507": {
+    cachedInputPerMTokens: 0.09,
+    inputPerMTokens: 0.09,
+    outputPerMTokens: 0.58,
+  },
 };
 
 const ZERO_PRICING: ModelPricing = {

@@ -20,12 +20,13 @@ function parseNumber(name: string): number | undefined {
 const DEFAULT_MAX_COST_USD = 20;
 
 const USAGE =
-  "usage: pnpm run review:github:commit -- --owner <login> --repo <name> [--installation <id>] [--sha <commit>] [--max-cost <usd>]";
+  "usage: pnpm run review:github:commit -- --owner <login> --repo <name> [--installation <id>] [--sha <commit>] [--max-cost <usd>] [--catalog-url <url>]";
 
 async function main(): Promise<void> {
   const owner = parseString("--owner");
   const repo = parseString("--repo");
   const installationId = parseNumber("--installation");
+  const catalogUrl = parseString("--catalog-url");
   const maxCostUsd = parseNumber("--max-cost") ?? DEFAULT_MAX_COST_USD;
 
   if (owner === undefined || repo === undefined) {
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
   );
 
   const result = await reviewGitHubCommit({
+    catalogUrl,
     commitSha,
     installationId,
     maxCostUsd,
@@ -51,7 +53,7 @@ async function main(): Promise<void> {
   });
 
   process.stderr.write(
-    `[GH-COMMIT] files: ${String(result.filesReviewed)}/${String(result.filesTotal)}  findings: ${String(result.findings.length)}  partial: ${String(result.partial)}  cost: $${result.tokenCostUsd.toFixed(4)} → ${result.checkRunUrl}\n\n`,
+    `[GH-COMMIT] files: ${String(result.filesReviewed)}/${String(result.filesTotal)}  findings: ${String(result.findings.length)}  partial: ${String(result.partial)}  catalog: ${result.catalogVersion}  cost: $${result.tokenCostUsd.toFixed(4)} → ${result.checkRunUrl}\n\n`,
   );
 }
 

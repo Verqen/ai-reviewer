@@ -129,15 +129,12 @@ function fakeLlm(
 
 function finding(filePath: string, overrides: object = {}): object {
   return {
-    category: "bug",
-    comment: `Unchecked null in ${filePath}`,
     confidence: 0.95,
     end_line: null,
     file_path: filePath,
     line_number: 1,
     line_type: "added",
-    severity: "attention",
-    suggestion: "const fixed = true;",
+    rule_id: "R-014",
     ...overrides,
   };
 }
@@ -170,6 +167,7 @@ async function run(
       },
     },
     {
+      catalogUrl: "https://verqen.dev/rules",
       commitSha: COMMIT_SHA,
       maxCostUsd,
       owner: "owner",
@@ -195,19 +193,27 @@ describe("reviewRepositoryCommit", () => {
     expect(host.completions[0]?.annotations).toEqual([
       {
         line: 1,
-        message: "Unchecked null in src/a.ts",
+        message:
+          "A value that can be absent is dereferenced here without a check.",
         path: "src/a.ts",
+        rawDetails:
+          "Condition: A value that can be null, undefined or empty is dereferenced without a check.\nRule: https://verqen.dev/rules#R-014",
         severity: "attention",
-        title: "bug",
+        title: "R-014 · Access to a possibly absent value without a guard",
       },
       {
         line: 1,
-        message: "Unchecked null in src/b.ts",
+        message:
+          "A value that can be absent is dereferenced here without a check.",
         path: "src/b.ts",
+        rawDetails:
+          "Condition: A value that can be null, undefined or empty is dereferenced without a check.\nRule: https://verqen.dev/rules#R-014",
         severity: "attention",
-        title: "bug",
+        title: "R-014 · Access to a possibly absent value without a guard",
       },
     ]);
+    expect(result.catalogVersion).toBe("2026.10.1");
+    expect(host.completions[0]?.summary).toContain("Rule catalog 2026.10.1");
     expect(result).toMatchObject({
       checkRunUrl: "https://github.com/owner/repo/runs/7",
       filesReviewed: 2,
@@ -224,10 +230,11 @@ describe("reviewRepositoryCommit", () => {
 
     expect(result.findings).toEqual([
       {
-        condition: "Unchecked null in src/a.ts",
+        condition:
+          "A value that can be absent is dereferenced here without a check.",
         filePath: "src/a.ts",
         line: 1,
-        rule: "bug",
+        ruleId: "R-014",
         severity: "attention",
       },
     ]);
@@ -237,47 +244,21 @@ describe("reviewRepositoryCommit", () => {
     const published = JSON.stringify(host.completions);
     expect(published).not.toContain("```suggestion");
     expect(published).not.toContain("const fixed = true;");
-    expect(llm.extractionSystemPrompts[0]).toContain(
-      "Always set suggestion to null",
-    );
+    expect(llm.extractionSystemPrompts[0]).toContain("rule_id MUST be one of");
   });
 
-  it("drops a finding whose comment carries a fenced fix", async () => {
+  it("publishes catalog text even when the model returns free text", async () => {
     const llm = fakeLlm((filePath) => [
       finding(filePath, {
         comment: "Wrong.\n\n```suggestion\nconst fixed = true;\n```",
+        suggestion: "x",
       }),
     ]);
 
-    const { host, result } = await run([source("src/a.ts")], llm);
+    const { host } = await run([source("src/a.ts")], llm);
 
-    expect(result.findings).toEqual([]);
     expect(JSON.stringify(host.completions)).not.toContain("```");
-  });
-
-  it("drops a cross-file finding whose comment carries a fenced fix", async () => {
-    const llm = fakeLlm(
-      () => [],
-      [
-        {
-          category: "architecture",
-          comment: "Shared state.\n\n```ts\nexport const fixed = true;\n```",
-          confidence: 0.95,
-          file_path: "src/a.ts",
-          line_number: 1,
-          line_type: "added",
-          severity: "attention",
-        },
-      ],
-    );
-
-    const { host, result } = await run(
-      [source("src/a.ts", 80), source("src/b.ts", 80)],
-      llm,
-    );
-
-    expect(result.findings).toEqual([]);
-    expect(JSON.stringify(host.completions)).not.toContain("```");
+    expect(JSON.stringify(host.completions)).not.toContain("const fixed");
   });
 
   it("never sends skip-filtered files to the model", async () => {

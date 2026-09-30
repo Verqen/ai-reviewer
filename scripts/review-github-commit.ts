@@ -1,3 +1,4 @@
+import { findCatalogRule } from "~/domain/rule-catalog/rule-catalog";
 import {
   resolveGitHubDefaultBranchHead,
   reviewGitHubCommit,
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
       .headSha;
 
   process.stderr.write(
-    `\n[GH-COMMIT] ${owner}/${repo}@${commitSha}  ceiling $${String(maxCostUsd)}\n`,
+    `\nChecking ${owner}/${repo} at ${commitSha.slice(0, 7)} against the rule catalog\n\n`,
   );
 
   const result = await reviewGitHubCommit({
@@ -64,19 +65,27 @@ async function main(): Promise<void> {
     repo,
   });
 
-  process.stderr.write(
-    `[GH-COMMIT] files: ${String(result.filesReviewed)}/${String(result.filesTotal)}  findings: ${String(result.findings.length)}  partial: ${String(result.partial)}  catalog: ${result.catalogVersion}  cost: $${result.tokenCostUsd.toFixed(4)} → ${result.checkRunUrl}\n\n`,
-  );
-  for (const finding of result.findings) {
+  const rows = result.findings.map((finding) => ({
+    finding,
+    title: findCatalogRule(finding.ruleId)?.title ?? "",
+  }));
+  const titleWidth = Math.max(0, ...rows.map((row) => row.title.length));
+  for (const { finding, title } of rows) {
     process.stderr.write(
-      `[GH-COMMIT] ${finding.ruleId} ${finding.filePath}:${String(finding.line)} ${finding.fingerprint}\n`,
+      `  ${finding.severity.padEnd(9)} ${finding.ruleId}  ${title.padEnd(titleWidth)}  ${finding.filePath}:${String(finding.line)}\n`,
     );
   }
+  process.stderr.write(
+    `\n${String(result.findings.length)} findings · ${String(result.filesReviewed)} of ${String(result.filesTotal)} files · catalog ${result.catalogVersion}${result.partial ? " · partial" : ""} · $${result.tokenCostUsd.toFixed(4)}\n`,
+  );
+  process.stderr.write(
+    `Published as a GitHub Check: ${result.checkRunUrl}\n\n`,
+  );
 }
 
 main().catch((err: unknown) => {
   process.stderr.write(
-    `\n[GH-COMMIT] Fatal: ${err instanceof Error ? err.message : String(err)}\n`,
+    `\nFatal: ${err instanceof Error ? err.message : String(err)}\n`,
   );
   process.exit(1);
 });

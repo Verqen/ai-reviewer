@@ -19,3 +19,5 @@ scripts/logs
 # Stryker mutation testing
 reports/
 .stryker-tmp/
+
+docs/demo/frames/

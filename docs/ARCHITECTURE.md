@@ -1,4 +1,4 @@
-# @gkosach/core — AI Reviewer
+# Architecture
 
 Source-available, self-hostable AI code review for merge requests and pull requests.
 

@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <b>$899 · one repository · one run · up to 400 source files</b>
+  <b>$749 · one repository · one run · up to 400 source files</b>
 </p>
 
 <p align="center">

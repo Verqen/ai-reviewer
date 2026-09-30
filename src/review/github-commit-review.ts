@@ -248,6 +248,11 @@ function runBudgetedPass(
   });
 }
 
+function notFullyReviewedPaths(passRun: ReviewPassRun): ReadonlySet<string> {
+  const coverage = pathsNotFullyReviewed(passRun.passResults);
+  return new Set([...coverage.failed, ...coverage.skipped]);
+}
+
 async function retryFailedPass(
   dependencies: CommitReviewDependencies,
   context: Omit<ReviewContext, "costBudget">,
@@ -259,26 +264,33 @@ async function retryFailedPass(
   const costBudget = new CostBudget(remainingUsd);
   try {
     const passRun = await runBudgetedPass(dependencies, context, costBudget);
-    const failedPaths = pathsNotFullyReviewed(passRun.passResults).failed;
-    logger.warn(
-      {
-        failedPaths: failedPaths.length,
-        pass,
-        recovered: failedPaths.length === 0 && !passRun.partial,
-        remainingUsd: remainingUsd - costBudget.spent,
-      },
-      "Consensus pass retry finished",
-    );
+    const retryNotFullyReviewed = notFullyReviewedPaths(passRun).size;
+    const adopted =
+      retryNotFullyReviewed < notFullyReviewedPaths(failed.passRun).size;
+    const recovered =
+      adopted && retryNotFullyReviewed === 0 && !passRun.partial;
+    const outcome = {
+      adopted,
+      notFullyReviewedPaths: retryNotFullyReviewed,
+      pass,
+      recovered,
+      remainingUsd: remainingUsd - costBudget.spent,
+    };
+    if (recovered) {
+      logger.info(outcome, "Consensus pass retry finished");
+    } else {
+      logger.warn(outcome, "Consensus pass retry finished");
+    }
     return {
-      passRun,
+      passRun: adopted ? passRun : failed.passRun,
       tokenCostUsd:
         failed.tokenCostUsd +
         computeReviewRunCostUsd(passRun.passResults, models),
     };
-  } catch (error) {
+  } catch (err) {
     logger.warn(
       {
-        error,
+        err,
         pass,
         recovered: false,
         remainingUsd: remainingUsd - costBudget.spent,
@@ -308,10 +320,18 @@ async function runConsensusPass(
   const failedPaths = pathsNotFullyReviewed(passRun.passResults).failed;
   if (failedPaths.length === 0) return first;
   const remainingUsd = shareUsd - costBudget.spent;
-  if (new CostBudget(remainingUsd).isExhausted()) {
+  const retryAffordable =
+    remainingUsd >= costBudget.spent &&
+    !new CostBudget(remainingUsd).isExhausted();
+  if (!retryAffordable) {
     logger.warn(
-      { failedPaths: failedPaths.length, pass, remainingUsd },
-      "Skipping the retry of a consensus pass whose file review failed: its share of the cost ceiling is spent",
+      {
+        failedPaths: failedPaths.length,
+        firstAttemptSpentUsd: costBudget.spent,
+        pass,
+        remainingUsd,
+      },
+      "Skipping the retry of a consensus pass whose file review failed: the rest of its share cannot cover another attempt",
     );
     return first;
   }
@@ -424,9 +444,9 @@ async function closeCheckRunAsCancelled(
         "The check stopped before it finished and published no findings. It will be run again.",
       title: "Check did not complete",
     });
-  } catch (error) {
+  } catch (err) {
     dependencies.logger.warn(
-      { checkRunId, error, projectId },
+      { checkRunId, err, projectId },
       "Failed to close the check run after a failed commit review",
     );
   }

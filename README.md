@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="mailto:german1kosach@gmail.com?subject=Check%20a%20repository"><b>Check a repository →</b></a>
+  <a href="mailto:verqen@proton.me?subject=Check%20a%20repository"><b>Check a repository →</b></a>
   &nbsp;·&nbsp;
   <a href="https://app.verqen.dev/rules">Rule catalog</a>
   &nbsp;·&nbsp;

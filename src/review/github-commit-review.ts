@@ -230,6 +230,98 @@ type WholeFileDiffs = ReturnType<typeof buildWholeFileDiffs>;
 
 type TreeReview = Omit<GitHubCommitReviewResult, "checkRunUrl" | "comparison">;
 
+interface ConsensusPass {
+  passRun: ReviewPassRun;
+  tokenCostUsd: number;
+}
+
+function runBudgetedPass(
+  dependencies: CommitReviewDependencies,
+  context: Omit<ReviewContext, "costBudget">,
+  costBudget: CostBudget,
+): Promise<ReviewPassRun> {
+  return runReviewPasses({
+    context: { ...context, costBudget },
+    costBudget,
+    llm: dependencies.llm,
+    logger: dependencies.logger,
+  });
+}
+
+async function retryFailedPass(
+  dependencies: CommitReviewDependencies,
+  context: Omit<ReviewContext, "costBudget">,
+  pass: number,
+  failed: ConsensusPass,
+  remainingUsd: number,
+): Promise<ConsensusPass> {
+  const { logger, models } = dependencies;
+  const costBudget = new CostBudget(remainingUsd);
+  try {
+    const passRun = await runBudgetedPass(dependencies, context, costBudget);
+    const failedPaths = pathsNotFullyReviewed(passRun.passResults).failed;
+    logger.warn(
+      {
+        failedPaths: failedPaths.length,
+        pass,
+        recovered: failedPaths.length === 0 && !passRun.partial,
+        remainingUsd: remainingUsd - costBudget.spent,
+      },
+      "Consensus pass retry finished",
+    );
+    return {
+      passRun,
+      tokenCostUsd:
+        failed.tokenCostUsd +
+        computeReviewRunCostUsd(passRun.passResults, models),
+    };
+  } catch (error) {
+    logger.warn(
+      {
+        error,
+        pass,
+        recovered: false,
+        remainingUsd: remainingUsd - costBudget.spent,
+      },
+      "Consensus pass retry failed",
+    );
+    return {
+      passRun: failed.passRun,
+      tokenCostUsd: failed.tokenCostUsd + costBudget.spent,
+    };
+  }
+}
+
+async function runConsensusPass(
+  dependencies: CommitReviewDependencies,
+  context: Omit<ReviewContext, "costBudget">,
+  pass: number,
+  shareUsd: number,
+): Promise<ConsensusPass> {
+  const { logger, models } = dependencies;
+  const costBudget = new CostBudget(shareUsd);
+  const passRun = await runBudgetedPass(dependencies, context, costBudget);
+  const first: ConsensusPass = {
+    passRun,
+    tokenCostUsd: computeReviewRunCostUsd(passRun.passResults, models),
+  };
+  const failedPaths = pathsNotFullyReviewed(passRun.passResults).failed;
+  if (failedPaths.length === 0) return first;
+  const remainingUsd = shareUsd - costBudget.spent;
+  if (new CostBudget(remainingUsd).isExhausted()) {
+    logger.warn(
+      { failedPaths: failedPaths.length, pass, remainingUsd },
+      "Skipping the retry of a consensus pass whose file review failed: its share of the cost ceiling is spent",
+    );
+    return first;
+  }
+  logger.warn(
+    { failedPaths: failedPaths.length, pass, remainingUsd },
+    "Retrying a consensus pass whose file review failed",
+  );
+  return retryFailedPass(dependencies, context, pass, first, remainingUsd);
+}
+
 async function reviewTree(
   dependencies: CommitReviewDependencies,
   options: GitHubCommitReviewOptions,
@@ -237,7 +329,7 @@ async function reviewTree(
   prepared: WholeFileDiffs,
   archivePaths: readonly string[],
 ): Promise<{ review: TreeReview; unreviewedPaths: ReadonlySet<string> }> {
-  const { codeHost, llm, logger, models } = dependencies;
+  const { codeHost, logger, models } = dependencies;
   const { commitSha } = options;
   const { diffs, reviewablePaths } = prepared;
 
@@ -267,18 +359,14 @@ async function reviewTree(
     versions: { baseSha: commitSha, headSha: commitSha, startSha: commitSha },
   };
 
-  const runs: ReviewPassRun[] = [];
-  for (let pass = 0; pass < CONSENSUS_PASSES; pass++) {
-    const costBudget = new CostBudget(options.maxCostUsd / CONSENSUS_PASSES);
-    runs.push(
-      await runReviewPasses({
-        context: { ...context, costBudget },
-        costBudget,
-        llm,
-        logger,
-      }),
+  const shareUsd = options.maxCostUsd / CONSENSUS_PASSES;
+  const consensusPasses: ConsensusPass[] = [];
+  for (let pass = 1; pass <= CONSENSUS_PASSES; pass++) {
+    consensusPasses.push(
+      await runConsensusPass(dependencies, context, pass, shareUsd),
     );
   }
+  const runs = consensusPasses.map((consensusPass) => consensusPass.passRun);
 
   const lineTexts = indexLineTexts(prepared.diffs);
   const coverage = runs.map((passRun) =>
@@ -314,9 +402,8 @@ async function reviewTree(
       partial:
         runs.some((passRun) => passRun.partial) ||
         coverage.some((paths) => paths.failed.length > 0),
-      tokenCostUsd: runs.reduce(
-        (total, passRun) =>
-          total + computeReviewRunCostUsd(passRun.passResults, models),
+      tokenCostUsd: consensusPasses.reduce(
+        (total, consensusPass) => total + consensusPass.tokenCostUsd,
         0,
       ),
     },

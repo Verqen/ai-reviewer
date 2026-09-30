@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { OPENROUTER_REVIEW_MODEL } from "~/config/models";
 import { fingerprintFinding } from "~/domain/finding-fingerprint";
@@ -179,6 +179,7 @@ async function run(
   maxReviewableFiles = 400,
   baseline?: CommitReviewBaseline,
   productName?: string,
+  logger = createMockLogger(),
 ): Promise<{
   host: FakeCodeHost;
   result: Awaited<ReturnType<typeof reviewRepositoryCommit>>;
@@ -188,7 +189,7 @@ async function run(
     {
       codeHost: host,
       llm,
-      logger: createMockLogger(),
+      logger,
       models: {
         review: OPENROUTER_REVIEW_MODEL,
         triage: OPENROUTER_REVIEW_MODEL,
@@ -564,9 +565,9 @@ describe("reviewRepositoryCommit comparison with an earlier run", () => {
     expect(summary).not.toContain("First run");
   });
 
-  it("treats a file whose review failed in one pass as not fully reviewed", async () => {
+  it("treats a file whose review failed in a pass and in its retry as not fully reviewed", async () => {
     const llm = fakeLlm((filePath, call) => {
-      if (filePath === "src/a.ts" && call === 2) {
+      if (filePath === "src/a.ts" && (call === 2 || call === 3)) {
         throw new Error("extraction failed");
       }
       return [finding(filePath)];
@@ -643,6 +644,165 @@ describe("reviewRepositoryCommit comparison with an earlier run", () => {
 
     expect(host.created).toEqual([]);
     expect(llm.options).toEqual([]);
+  });
+});
+
+describe("reviewRepositoryCommit retry of a pass whose file review failed", () => {
+  const twoFiles = [source("src/a.ts"), source("src/b.ts")];
+
+  function failingOnCalls(failedCalls: readonly number[]): FakeLlm {
+    return fakeLlm((filePath, call) => {
+      if (filePath === "src/a.ts" && failedCalls.includes(call)) {
+        throw new Error("extraction failed");
+      }
+      return [finding(filePath)];
+    });
+  }
+
+  it("runs the failed pass again and publishes a complete run that counts the cost of both attempts", async () => {
+    const clean = await run(twoFiles, failingOnCalls([]));
+    const warn = vi.fn();
+    const llm = failingOnCalls([2]);
+
+    const { host, result } = await run(
+      twoFiles,
+      llm,
+      100,
+      400,
+      undefined,
+      undefined,
+      createMockLogger({ warn }),
+    );
+
+    expect(llm.analysisPrompts).toHaveLength(8);
+    expect(result.partial).toBe(false);
+    expect(result.filesReviewed).toBe(2);
+    expect(result.findings.map((reported) => reported.filePath)).toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+    const cleanPassCostUsd = clean.result.tokenCostUsd / 3;
+    const failedExtractionCostUsd = (2000 * 3 + 200 * 15) / 1_000_000;
+    expect(result.tokenCostUsd).toBeCloseTo(
+      cleanPassCostUsd * 4 - failedExtractionCostUsd,
+      10,
+    );
+    expect(host.completions[0]?.summary).not.toContain("Partial result");
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ failedPaths: 1, pass: 2 }),
+      "Retrying a consensus pass whose file review failed",
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ failedPaths: 0, pass: 2, recovered: true }),
+      "Consensus pass retry finished",
+    );
+  });
+
+  it("gives the retry only the unspent remainder of the pass share", async () => {
+    const warn = vi.fn();
+
+    await run(
+      twoFiles,
+      failingOnCalls([2]),
+      90,
+      400,
+      undefined,
+      undefined,
+      createMockLogger({ warn }),
+    );
+
+    const retry = warn.mock.calls.find(
+      ([, message]) =>
+        message === "Retrying a consensus pass whose file review failed",
+    );
+    const remainingUsd = (retry?.[0] as { remainingUsd: number }).remainingUsd;
+    expect(remainingUsd).toBeLessThan(30);
+    expect(remainingUsd).toBeGreaterThan(29.9);
+  });
+
+  it("keeps the run partial when the retry fails on the same file again", async () => {
+    const warn = vi.fn();
+    const llm = failingOnCalls([2, 3]);
+
+    const { result } = await run(
+      twoFiles,
+      llm,
+      100,
+      400,
+      undefined,
+      undefined,
+      createMockLogger({ warn }),
+    );
+
+    expect(llm.analysisPrompts).toHaveLength(8);
+    expect(result.partial).toBe(true);
+    expect(result.filesReviewed).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ failedPaths: 1, pass: 2, recovered: false }),
+      "Consensus pass retry finished",
+    );
+  });
+
+  it("keeps the failed pass and counts the spend of a retry that fails on every file", async () => {
+    const clean = await run(twoFiles, failingOnCalls([]));
+    const warn = vi.fn();
+    const llm = fakeLlm((filePath, call) => {
+      const failedCalls = filePath === "src/a.ts" ? [2, 3] : [3];
+      if (failedCalls.includes(call)) {
+        throw new Error("extraction failed");
+      }
+      return [finding(filePath)];
+    });
+
+    const { result } = await run(
+      twoFiles,
+      llm,
+      100,
+      400,
+      undefined,
+      undefined,
+      createMockLogger({ warn }),
+    );
+
+    expect(llm.analysisPrompts).toHaveLength(8);
+    expect(result.partial).toBe(true);
+    expect(result.filesReviewed).toBe(1);
+    expect(result.findings.map((reported) => reported.filePath)).toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+    const callCostUsd = (2000 * 3 + 200 * 15) / 1_000_000;
+    expect(result.tokenCostUsd).toBeCloseTo(
+      clean.result.tokenCostUsd - callCostUsd + callCostUsd * 3,
+      10,
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ pass: 2, recovered: false }),
+      "Consensus pass retry failed",
+    );
+  });
+
+  it("does not retry when nothing of the pass share is left and keeps the run partial", async () => {
+    const warn = vi.fn();
+    const llm = failingOnCalls([2]);
+
+    const { result } = await run(
+      twoFiles,
+      llm,
+      0.06,
+      400,
+      undefined,
+      undefined,
+      createMockLogger({ warn }),
+    );
+
+    expect(llm.analysisPrompts).toHaveLength(6);
+    expect(result.partial).toBe(true);
+    expect(result.filesReviewed).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ failedPaths: 1, pass: 2 }),
+      "Skipping the retry of a consensus pass whose file review failed: its share of the cost ceiling is spent",
+    );
   });
 });
 

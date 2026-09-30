@@ -32,13 +32,4 @@
 
 A repeat run is compared with the previous one: new, persisting and resolved findings. The service is offered to customers located outside Georgia; see the [terms](https://app.verqen.dev/terms).
 
-## Run the engine yourself
-
-The engine in this repository is source-available.
-
-```bash
-pnpm install
-pnpm quickstart
-```
-
 How it is built: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · License: [FSL-1.1-ALv2](LICENSE.md)

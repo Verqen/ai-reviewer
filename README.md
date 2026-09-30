@@ -28,7 +28,7 @@
 2. Open the link, connect GitHub and choose the repository.
 3. Minutes later the result is a GitHub Check on the latest commit of your default branch.
 
-<img src="docs/demo/github-check.png" alt="The GitHub Check of a run: four findings attached to their files and lines" width="650">
+<img src="docs/demo/github-check.png" alt="Findings of a run as annotations of its GitHub Check" width="560">
 
 A repeat run is compared with the previous one: new, persisting and resolved findings. The service is offered to customers located outside Georgia; see the [terms](https://app.verqen.dev/terms).
 

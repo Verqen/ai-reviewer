@@ -30,6 +30,6 @@
 
 <img src="docs/demo/github-check.png" alt="Findings of a run as annotations of its GitHub Check" width="560">
 
-A repeat run is compared with the previous one: new, persisting and resolved findings. The service is offered to customers located outside Georgia; see the [terms](https://app.verqen.dev/terms).
+A repeat run is compared with the previous one: new, persisting and resolved findings. The service is offered to individuals who live outside Georgia and is paid in cash at the registered cash register location in Tbilisi, Georgia; see the [terms](https://app.verqen.dev/terms).
 
 How it is built: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · License: [FSL-1.1-ALv2](LICENSE.md)

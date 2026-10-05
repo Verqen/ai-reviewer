@@ -23,8 +23,10 @@ import { buildToolCallCacheKey } from "~/infrastructure/llm/tool-call-cache-key"
 const TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 2;
 const RETRY_DELAYS_MS = [1000, 2000];
+const RATE_LIMIT_RETRY_DELAYS_MS = [5_000, 10_000, 20_000, 20_000];
 const DEFAULT_RETRY_DELAY_MS = 2000;
-const RETRYABLE_STATUS_CODES = [429, 502, 503, 504];
+const RATE_LIMITED_STATUS = 429;
+const RETRYABLE_STATUS_CODES = [502, 503, 504];
 const DEFAULT_MAX_TOOL_ROUNDS = 3;
 const MAX_TOKENS_ON_RETRY = 800;
 const LARGE_PAYLOAD_BYTES = 80_000;
@@ -369,14 +371,13 @@ class OpenRouterClient implements ILlmClient {
   private async fetchWithRetry(
     body: Record<string, unknown>,
   ): Promise<OpenRouterResponse> {
-    let lastError: Error | null = null;
     const payloadSize = JSON.stringify(body).length;
     const isLargePayload = payloadSize >= LARGE_PAYLOAD_BYTES;
     const retryLimit = isLargePayload ? 1 : MAX_RETRIES;
     let requestBody: Record<string, unknown> = body;
     let retryAfterHintMs: number | null = null;
 
-    for (let attempt = 0; attempt <= retryLimit; attempt++) {
+    for (let attempt = 0; ; attempt++) {
       if (attempt > 0) {
         const delay =
           retryAfterHintMs ??
@@ -408,9 +409,20 @@ class OpenRouterClient implements ILlmClient {
 
         if (!response.ok) {
           const errorText = await response.text();
-          lastError = new Error(
+          const upstreamError = new Error(
             describeUpstreamFailure("OpenRouter", response.status, errorText),
           );
+
+          if (
+            response.status === RATE_LIMITED_STATUS &&
+            attempt < RATE_LIMIT_RETRY_DELAYS_MS.length
+          ) {
+            retryAfterHintMs =
+              retryAfterMs(response.headers) ??
+              RATE_LIMIT_RETRY_DELAYS_MS[attempt] ??
+              null;
+            continue;
+          }
 
           if (
             RETRYABLE_STATUS_CODES.includes(response.status) &&
@@ -420,7 +432,7 @@ class OpenRouterClient implements ILlmClient {
             continue;
           }
 
-          throw lastError;
+          throw upstreamError;
         }
 
         const parsed = OpenRouterResponseSchema.safeParse(
@@ -433,17 +445,13 @@ class OpenRouterClient implements ILlmClient {
         }
         return parsed.data;
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-
         if (!isTransientTransportError(error) || attempt >= retryLimit) {
-          throw lastError;
+          throw error instanceof Error ? error : new Error(String(error));
         }
       } finally {
         clearTimeout(timeoutId);
       }
     }
-
-    throw lastError ?? new Error("OpenRouter API failed after all retries");
   }
 
   private buildRetryBody(

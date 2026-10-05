@@ -330,6 +330,68 @@ describe("OpenRouterClient", () => {
     expect(result.content).toBe("done");
   });
 
+  it("keeps retrying a rate-limited request with growing delays until the provider answers", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(rateLimitedResponse(""))
+      .mockResolvedValueOnce(rateLimitedResponse(""))
+      .mockResolvedValueOnce(rateLimitedResponse(""))
+      .mockResolvedValueOnce(rateLimitedResponse(""))
+      .mockResolvedValueOnce(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion([{ content: "hi", role: "user" }]);
+
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    await vi.advanceTimersByTimeAsync(20_000);
+    const result = await pending;
+
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(result.content).toBe("done");
+  });
+
+  it("gives up on a request still rate-limited after the last delay", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(rateLimitedResponse(""));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion([{ content: "hi", role: "user" }]);
+    const outcome = expect(pending).rejects.toThrow("429");
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    await outcome;
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("retries an upstream 502 at most twice", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      ok: false,
+      status: 502,
+      text: () => Promise.resolve("bad gateway"),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+    const pending = client.chatCompletion([{ content: "hi", role: "user" }]);
+    const outcome = expect(pending).rejects.toThrow("502");
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    await outcome;
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("retries a transient transport failure and returns the retry result", async () => {
     vi.useFakeTimers();
     const fetchMock = vi

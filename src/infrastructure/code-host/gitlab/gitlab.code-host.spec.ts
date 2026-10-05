@@ -166,3 +166,63 @@ describe("GitLabCodeHost.getMergeRequestDiff", () => {
     expect(diffs[0]?.newPath).toBe("a.ts");
   });
 });
+
+describe("GitLabCodeHost upstream failures", () => {
+  let app: FastifyInstance;
+  let baseUrl: string;
+  const upstreamBody = "x".repeat(20_000);
+
+  beforeEach(async () => {
+    app = Fastify({ logger: false });
+    app.get(
+      "/projects/:projectId/merge_requests/:mrIid/changes",
+      (_req, reply) => reply.status(403).send(upstreamBody),
+    );
+    app.get("/projects/:projectId/repository/files/:path/raw", (_req, reply) =>
+      reply.status(403).send(upstreamBody),
+    );
+    const address = await app.listen({ host: "127.0.0.1", port: 0 });
+    baseUrl = address.replace(/\/$/, "");
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  async function captureMessage(run: () => Promise<unknown>): Promise<string> {
+    try {
+      await run();
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+    throw new Error("expected the call to fail");
+  }
+
+  it("bounds the upstream body carried by an API error", async () => {
+    const codeHost = new GitLabCodeHost(
+      buildConfig(baseUrl),
+      createMockLogger(),
+    );
+
+    const message = await captureMessage(() =>
+      codeHost.getMergeRequestDiff(42, 7),
+    );
+
+    expect(message).toMatch(/^GitLab API error: 403 /);
+    expect(message.length).toBeLessThan(1_000);
+  });
+
+  it("bounds the upstream body carried by a file content error", async () => {
+    const codeHost = new GitLabCodeHost(
+      buildConfig(baseUrl),
+      createMockLogger(),
+    );
+
+    const message = await captureMessage(() =>
+      codeHost.getFileContent(42, "main", "a.ts"),
+    );
+
+    expect(message).toMatch(/^GitLab API error: 403 /);
+    expect(message.length).toBeLessThan(1_000);
+  });
+});

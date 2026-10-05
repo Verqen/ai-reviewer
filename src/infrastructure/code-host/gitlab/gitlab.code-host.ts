@@ -21,6 +21,7 @@ import type {
 } from "~/domain/types/code-host.types";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
 import { fetchWithResilience } from "~/infrastructure/code-host/gitlab/gitlab-resilience";
+import { describeUpstreamFailure } from "~/infrastructure/llm/http-retry";
 import type {
   GitLabBranchApiResponse,
   GitLabCompareResponse,
@@ -258,8 +259,13 @@ class GitLabCodeHost implements ICodeHost {
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`GitLab API error: ${response.status} ${errorText}`);
+      throw new Error(
+        describeUpstreamFailure(
+          "GitLab",
+          response.status,
+          await response.text(),
+        ),
+      );
     }
 
     return response.text();
@@ -487,15 +493,12 @@ class GitLabCodeHost implements ICodeHost {
         }
 
         if (res.statusCode !== 200) {
-          const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end", () => {
-            reject(
-              new Error(
-                `GitLab API error: ${res.statusCode} ${Buffer.concat(chunks).toString()}`,
-              ),
-            );
-          });
+          reject(
+            new Error(
+              describeUpstreamFailure("GitLab", res.statusCode ?? 0, ""),
+            ),
+          );
+          res.resume();
           return;
         }
 
@@ -531,9 +534,13 @@ class GitLabCodeHost implements ICodeHost {
     if (!response.ok) {
       const errorText = await response.text();
       if (response.status === 404) {
-        throw new CodeHostNotFoundError(`GitLab API 404: ${path} ${errorText}`);
+        throw new CodeHostNotFoundError(
+          describeUpstreamFailure("GitLab", response.status, errorText),
+        );
       }
-      throw new Error(`GitLab API error: ${response.status} ${errorText}`);
+      throw new Error(
+        describeUpstreamFailure("GitLab", response.status, errorText),
+      );
     }
 
     return response.json() as Promise<T>;

@@ -8,8 +8,9 @@ const UNTRUSTED_INPUT_BOUNDARY_INSTRUCTION = [
 ].join("\n");
 
 function sanitizeUntrusted(content: string): string {
-  return content.replace(/<\/?\s*untrusted_[a-z0-9_]*\s*>/gi, (match) =>
-    match.replace(/[<>]/g, ""),
+  return content.replace(
+    /<[\s\p{Cf}]*\/?[\s\p{Cf}]*untrusted[^<>]*>/giu,
+    (match) => match.replace(/[<>]/g, ""),
   );
 }
 

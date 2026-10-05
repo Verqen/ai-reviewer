@@ -72,8 +72,6 @@ function verifyGitHubSignature(
   return timingSafeEqual(provided, computed);
 }
 
-const rawBodyByRequest = new WeakMap<FastifyRequest, string>();
-
 function sendOrchestrationResult(
   reply: FastifyReply,
   result: WebhookOrchestrationResult,
@@ -129,24 +127,26 @@ function webhookRoute(
   });
 
   void app.register((instance, _opts, done) => {
+    instance.addHook("onRequest", async (req, reply) => {
+      const authorizedBeforeBody =
+        codeHostProvider === "github"
+          ? hasGitHubSignatureHeader(req, webhookConfig)
+          : isGitLabTokenAuthorized(req, webhookConfig);
+      if (!authorizedBeforeBody) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+      return undefined;
+    });
+
     if (codeHostProvider === "github") {
       instance.addContentTypeParser(
         "application/json",
         { parseAs: "string" },
-        (req, body, parserDone) => {
-          const raw = typeof body === "string" ? body : body.toString("utf8");
-          rawBodyByRequest.set(req, raw);
-          try {
-            parserDone(
-              null,
-              raw.length > 0 ? (JSON.parse(raw) as unknown) : {},
-            );
-          } catch (error) {
-            parserDone(
-              error instanceof Error ? error : new Error("Invalid JSON"),
-              undefined,
-            );
-          }
+        (_req, body, parserDone) => {
+          parserDone(
+            null,
+            typeof body === "string" ? body : body.toString("utf8"),
+          );
         },
       );
     }
@@ -155,11 +155,10 @@ function webhookRoute(
       "/webhook",
       { bodyLimit: WEBHOOK_BODY_LIMIT_BYTES },
       async (req: FastifyRequest, reply: FastifyReply) => {
-        const webhookSecret = webhookConfig.envs.WEBHOOK_SECRET;
         const parsed =
           codeHostProvider === "github"
-            ? authorizeAndParseGitHub(req, webhookSecret)
-            : authorizeAndParseGitLab(req, webhookSecret);
+            ? authorizeAndParseGitHub(req, webhookConfig)
+            : parseGitLab(req);
 
         if (parsed.kind === "unauthorized") {
           return reply.status(401).send({ error: "Unauthorized" });
@@ -189,13 +188,57 @@ type RouteParseResult =
   | { kind: "invalid" }
   | { kind: "unauthorized" };
 
-function authorizeAndParseGitLab(
-  req: FastifyRequest,
-  secret: string | undefined,
-): RouteParseResult {
-  if (secret && !verifySecret(req.headers["x-gitlab-token"], secret)) {
-    return { kind: "unauthorized" };
+type SecretRequirement =
+  | { kind: "missing" }
+  | { kind: "none" }
+  | { kind: "secret"; secret: string };
+
+function resolveSecretRequirement(
+  webhookConfig: IConfig<WebhookConfigSchema>,
+): SecretRequirement {
+  const { WEBHOOK_SECRET, WEBHOOK_SIGNATURE_REQUIRED } = webhookConfig.envs;
+  if (WEBHOOK_SECRET) {
+    return { kind: "secret", secret: WEBHOOK_SECRET };
   }
+  return WEBHOOK_SIGNATURE_REQUIRED ? { kind: "missing" } : { kind: "none" };
+}
+
+function isGitLabTokenAuthorized(
+  req: FastifyRequest,
+  webhookConfig: IConfig<WebhookConfigSchema>,
+): boolean {
+  const requirement = resolveSecretRequirement(webhookConfig);
+  if (requirement.kind !== "secret") {
+    return requirement.kind === "none";
+  }
+  return verifySecret(req.headers["x-gitlab-token"], requirement.secret);
+}
+
+function hasGitHubSignatureHeader(
+  req: FastifyRequest,
+  webhookConfig: IConfig<WebhookConfigSchema>,
+): boolean {
+  const requirement = resolveSecretRequirement(webhookConfig);
+  if (requirement.kind !== "secret") {
+    return requirement.kind === "none";
+  }
+  return typeof req.headers["x-hub-signature-256"] === "string";
+}
+
+function parseJsonBody(
+  raw: string,
+): { ok: true; value: unknown } | { ok: false } {
+  if (raw.length === 0) {
+    return { ok: true, value: {} };
+  }
+  try {
+    return { ok: true, value: JSON.parse(raw) as unknown };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function parseGitLab(req: FastifyRequest): RouteParseResult {
   const parsed = parseGitLabWebhook(req.body);
   if (parsed.kind === "event") {
     return { event: parsed.event, kind: "event" };
@@ -205,20 +248,31 @@ function authorizeAndParseGitLab(
 
 function authorizeAndParseGitHub(
   req: FastifyRequest,
-  secret: string | undefined,
+  webhookConfig: IConfig<WebhookConfigSchema>,
 ): RouteParseResult {
-  if (secret) {
-    const raw = rawBodyByRequest.get(req) ?? "";
-    if (
-      !verifyGitHubSignature(raw, req.headers["x-hub-signature-256"], secret)
-    ) {
-      return { kind: "unauthorized" };
-    }
+  const raw = typeof req.body === "string" ? req.body : "";
+  const requirement = resolveSecretRequirement(webhookConfig);
+  if (requirement.kind === "missing") {
+    return { kind: "unauthorized" };
+  }
+  if (
+    requirement.kind === "secret" &&
+    !verifyGitHubSignature(
+      raw,
+      req.headers["x-hub-signature-256"],
+      requirement.secret,
+    )
+  ) {
+    return { kind: "unauthorized" };
+  }
+  const body = parseJsonBody(raw);
+  if (!body.ok) {
+    return { kind: "invalid" };
   }
   const eventName = req.headers["x-github-event"];
   const parsed = parseGitHubWebhook(
     typeof eventName === "string" ? eventName : "",
-    req.body,
+    body.value,
   );
   if (parsed.kind === "event") {
     return { event: parsed.event, kind: "event" };

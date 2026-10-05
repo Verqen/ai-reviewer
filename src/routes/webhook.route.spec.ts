@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import Fastify from "fastify";
 import { describe, expect, it, vi } from "vitest";
 
@@ -53,12 +55,15 @@ const NOTE_PAYLOAD_REVIEW = {
   },
 };
 
-function buildMockWebhookConfig(secret?: string) {
+function buildMockWebhookConfig(
+  secret?: string,
+  signatureRequired: boolean = secret !== undefined,
+) {
   return {
     envs: {
       WEBHOOK_MAX_QUEUE_SIZE: 150,
       WEBHOOK_SECRET: secret,
-      WEBHOOK_SIGNATURE_REQUIRED: secret !== undefined,
+      WEBHOOK_SIGNATURE_REQUIRED: signatureRequired,
     },
   };
 }
@@ -110,9 +115,11 @@ function buildMockIncrementalReviewService(): IncrementalReviewService {
 function buildApp(options: {
   botUsername?: string;
   codeHost?: ICodeHost;
+  codeHostProvider?: "github" | "gitlab";
   queue?: IJobQueue<ReviewJob>;
   reviewer?: IReviewService;
   secret?: string;
+  signatureRequired?: boolean;
 }) {
   const app = Fastify({ logger: false });
   const cache = new MemoryCache<boolean>();
@@ -157,14 +164,17 @@ function buildApp(options: {
     botUsername: options.botUsername ?? "ai",
     cache,
     codeHost,
-    codeHostProvider: "gitlab",
+    codeHostProvider: options.codeHostProvider ?? "gitlab",
     incrementalReviewService,
     queue,
     reviewer,
     reviewFindingRepo,
     reviewRunRepo,
     snapshotRepo,
-    webhookConfig: buildMockWebhookConfig(options.secret),
+    webhookConfig: buildMockWebhookConfig(
+      options.secret,
+      options.signatureRequired,
+    ),
   });
 
   return { app, cache, queue, reviewer };
@@ -694,6 +704,118 @@ describe("webhookRoute", () => {
       });
 
       expect(response.statusCode).toBe(202);
+    });
+
+    it("rejects an unauthenticated GitLab body before parsing it", async () => {
+      const { app } = buildApp({ secret: "mysecret" });
+
+      const response = await app.inject({
+        headers: { "content-type": "application/json" },
+        method: "POST",
+        payload: "{not json",
+        url: "/webhook",
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("fails closed when a signature is required but no secret is set", async () => {
+      const { app } = buildApp({ signatureRequired: true });
+
+      const response = await app.inject({
+        body: MR_OPEN_PAYLOAD,
+        method: "POST",
+        url: "/webhook",
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+  });
+
+  describe("GitHub signature", () => {
+    function sign(payload: string, secret: string): string {
+      return `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`;
+    }
+
+    it("rejects an unsigned body before parsing it", async () => {
+      const { app } = buildApp({
+        codeHostProvider: "github",
+        secret: "mysecret",
+      });
+
+      const response = await app.inject({
+        headers: {
+          "content-type": "application/json",
+          "x-github-event": "pull_request",
+        },
+        method: "POST",
+        payload: "{not json",
+        url: "/webhook",
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("rejects a body signed with another secret", async () => {
+      const { app } = buildApp({
+        codeHostProvider: "github",
+        secret: "mysecret",
+      });
+      const payload = JSON.stringify({ action: "opened" });
+
+      const response = await app.inject({
+        headers: {
+          "content-type": "application/json",
+          "x-github-event": "pull_request",
+          "x-hub-signature-256": sign(payload, "othersecret"),
+        },
+        method: "POST",
+        payload,
+        url: "/webhook",
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("answers 400 for a correctly signed body that is not JSON", async () => {
+      const { app } = buildApp({
+        codeHostProvider: "github",
+        secret: "mysecret",
+      });
+      const payload = "{not json";
+
+      const response = await app.inject({
+        headers: {
+          "content-type": "application/json",
+          "x-github-event": "pull_request",
+          "x-hub-signature-256": sign(payload, "mysecret"),
+        },
+        method: "POST",
+        payload,
+        url: "/webhook",
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it("fails closed when a signature is required but no secret is set", async () => {
+      const { app } = buildApp({
+        codeHostProvider: "github",
+        signatureRequired: true,
+      });
+      const payload = JSON.stringify({ action: "opened" });
+
+      const response = await app.inject({
+        headers: {
+          "content-type": "application/json",
+          "x-github-event": "pull_request",
+        },
+        method: "POST",
+        payload,
+        url: "/webhook",
+      });
+
+      expect(response.statusCode).toBe(401);
     });
   });
 });

@@ -212,7 +212,7 @@ describe("OpenRouterClient", () => {
     expect(body.messages[0]?.content).toBe("plain system");
   });
 
-  it("returns null and warns when tool rounds are exhausted", async () => {
+  it("asks for a final answer without tool calls when tool rounds are exhausted", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -283,6 +283,14 @@ describe("OpenRouterClient", () => {
             usage: { completion_tokens: 19, prompt_tokens: 11 },
           }),
         ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: '{"findings":[]}' } }],
+            usage: { completion_tokens: 5, prompt_tokens: 20 },
+          }),
+        ok: true,
       });
     vi.stubGlobal("fetch", fetchMock);
     const client = new OpenRouterClient(createMockConfig(), mockLogger);
@@ -298,15 +306,22 @@ describe("OpenRouterClient", () => {
       () => Promise.resolve("tool result"),
       { maxToolRounds: 3 },
     );
-    expect(actualResult.content).toBeNull();
+    expect(actualResult.content).toBe('{"findings":[]}');
     expect(actualResult.toolCalls).toEqual([]);
     expect(actualResult.usage).toEqual({
-      completionTokens: 49,
-      promptTokens: 28,
+      completionTokens: 54,
+      promptTokens: 48,
       toolCalls: 3,
       toolRounds: 3,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const finalCall = fetchMock.mock.calls[3] as [string, { body: string }];
+    const finalBody = JSON.parse(finalCall[1].body) as {
+      messages: { content: unknown; role: string }[];
+      tool_choice?: string;
+    };
+    expect(finalBody.tool_choice).toBe("none");
+    expect(finalBody.messages.at(-1)?.role).toBe("user");
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         maxRounds: 3,

@@ -31,6 +31,8 @@ const DEFAULT_MAX_TOOL_ROUNDS = 3;
 const MAX_TOKENS_ON_RETRY = 800;
 const LARGE_PAYLOAD_BYTES = 80_000;
 const MAX_CUMULATIVE_PROMPT_TOKENS = 30_000;
+const FINAL_ANSWER_REQUEST =
+  "The tool budget is spent. Give your final answer now from what you have already read, in the required format, without calling any tool.";
 
 const OpenRouterToolCallSchema = z.object({
   function: z.object({
@@ -183,6 +185,9 @@ class OpenRouterClient implements ILlmClient {
 
     if (options?.tools && options.tools.length > 0) {
       body["tools"] = mapToolDefinitions(options.tools);
+      if (options.toolChoice !== undefined) {
+        body["tool_choice"] = options.toolChoice;
+      }
     }
 
     if (options?.provider) {
@@ -304,18 +309,18 @@ class OpenRouterClient implements ILlmClient {
           },
           "OpenRouter tool-loop cumulative token budget exceeded, early exit",
         );
-        return {
+        conversation.push({
           content: response.content,
-          toolCalls: [],
-          usage: {
-            cacheCreationInputTokens: totalCacheCreation || undefined,
-            cacheReadInputTokens: totalCacheRead || undefined,
-            completionTokens: totalCompletionTokens,
-            promptTokens: totalPromptTokens,
-            toolCalls: totalToolCalls,
-            toolRounds: toolRounds.length,
-          },
-        };
+          role: "assistant",
+          toolCalls: response.toolCalls,
+        });
+        await this.appendToolResults(
+          conversation,
+          response.toolCalls,
+          toolCallCache,
+          toolExecutor,
+        );
+        break;
       }
 
       conversation.push({
@@ -324,42 +329,67 @@ class OpenRouterClient implements ILlmClient {
         toolCalls: response.toolCalls,
       });
 
-      for (const call of response.toolCalls) {
-        const cacheKey = buildToolCallCacheKey(call);
-        const cached = toolCallCache.get(cacheKey);
-        const result = cached ?? (await toolExecutor(call));
-        if (cached === undefined) {
-          toolCallCache.set(cacheKey, result);
-        } else {
-          this.logger.debug(
-            { name: call.name },
-            "OpenRouter tool-call dedup hit",
-          );
-        }
-        conversation.push({
-          content: result,
-          role: "tool",
-          toolCallId: call.id,
-        });
-      }
+      await this.appendToolResults(
+        conversation,
+        response.toolCalls,
+        toolCallCache,
+        toolExecutor,
+      );
     }
 
-    this.logger.warn(
-      { maxRounds, model: options?.model, toolRounds },
-      "Tool loop exhausted before final assistant response",
-    );
+    if (toolRounds.length >= maxRounds) {
+      this.logger.warn(
+        { maxRounds, model: options?.model, toolRounds },
+        "Tool loop exhausted before final assistant response",
+      );
+    }
+    conversation.push({ content: FINAL_ANSWER_REQUEST, role: "user" });
+    const final = await this.chatCompletion(conversation, {
+      ...toolRoundOptions,
+      toolChoice: "none",
+      tools,
+    });
     return {
-      content: null,
+      content: final.toolCalls.length === 0 ? final.content : null,
       toolCalls: [],
       usage: {
-        cacheCreationInputTokens: totalCacheCreation || undefined,
-        cacheReadInputTokens: totalCacheRead || undefined,
-        completionTokens: totalCompletionTokens,
-        promptTokens: totalPromptTokens,
+        cacheCreationInputTokens:
+          totalCacheCreation + (final.usage.cacheCreationInputTokens ?? 0) ||
+          undefined,
+        cacheReadInputTokens:
+          totalCacheRead + (final.usage.cacheReadInputTokens ?? 0) || undefined,
+        completionTokens: totalCompletionTokens + final.usage.completionTokens,
+        promptTokens: totalPromptTokens + final.usage.promptTokens,
         toolCalls: totalToolCalls,
         toolRounds: toolRounds.length,
       },
     };
+  }
+
+  private async appendToolResults(
+    conversation: ChatMessage[],
+    calls: readonly ToolCall[],
+    toolCallCache: Map<string, string>,
+    toolExecutor: (call: ToolCall) => Promise<string>,
+  ): Promise<void> {
+    for (const call of calls) {
+      const cacheKey = buildToolCallCacheKey(call);
+      const cached = toolCallCache.get(cacheKey);
+      const result = cached ?? (await toolExecutor(call));
+      if (cached === undefined) {
+        toolCallCache.set(cacheKey, result);
+      } else {
+        this.logger.debug(
+          { name: call.name },
+          "OpenRouter tool-call dedup hit",
+        );
+      }
+      conversation.push({
+        content: result,
+        role: "tool",
+        toolCallId: call.id,
+      });
+    }
   }
 
   private async fetchWithRetry(

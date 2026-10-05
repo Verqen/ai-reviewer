@@ -57,6 +57,7 @@ interface LlmOptions {
     | undefined;
   responseSchema?: Record<string, unknown> | undefined;
   temperature?: number | undefined;
+  toolChoice?: "none" | undefined;
   tools?: ToolDefinition[] | undefined;
 }
 

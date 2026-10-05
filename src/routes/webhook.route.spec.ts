@@ -13,6 +13,7 @@ import { JobQueue } from "~/infrastructure/queue/job-queue";
 import type { IReviewService } from "~/review/review.types";
 import { createMockBaselineService } from "~/test-utils/mock-baseline-service";
 import { createMockCodeHost } from "~/test-utils/mock-code-host";
+import { createMockJobQueue } from "~/test-utils/mock-job-queue";
 import { createMockIncrementalReviewService } from "~/test-utils/mock-incremental-review-service";
 import { createMockReviewRunRepository } from "~/test-utils/mock-review-run-repository";
 import { createMockSnapshotRepository } from "~/test-utils/mock-snapshot-repository";
@@ -729,6 +730,39 @@ describe("webhookRoute", () => {
       });
 
       expect(response.statusCode).toBe(401);
+    });
+  });
+
+  describe("internal failures", () => {
+    it("answers 500 without exposing the internal error text", async () => {
+      const queue = createMockJobQueue<ReviewJob>({
+        isPending: () => {
+          throw new Error("upstream said: internal-detail-xyz");
+        },
+      });
+      const { app } = buildApp({ queue });
+
+      const response = await app.inject({
+        body: MR_OPEN_PAYLOAD,
+        method: "POST",
+        url: "/webhook",
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(response.body).not.toContain("internal-detail-xyz");
+    });
+
+    it("keeps client error statuses such as an oversized body", async () => {
+      const { app } = buildApp({});
+
+      const response = await app.inject({
+        headers: { "content-type": "application/json" },
+        method: "POST",
+        payload: JSON.stringify({ padding: "x".repeat(6_000_000) }),
+        url: "/webhook",
+      });
+
+      expect(response.statusCode).toBe(413);
     });
   });
 

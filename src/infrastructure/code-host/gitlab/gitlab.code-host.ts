@@ -20,7 +20,10 @@ import type {
   VersionInfo,
 } from "~/domain/types/code-host.types";
 import { CodeHostNotFoundError } from "~/domain/types/code-host.types";
-import { fetchWithResilience } from "~/infrastructure/code-host/gitlab/gitlab-resilience";
+import {
+  ARCHIVE_REQUEST_TIMEOUT_MS,
+  fetchWithResilience,
+} from "~/infrastructure/code-host/gitlab/gitlab-resilience";
 import { describeUpstreamFailure } from "~/infrastructure/llm/http-retry";
 import type {
   GitLabBranchApiResponse,
@@ -481,7 +484,12 @@ class GitLabCodeHost implements ICodeHost {
       gunzip.on("error", reject);
       gunzip.pipe(tar);
 
-      httpsGet(url, { headers: { "PRIVATE-TOKEN": this.token } }, (res) => {
+      const options = {
+        headers: { "PRIVATE-TOKEN": this.token },
+        signal: AbortSignal.timeout(ARCHIVE_REQUEST_TIMEOUT_MS),
+      };
+      httpsGet(url, options, (res) => {
+        res.on("error", reject);
         if (res.statusCode === 404) {
           reject(
             new CodeHostNotFoundError(

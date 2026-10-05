@@ -2,6 +2,7 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 30_000;
+const ARCHIVE_REQUEST_TIMEOUT_MS = 300_000;
 
 const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -70,6 +71,7 @@ async function fetchWithResilience(
 }
 
 export {
+  ARCHIVE_REQUEST_TIMEOUT_MS,
   fetchWithResilience,
   isRetryableResponse,
   isRetryableStatus,

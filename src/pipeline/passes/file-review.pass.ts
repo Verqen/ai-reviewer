@@ -27,6 +27,7 @@ import {
   buildFileReviewExtractionSystemBlocks,
   buildFileReviewExtractionUserPrompt,
 } from "~/pipeline/prompts/file-review.prompt";
+import { wrapUntrusted } from "~/pipeline/prompts/injection-defense";
 import { resolveProjectAndPathRulesText } from "~/pipeline/prompts/resolve-path-rules";
 import { codebaseTools, diffHunkTool } from "~/pipeline/tools/codebase-tools";
 import { createDedupeToolExecutor } from "~/pipeline/tools/dedupe-tool-executor";
@@ -271,7 +272,8 @@ class FileReviewPass implements IReviewPass<Record<string, unknown>> {
             return `Tool not available: ${call.name}`;
           };
           const toolExecutorForFile = createDedupeToolExecutor(
-            rawToolExecutorForFile,
+            async (call) =>
+              wrapUntrusted("tool_result", await rawToolExecutorForFile(call)),
             context.toolCallCache,
           );
           const tools: ToolDefinition[] = [];

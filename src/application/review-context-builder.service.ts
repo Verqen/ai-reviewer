@@ -72,7 +72,7 @@ class ReviewContextBuilderService {
     const mrInfo = await this.codeHost.getMergeRequestInfo(projectId, mrIid);
     const [repoConfig, priorFindingsResult, priorFindingsByFile] =
       await Promise.all([
-        this.reviewConfigLoader.load(projectId, versions.headSha),
+        this.reviewConfigLoader.load(projectId, versions.baseSha),
         this.reviewHistoryService.loadPriorFindings(projectId, mrIid),
         this.reviewHistoryService.loadPriorFindingsByFile(projectId, mrIid),
       ]);

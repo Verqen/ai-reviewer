@@ -50,11 +50,11 @@ class ReviewConfigLoader {
 
   async load(
     projectId: number,
-    headSha: string,
+    targetRef: string,
   ): Promise<LoadedReviewPipelineConfig> {
     const reviewMdContent = await this.tryFetchFile(
       projectId,
-      headSha,
+      targetRef,
       "REVIEW.md",
     );
 

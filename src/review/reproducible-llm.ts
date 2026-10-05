@@ -67,5 +67,5 @@ function createReproducibleLlm(
   };
 }
 
-export { createReproducibleLlm, UnpinnedModelError };
+export { assertModelsPinned, createReproducibleLlm, UnpinnedModelError };
 export type { ProviderPins };

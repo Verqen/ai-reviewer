@@ -44,6 +44,7 @@
     "review:github": "dotenv -e .env -- tsx scripts/review-github-pr.ts",
     "review:github:commit": "dotenv -e .env -- tsx scripts/review-github-commit.ts",
     "scan": "dotenv -e .env -- tsx scripts/replay-mr.ts",
+    "scan:public": "dotenv -e .env -- tsx scripts/scan-public-repository.ts",
     "smoke:llm": "dotenv -e .env tsx scripts/smoke-llm.ts",
     "smoke:llm:ollama": "LLM_PROVIDER=ollama dotenv -e .env tsx scripts/smoke-llm.ts",
     "smoke:llm:openrouter": "LLM_PROVIDER=openrouter dotenv -e .env tsx scripts/smoke-llm.ts",

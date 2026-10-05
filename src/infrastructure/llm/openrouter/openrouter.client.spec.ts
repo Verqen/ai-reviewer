@@ -115,6 +115,26 @@ describe("OpenRouterClient", () => {
     });
   });
 
+  it("leaves the response format open when the request offers tools", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+
+    await client.chatCompletion([{ content: "hi", role: "user" }], {
+      responseSchema: { type: "object" },
+      tools: [
+        {
+          description: "read a file",
+          name: "read_file",
+          parameters: { properties: {}, type: "object" },
+        },
+      ],
+    });
+
+    const callArgs = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(callArgs[1].body)).not.toHaveProperty("response_format");
+  });
+
   it("leaves provider routing to OpenRouter when none is requested", async () => {
     const fetchMock = vi.fn().mockResolvedValue(successResponse());
     vi.stubGlobal("fetch", fetchMock);

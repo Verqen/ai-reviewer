@@ -160,16 +160,7 @@ class OpenRouterClient implements ILlmClient {
       model,
     };
 
-    if (options?.responseSchema) {
-      body["response_format"] = {
-        json_schema: {
-          name: "response",
-          schema: options.responseSchema,
-          strict: true,
-        },
-        type: "json_schema",
-      };
-    } else if (options?.jsonMode) {
+    if (options?.responseSchema !== undefined || options?.jsonMode === true) {
       body["response_format"] = { type: "json_object" };
     }
     if (options?.maxTokens !== undefined) {

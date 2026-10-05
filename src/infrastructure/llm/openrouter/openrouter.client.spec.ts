@@ -100,6 +100,21 @@ describe("OpenRouterClient", () => {
     });
   });
 
+  it("asks for a JSON object instead of a provider-enforced schema", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new OpenRouterClient(createMockConfig(), mockLogger);
+
+    await client.chatCompletion([{ content: "hi", role: "user" }], {
+      responseSchema: { type: "object" },
+    });
+
+    const callArgs = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(callArgs[1].body)).toMatchObject({
+      response_format: { type: "json_object" },
+    });
+  });
+
   it("leaves provider routing to OpenRouter when none is requested", async () => {
     const fetchMock = vi.fn().mockResolvedValue(successResponse());
     vi.stubGlobal("fetch", fetchMock);

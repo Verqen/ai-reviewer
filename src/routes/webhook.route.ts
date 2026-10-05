@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { STATUS_CODES } from "node:http";
 
 import type { IConfig } from "~/shared/config";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -138,6 +139,17 @@ function webhookRoute(
       return undefined;
     });
 
+    instance.setErrorHandler((error, req, reply) => {
+      const statusCode = clientErrorStatus(error);
+      if (statusCode !== undefined) {
+        return reply
+          .status(statusCode)
+          .send({ error: STATUS_CODES[statusCode] ?? "Bad Request" });
+      }
+      req.log.error({ err: error }, "Webhook request failed");
+      return reply.status(500).send({ error: "Internal Server Error" });
+    });
+
     if (codeHostProvider === "github") {
       instance.addContentTypeParser(
         "application/json",
@@ -180,6 +192,25 @@ function webhookRoute(
 
     done();
   });
+}
+
+const MIN_CLIENT_ERROR_STATUS = 400;
+const MIN_SERVER_ERROR_STATUS = 500;
+
+function clientErrorStatus(error: unknown): number | undefined {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("statusCode" in error) ||
+    typeof error.statusCode !== "number"
+  ) {
+    return undefined;
+  }
+  const { statusCode } = error;
+  return statusCode >= MIN_CLIENT_ERROR_STATUS &&
+    statusCode < MIN_SERVER_ERROR_STATUS
+    ? statusCode
+    : undefined;
 }
 
 type RouteParseResult =

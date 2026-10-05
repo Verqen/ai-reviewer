@@ -26,6 +26,35 @@ export default defineConfig([
         "error",
         { allowNumber: true, allowBoolean: true },
       ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword']",
+          message: "Double cast through unknown is not allowed.",
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/config/**",
+      "src/**/*.spec.ts",
+      "src/**/*.test.ts",
+      "src/**/*.e2e.test.ts",
+      "src/test-utils/**",
+    ],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          object: "process",
+          property: "env",
+          message:
+            "Read environment variables through the schemas in src/config/.",
+        },
+      ],
     },
   },
   {
@@ -51,12 +80,6 @@ export default defineConfig([
     ],
     rules: {
       "no-console": "off",
-    },
-  },
-  {
-    files: ["src/infrastructure/database/migrations/*.ts"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": "off",
     },
   },
   {

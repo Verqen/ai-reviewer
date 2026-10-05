@@ -10,23 +10,24 @@ This is the single source of truth for how code is written here. It applies to e
 
 An agent under pressure to make a build pass will find the path of least resistance. The defense is never a more emphatic instruction — it is a check that fails. So every rule below carries the mechanism that enforces it, and where no mechanism exists, that is stated instead of being papered over. An honest "review-only" label tells you where to actually look during review; a rule that pretends to be enforced tells you nothing and costs you attention.
 
-| Rule                                                    | Enforced by                                                                                                               | When it runs                              |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| No comments anywhere in `src/` or `scripts/`            | `src/no-code-comments.spec.ts` — parses every `.ts` file with the TypeScript compiler API and reports file, line and text | `test:unit`, pre-push, CI                 |
-| No `any`, no unsafe assignment/call/return              | `@tsconfig/strictest` + `typescript-eslint` recommendedTypeChecked                                                        | `types:check`, `lint:check`, pre-push, CI |
-| No unused locals or parameters                          | `noUnusedLocals`, `noUnusedParameters`, `no-unused-vars` (`_` prefix opts out)                                            | `types:check`, `lint:check`, pre-push, CI |
-| No `console.*` in production code                       | `no-console` on `src/**` excluding tests                                                                                  | `lint:check`, pre-push, CI                |
-| DI wiring matches constructor order                     | `typed-inject` types the `inject` tuple against the constructor                                                           | `types:check`, build                      |
-| Test tier by filename                                   | vitest projects: `*.spec.ts` unit, `*.test.ts` integration, `*.e2e.test.ts` e2e                                           | `test:unit`, `test:integration`, CI       |
-| Formatting                                              | Prettier                                                                                                                  | `format:check`, pre-push, CI              |
-| Commit message shape                                    | `.git-hooks/commit-msg`                                                                                                   | local commit, **opt-in**                  |
-| Migration authoring rules                               | review only — no mechanical check                                                                                         | —                                         |
-| Findings only from the rule catalog, no fixes or grades | `rule-catalog.spec.ts`, `catalog-finding.spec.ts`, `no-fixes-or-grades.spec.ts`, `thread-reply-source.spec.ts`            | `test:unit`, pre-push, CI                 |
-| Anchor, grounding and cap gates on findings             | runtime code paths, covered by unit specs                                                                                 | production, `test:unit`                   |
+| Rule                                                      | Enforced by                                                                                                               | When it runs                              |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| No comments anywhere in `src/` or `scripts/`              | `src/no-code-comments.spec.ts` — parses every `.ts` file with the TypeScript compiler API and reports file, line and text | `test:unit`, pre-push, CI                 |
+| No `any`, no unsafe assignment/call/return                | `@tsconfig/strictest` + `typescript-eslint` recommendedTypeChecked                                                        | `types:check`, `lint:check`, pre-push, CI |
+| No `as unknown as T`                                      | `no-restricted-syntax` on a cast whose operand is a cast to `unknown`                                                     | `lint:check`, pre-push, CI                |
+| No unused locals or parameters                            | `noUnusedLocals`, `noUnusedParameters`, `no-unused-vars` (`_` prefix opts out)                                            | `types:check`, `lint:check`, pre-push, CI |
+| No `console.*` in production code                         | `no-console` on `src/**` excluding tests                                                                                  | `lint:check`, pre-push, CI                |
+| No `process.env` in production code outside `src/config/` | `no-restricted-properties` on `src/**` excluding `src/config/` and tests                                                  | `lint:check`, pre-push, CI                |
+| `.env.example` matches the config schemas                 | `src/config/env-example.spec.ts`, `src/config/config-seam.spec.ts`                                                        | `test:unit`, pre-push, CI                 |
+| DI wiring matches constructor order                       | `typed-inject` types the `inject` tuple against the constructor                                                           | `types:check`, build                      |
+| Test tier by filename                                     | vitest projects: `*.spec.ts` unit, `*.test.ts` integration, `*.e2e.test.ts` e2e                                           | `test:unit`, `test:integration`, CI       |
+| Formatting                                                | Prettier                                                                                                                  | `format:check`, pre-push, CI              |
+| Commit message shape                                      | `.git-hooks/commit-msg`                                                                                                   | local commit, **opt-in**                  |
+| Migration authoring rules                                 | review only — no mechanical check                                                                                         | —                                         |
+| Findings only from the rule catalog, no fixes or grades   | `rule-catalog.spec.ts`, `catalog-finding.spec.ts`, `no-fixes-or-grades.spec.ts`, `thread-reply-source.spec.ts`            | `test:unit`, pre-push, CI                 |
+| Anchor, grounding and cap gates on findings               | runtime code paths, covered by unit specs                                                                                 | production, `test:unit`                   |
 
 Three of those lines are honest weak points. The commit hook is local and opt-in (`pnpm run install:gitHooks`), so a clone that skips it is unguarded. The migration rules in `src/infrastructure/database/migrations/README.md` are prose a reviewer has to apply by hand. The third is a catalog id removed without being added to `RETIRED_RULE_IDS`: it is a review rule with no mechanical check. All three are candidates for a CI gate.
-
-One drift worth knowing: the no-`console` rule as written below is absolute, but the linter is configured to allow `console.warn` and `console.error`. Production code currently contains neither, so the stricter rule holds in practice — but the mechanism is weaker than the rule. Do not treat the linter's silence as permission.
 
 ## Code
 
@@ -34,7 +35,7 @@ One drift worth knowing: the no-`console` rule as written below is absolute, but
 
 The reasoning is specific to this repository, not a general style preference. This project's own product reads code and reasons about it. A comment is an unverifiable claim sitting next to code that can change without it; the code is the only thing that stays true. Prose that explains a decision belongs in a `README.md` next to the files it governs — `src/infrastructure/database/migrations/README.md` and `scripts/README.md` are exactly that, and they are where the explanations that used to be comments now live.
 
-**Strict TypeScript.** No `any`, no `as unknown as T`, no `@ts-ignore`, no `@ts-expect-error`. Tests and scripts relax the unsafe-\* rules because a mock is not production code, but they do not relax your judgment.
+**Strict TypeScript.** No `any`, no `as unknown as T`, no `@ts-ignore`, no `@ts-expect-error`. The same type-checked lint rules apply to tests and scripts as to production code.
 
 **Never disable a rule to make a build pass.** Not an ESLint disable comment (which would also be a comment, and therefore already forbidden), not a tsconfig loosening, not a skipped test. A failing check is information. If a rule is genuinely wrong, change the rule deliberately, in its own commit, with the reason in the commit subject.
 
@@ -50,7 +51,7 @@ DDD-light with hexagonal boundaries. The direction of dependency is the rule; ev
 - `src/application/` — use cases. Orchestrates ports, owns no I/O of its own.
 - `src/infrastructure/` — adapters. Depends on domain interfaces, never the reverse.
 - `src/pipeline/` and `src/review/` — the review pipeline and the per-change review logic.
-- `src/di/` — composition root. Every injected class declares `public static inject = [...] as const` matching constructor parameter order.
+- `src/di/` — composition root. Every injected class declares `static inject = [...] as const` matching constructor parameter order.
 
 An adapter importing from `application/`, or a domain file importing from `infrastructure/`, is a defect regardless of whether it compiles. There is no lint rule for this yet; it is on you and on review.
 
@@ -78,7 +79,7 @@ Do not weaken an assertion to make a test pass. Do not delete a failing test to 
 
 ## Configuration and secrets
 
-Every environment variable is read through the Zod schemas in `src/config/`, never `process.env` at the point of use. A blank value means unset. Adding a variable means: extend the schema, add it to `.env.example` with a comment explaining what absence does, and state the default in the schema.
+Every environment variable production code reads goes through the Zod schemas in `src/config/`, never `process.env` at the point of use. Tests and `scripts/` are outside this rule. A blank value means unset. Adding a variable means: extend the schema, add it to `.env.example` with a comment explaining what absence does, and state the default in the schema.
 
 `.env.example` holds placeholders and public example hosts only. No real hostname, token, key, project ID, internal service name or customer identifier belongs in this repository, in any file, in any commit, at any point in history. That constraint is permanent: a secret committed once and removed later is still a leaked secret, because the object stays reachable in the history.
 

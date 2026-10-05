@@ -53,6 +53,40 @@ Reviews every reviewable file of the repository tree at one commit, without a pu
 
 Needs the same setup as `review:github`, and the GitHub App must have the `checks: write` permission.
 
+## scan:public — check a public repository without an order
+
+`pnpm run scan:public -- <target> --out <report.json>` (`scripts/scan-public-repository.ts`)
+
+Runs the same check as `review:github:commit` (three independent passes, a finding kept only when at least two of them report it, the order-run model pinned to its provider at temperature 0, the 400-file limit and the same rules for which files count), but without a GitHub App, without Postgres and without writing anywhere: no comment, no Check Run. It exists to measure the rule catalog on public code: false-positive rate, cost and time.
+
+`<target>` is one of:
+
+| Target                       | Source                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `owner/repo`                 | head of the default branch, downloaded as a tarball from the public API  |
+| `owner/repo@<sha or branch>` | that commit or branch head                                               |
+| a directory                  | every file under it except `.git`; symbolic links are not followed       |
+| a `.tar.gz` / `.tgz` file    | an archive whose files sit under one top-level directory, as GitHub's do |
+
+| Variable                   | Meaning                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| `OPENROUTER_API_KEY`       | required; the run uses the order-run model whatever `OPENROUTER_MODEL` says     |
+| `PUBLIC_SCAN_MAX_COST_USD` | spend ceiling for the run, split evenly across the three passes (default 0.5)   |
+| `GITHUB_TOKEN`             | optional; sent only on the two read requests, to raise the anonymous rate limit |
+| `GITHUB_API_URL`           | GitHub API base (default `https://api.github.com`)                              |
+
+With `LLM_PROVIDER=ollama` the run uses the Ollama models instead of the order-run model, so its findings are not comparable with an order.
+
+The JSON report holds `repository`, `commit_sha` (null for a local source), `catalog_version`, `status` (`completed`, `partial`, `repository_too_large` or `failed`), `error`, `models`, `consensus`, `max_cost_usd`, `max_reviewable_files`, `files_counted`, `files_reviewed`, `files_skipped` (path and reason: a skip-filter category, `binary`, `empty` or `too_large`), `files_not_fully_reviewed`, `started_at`, `duration_ms`, `cost_usd`, `passes` (findings, cost and partial flag of each pass) and `findings`. A finding is its `rule_id`, `file` and `line` only: its text is the catalog's, and no quoted code is written, so a credential literal never reaches the report. `cost_usd` is the provider's token counts priced with `src/config/llm-pricing.ts`; it is null when the run failed. A short summary with the finding count per rule goes to stderr.
+
+Exit code 0 for a completed or partial run, 2 when the repository has more countable files than the limit (the model is not called), 1 for any other failure.
+
+```bash
+pnpm run scan:public -- owner/repo --out report.json
+pnpm run scan:public -- owner/repo@v1.2.0 --out report.json
+pnpm run scan:public -- ./some-checkout --out report.json
+```
+
 ## smoke:llm — check the configured provider
 
 `pnpm run smoke:llm` / `pnpm run smoke:llm:ollama` / `pnpm run smoke:llm:openrouter` (`scripts/smoke-llm.ts`)

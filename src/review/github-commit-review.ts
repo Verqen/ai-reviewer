@@ -16,6 +16,7 @@ import {
   findCatalogRule,
 } from "~/domain/rule-catalog/rule-catalog";
 import type { ILlmClient } from "~/domain/ports/llm.port";
+import type { ArchiveEntry } from "~/domain/types/code-host.types";
 import { ResolvedReviewPipelineConfigSchema } from "~/domain/types/config.types";
 import type {
   AggregationResult,
@@ -58,7 +59,10 @@ import {
   RepositoryTooLargeError,
 } from "~/review/repository-size";
 import type { ProviderPins } from "~/review/reproducible-llm";
-import { createReproducibleLlm } from "~/review/reproducible-llm";
+import {
+  assertModelsPinned,
+  createReproducibleLlm,
+} from "~/review/reproducible-llm";
 import { buildWholeFileDiffs } from "~/review/whole-file-diff";
 
 const CONSENSUS_PASSES = 3;
@@ -116,6 +120,18 @@ interface CommitReviewDependencies {
   models: ReviewModels;
   providerPins: ProviderPins | null;
 }
+
+interface TreeReviewDependencies extends Omit<
+  CommitReviewDependencies,
+  "codeHost"
+> {
+  codeHost: Pick<GitHubCodeHost, "getFileContent" | "getFileTree">;
+}
+
+type TreeReviewOptions = Pick<
+  GitHubCommitReviewOptions,
+  "commitSha" | "maxCostUsd" | "maxReviewableFiles"
+>;
 
 const FileReviewCoverageSchema = z.object({
   pathsFailed: z.array(z.string()).default([]),
@@ -235,8 +251,21 @@ interface ConsensusPass {
   tokenCostUsd: number;
 }
 
+interface ConsensusPassSummary {
+  pass: number;
+  findings: number;
+  partial: boolean;
+  tokenCostUsd: number;
+}
+
+interface PreparedArchiveReview {
+  archivePaths: string[];
+  dependencies: TreeReviewDependencies;
+  prepared: WholeFileDiffs;
+}
+
 function runBudgetedPass(
-  dependencies: CommitReviewDependencies,
+  dependencies: TreeReviewDependencies,
   context: Omit<ReviewContext, "costBudget">,
   costBudget: CostBudget,
 ): Promise<ReviewPassRun> {
@@ -254,7 +283,7 @@ function notFullyReviewedPaths(passRun: ReviewPassRun): ReadonlySet<string> {
 }
 
 async function retryFailedPass(
-  dependencies: CommitReviewDependencies,
+  dependencies: TreeReviewDependencies,
   context: Omit<ReviewContext, "costBudget">,
   pass: number,
   failed: ConsensusPass,
@@ -305,7 +334,7 @@ async function retryFailedPass(
 }
 
 async function runConsensusPass(
-  dependencies: CommitReviewDependencies,
+  dependencies: TreeReviewDependencies,
   context: Omit<ReviewContext, "costBudget">,
   pass: number,
   shareUsd: number,
@@ -343,12 +372,16 @@ async function runConsensusPass(
 }
 
 async function reviewTree(
-  dependencies: CommitReviewDependencies,
-  options: GitHubCommitReviewOptions,
+  dependencies: TreeReviewDependencies,
+  options: TreeReviewOptions,
   projectId: number,
   prepared: WholeFileDiffs,
   archivePaths: readonly string[],
-): Promise<{ review: TreeReview; unreviewedPaths: ReadonlySet<string> }> {
+): Promise<{
+  passes: ConsensusPassSummary[];
+  review: TreeReview;
+  unreviewedPaths: ReadonlySet<string>;
+}> {
   const { codeHost, logger, models } = dependencies;
   const { commitSha } = options;
   const { diffs, reviewablePaths } = prepared;
@@ -412,6 +445,12 @@ async function reviewTree(
     return reported.findings;
   });
   return {
+    passes: consensusPasses.map((consensusPass, index) => ({
+      findings: findingsByPass[index]?.length ?? 0,
+      partial: consensusPass.passRun.partial,
+      pass: index + 1,
+      tokenCostUsd: consensusPass.tokenCostUsd,
+    })),
     review: {
       catalogVersion: RULE_CATALOG_VERSION,
       filesReviewed: reviewablePaths.filter(
@@ -452,22 +491,50 @@ async function closeCheckRunAsCancelled(
   }
 }
 
+function assertArchiveReviewable(
+  dependencies: Pick<CommitReviewDependencies, "models" | "providerPins">,
+  options: TreeReviewOptions,
+): void {
+  assertCostCeilingEnforceable(dependencies.models, options.maxCostUsd);
+  assertReviewableFileLimit(options.maxReviewableFiles);
+  if (dependencies.providerPins !== null) {
+    assertModelsPinned(dependencies.models, dependencies.providerPins);
+  }
+}
+
+function prepareArchiveReview<T extends TreeReviewDependencies>(
+  dependencies: T,
+  options: TreeReviewOptions,
+  archive: readonly ArchiveEntry[],
+): PreparedArchiveReview & { dependencies: T } {
+  const prepared = buildWholeFileDiffs(archive);
+  if (prepared.reviewablePaths.length > options.maxReviewableFiles) {
+    throw new RepositoryTooLargeError(
+      prepared.reviewablePaths.length,
+      options.maxReviewableFiles,
+    );
+  }
+  return {
+    archivePaths: archive.map((entry) => entry.path),
+    dependencies: {
+      ...dependencies,
+      llm: createReproducibleLlm(
+        dependencies.llm,
+        dependencies.models,
+        dependencies.providerPins,
+      ),
+    },
+    prepared,
+  };
+}
+
 async function reviewRepositoryCommit(
   dependencies: CommitReviewDependencies,
   options: GitHubCommitReviewOptions,
 ): Promise<GitHubCommitReviewResult> {
   const { codeHost } = dependencies;
   const { commitSha } = options;
-  assertCostCeilingEnforceable(dependencies.models, options.maxCostUsd);
-  assertReviewableFileLimit(options.maxReviewableFiles);
-  const reproducible: CommitReviewDependencies = {
-    ...dependencies,
-    llm: createReproducibleLlm(
-      dependencies.llm,
-      dependencies.models,
-      dependencies.providerPins,
-    ),
-  };
+  assertArchiveReviewable(dependencies, options);
 
   const baseline = options.baseline;
   const catalog =
@@ -477,14 +544,11 @@ async function reviewRepositoryCommit(
 
   const projectId = await codeHost.getRepoId(options.owner, options.repo);
   const archive = await codeHost.getRepositoryArchive(projectId, commitSha);
-  const prepared = buildWholeFileDiffs(archive);
-  const archivePaths = archive.map((entry) => entry.path);
-  if (prepared.reviewablePaths.length > options.maxReviewableFiles) {
-    throw new RepositoryTooLargeError(
-      prepared.reviewablePaths.length,
-      options.maxReviewableFiles,
-    );
-  }
+  const {
+    archivePaths,
+    dependencies: reproducible,
+    prepared,
+  } = prepareArchiveReview(dependencies, options, archive);
   const checkRun = await codeHost.createCheckRun(projectId, {
     detailsUrl: options.catalogUrl,
     headSha: commitSha,
@@ -607,15 +671,22 @@ async function reviewGitHubCommit(
 }
 
 export {
+  assertArchiveReviewable,
+  CONSENSUS_PASSES,
+  CONSENSUS_QUORUM,
   countGitHubReviewableFiles,
   countRepositoryReviewableFiles,
+  prepareArchiveReview,
   resolveDefaultBranchHead,
   resolveGitHubDefaultBranchHead,
   resolveOrderModels,
   reviewGitHubCommit,
   reviewRepositoryCommit,
+  reviewTree,
 };
 export type {
+  ConsensusPassSummary,
+  TreeReviewDependencies,
   CommitReviewBaseline,
   CommitReviewCodeHost,
   CommitReviewComparison,

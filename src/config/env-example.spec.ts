@@ -10,6 +10,7 @@ import { GitLabConfig } from "~/config/gitlab.config";
 import { LlmConfig } from "~/config/llm.config";
 import { OpenRouterConfig } from "~/config/openrouter.config";
 import { PipelineConfig } from "~/config/pipeline.config";
+import { PublicScanConfig } from "~/config/public-scan.config";
 import { getReviewLanguage } from "~/config/review-language";
 import { readRuntimeEnv } from "~/config/runtime.env";
 import { WebhookConfig } from "~/config/webhook.config";
@@ -44,6 +45,7 @@ function buildAllConfigs(): Record<string, unknown> {
     llm: new LlmConfig().envs,
     openrouter: new OpenRouterConfig().envs,
     pipeline: new PipelineConfig().envs,
+    publicScan: new PublicScanConfig().envs,
     runtime: { ...readRuntimeEnv(), REVIEW_LANGUAGE: getReviewLanguage() },
     webhook: new WebhookConfig().envs,
   };

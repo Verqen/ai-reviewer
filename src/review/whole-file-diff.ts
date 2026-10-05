@@ -1,5 +1,6 @@
 import type { ArchiveEntry } from "~/domain/types/code-host.types";
 import type { DiffLine, ParsedFileDiff } from "~/domain/types/diff.types";
+import type { SkipCategory } from "~/domain/types/skip.types";
 import { getPrimarySkipReason } from "~/pipeline/passes/skip-filter";
 import {
   DEFAULT_MAX_DIFF_CHARACTERS,
@@ -10,22 +11,29 @@ const MAX_REVIEWABLE_FILE_BYTES = 256 * 1024;
 const BINARY_SNIFF_BYTES = 8000;
 const NUL_BYTE = 0;
 
+type FileSkipReason = "binary" | "empty" | "too_large" | SkipCategory;
+
+interface SkippedFile {
+  path: string;
+  reason: FileSkipReason;
+}
+
 interface WholeFileDiffs {
   diffs: ParsedFileDiff[];
   reviewablePaths: string[];
+  skippedFiles: SkippedFile[];
 }
 
 function looksBinary(content: Buffer): boolean {
   return content.subarray(0, BINARY_SNIFF_BYTES).includes(NUL_BYTE);
 }
 
-function isReviewable(entry: ArchiveEntry): boolean {
-  return (
-    entry.content.length > 0 &&
-    entry.content.length <= MAX_REVIEWABLE_FILE_BYTES &&
-    getPrimarySkipReason(entry.path) === null &&
-    !looksBinary(entry.content)
-  );
+function findSkipReason(entry: ArchiveEntry): FileSkipReason | null {
+  if (entry.content.length === 0) return "empty";
+  if (entry.content.length > MAX_REVIEWABLE_FILE_BYTES) return "too_large";
+  const category = getPrimarySkipReason(entry.path);
+  if (category !== null) return category;
+  return looksBinary(entry.content) ? "binary" : null;
 }
 
 function splitLines(content: Buffer): string[] {
@@ -93,17 +101,25 @@ function toAddedHunk(
 function buildWholeFileDiffs(entries: readonly ArchiveEntry[]): WholeFileDiffs {
   const diffs: ParsedFileDiff[] = [];
   const reviewablePaths: string[] = [];
+  const skippedFiles: SkippedFile[] = [];
   for (const entry of entries) {
-    if (!isReviewable(entry)) continue;
+    const reason = findSkipReason(entry);
+    if (reason !== null) {
+      skippedFiles.push({ path: entry.path, reason });
+      continue;
+    }
     const lines = splitLines(entry.content);
-    if (lines.length === 0) continue;
+    if (lines.length === 0) {
+      skippedFiles.push({ path: entry.path, reason: "empty" });
+      continue;
+    }
     reviewablePaths.push(entry.path);
     for (const range of splitIntoRanges(entry.path, lines)) {
       diffs.push(toAddedHunk(entry.path, lines, range));
     }
   }
-  return { diffs, reviewablePaths };
+  return { diffs, reviewablePaths, skippedFiles };
 }
 
 export { buildWholeFileDiffs };
-export type { WholeFileDiffs };
+export type { FileSkipReason, SkippedFile, WholeFileDiffs };

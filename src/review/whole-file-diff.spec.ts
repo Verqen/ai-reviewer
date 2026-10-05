@@ -104,4 +104,23 @@ describe("buildWholeFileDiffs", () => {
     expect(reviewablePaths).toEqual(["src/kept.ts"]);
     expect(diffs.map((diff) => diff.newPath)).toEqual(["src/kept.ts"]);
   });
+
+  it("names the reason each dropped file was not counted", () => {
+    const { skippedFiles } = buildWholeFileDiffs([
+      file("pnpm-lock.yaml", ["lockfileVersion: 9"]),
+      file("dist/index.js", ["console.log(1);"]),
+      { content: Buffer.from([0x50, 0x4b, 0x00, 0x03]), path: "src/data.bin" },
+      { content: Buffer.alloc(600_000, "a"), path: "src/huge.ts" },
+      { content: Buffer.alloc(0), path: "src/empty.ts" },
+      file("src/kept.ts", ["export {};"]),
+    ]);
+
+    expect(skippedFiles).toEqual([
+      { path: "pnpm-lock.yaml", reason: "lock" },
+      { path: "dist/index.js", reason: "build" },
+      { path: "src/data.bin", reason: "binary" },
+      { path: "src/huge.ts", reason: "too_large" },
+      { path: "src/empty.ts", reason: "empty" },
+    ]);
+  });
 });

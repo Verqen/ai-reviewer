@@ -1,14 +1,12 @@
 import { readFileSync } from "node:fs";
-import { Readable } from "node:stream";
-import { createGunzip } from "node:zlib";
 
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
 import type { IConfig } from "~/shared/config";
 import type { FastifyBaseLogger } from "fastify";
-import { extract as tarExtract } from "tar-stream";
 import { z } from "zod";
 
+import { extractTarGzArchive } from "~/infrastructure/archive/tar-gz-archive";
 import {
   installGitHubResilience,
   ARCHIVE_REQUEST_TIMEOUT_MS,
@@ -642,32 +640,9 @@ class GitHubCodeHost implements ICodeHost {
         fetch: withRequestTimeout(undefined, ARCHIVE_REQUEST_TIMEOUT_MS),
       },
     });
-    const archive = Buffer.from(response.data as ArrayBuffer);
-
-    const entries: ArchiveEntry[] = [];
-    const gunzip = createGunzip();
-    const tar = tarExtract();
-
-    await new Promise<void>((resolve, reject) => {
-      tar.on("entry", (header, stream, next) => {
-        const chunks: Buffer[] = [];
-        stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-        stream.on("end", () => {
-          if (header.type === "file" && header.name) {
-            const filePath = header.name.split("/").slice(1).join("/");
-            if (filePath) {
-              entries.push({ content: Buffer.concat(chunks), path: filePath });
-            }
-          }
-          next();
-        });
-        stream.resume();
-      });
-      tar.on("finish", resolve);
-      tar.on("error", reject);
-      gunzip.on("error", reject);
-      Readable.from(archive).pipe(gunzip).pipe(tar);
-    });
+    const entries = await extractTarGzArchive(
+      Buffer.from(response.data as ArrayBuffer),
+    );
 
     this.logger.info(
       { fileCount: entries.length, owner, ref, repo },

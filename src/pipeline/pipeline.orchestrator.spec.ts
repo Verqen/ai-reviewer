@@ -650,6 +650,35 @@ describe("PipelineOrchestrator", () => {
     expect(actualModel).toBe("anthropic/claude-sonnet-4.6");
   });
 
+  it("loads repository review rules from the target branch, not the merge request head", async () => {
+    const loadedRefs: string[] = [];
+    const configLoader = createMockReviewConfigLoader({
+      load: (_projectId: number, ref: string) => {
+        loadedRefs.push(ref);
+        return Promise.resolve(createMockReviewConfig());
+      },
+    });
+    const orchestrator = createTestOrchestrator({
+      cache: new MemoryCache<boolean>(),
+      codeHost: createMockCodeHost({ diffs: [MINIMAL_DIFF] }),
+      config: createPipelineConfig(),
+      infraRepoPorts: createMockInfraRepoPorts(),
+      logger: createMockLogger(),
+      passes: [],
+      reviewConfigLoader: configLoader,
+    });
+
+    await orchestrator.run({
+      diffs: [parseDiff(MINIMAL_DIFF)],
+      mrIid: 1,
+      projectId: 1,
+      triggerType: "mr_open",
+      versions: { baseSha: "base", headSha: "head", startSha: "start" },
+    });
+
+    expect(loadedRefs).toEqual(["base"]);
+  });
+
   it("removes lock files and locales via skip-filter and reports reason-labelled metrics", async () => {
     const infraRepoPorts = createMockInfraRepoPorts();
     const codeHost = createMockCodeHost({ diffs: [MINIMAL_DIFF] });
